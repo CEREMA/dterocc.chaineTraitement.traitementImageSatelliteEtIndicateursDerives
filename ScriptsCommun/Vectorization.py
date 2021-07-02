@@ -73,6 +73,7 @@ debug = 3
 #    wrongval_list : Liste des valeurs de la colonne name_colonne à enlever
 #    path_time_log : le fichier de log de sortie
 #    expression : Expression utilisée pour la réaffectation des labels du raster
+#    ram_otb : memoire RAM disponible pour les applications OTB
 #    format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
 #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
 #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
@@ -83,7 +84,7 @@ debug = 3
 #    Le fichier vecteur de classification
 #    Eléments modifiés auccun
 #
-def vectorizeClassification(image_input, vector_output, name_column, umc_list, tilesize, enable_reaffectation_raster, enable_meanshift_filtering, enable_segmentation, enable_small_region_merging, enable_vectorization, enable_boundaries, boundaries_vector, enable_dissolve, enable_reaffectation_vector, enable_cor_bord, wrongval_list, path_time_log, expression="(im1b1==11000?400:(im1b1==12200?100:(im1b1==21000?300:(im1b1==22000?200:im1b1))))", format_vector='ESRI Shapefile',  extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True) :
+def vectorizeClassification(image_input, vector_output, name_column, umc_list, tilesize, enable_reaffectation_raster, enable_meanshift_filtering, enable_segmentation, enable_small_region_merging, enable_vectorization, enable_boundaries, boundaries_vector, enable_dissolve, enable_reaffectation_vector, enable_cor_bord, wrongval_list, path_time_log, expression="(im1b1==11000?400:(im1b1==12200?100:(im1b1==21000?300:(im1b1==22000?200:im1b1))))", ram_otb=0, format_vector='ESRI Shapefile',  extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True) :
 
     # Mise à jour du Log
     starting_event = "vectorizeClassification() : Vectorize classification class starting : "
@@ -108,6 +109,7 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
         print(cyan + "vectorizeClassification() : " + endC + "wrongval_list : " + str(wrongval_list) + endC)
         print(cyan + "vectorizeClassification() : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "vectorizeClassification() : " + endC + "expression : " + str(expression) + endC)
+        print(cyan + "vectorizeClassification() : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "vectorizeClassification() : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "vectorizeClassification() : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "vectorizeClassification() : " + endC + "extension_vector : " + str(extension_vector) + endC)
@@ -159,6 +161,8 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
     if enable_reaffectation_raster :
 
         command = "otbcli_BandMath -il \"%s\" -out %s  %s -exp \"%s\"" %(image_input,image_raster,CODAGE,expression)
+        if ram_otb > 0:
+            command += " -ram %d" %(ram_otb)
 
         if debug >=2:
             print(cyan + "vectorizeClassification() : " + bold + green + "ETAPE 0/9 : Debut de la réaffectation raster \n" + endC)
@@ -176,6 +180,8 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
     if enable_meanshift_filtering :
 
         command = "otbcli_MeanShiftSmoothing -in %s -fout %s -foutpos %s -spatialr 1 -ranger 1 -thres 0.1 -maxiter 100 -modesearch 0" %(image_raster,image_filtered_range,image_filtered_spat)
+        if ram_otb > 0:
+            command += " -ram %d" %(ram_otb)
 
         if debug >=2:
             print(cyan + "vectorizeClassification() : " + bold + green + "ETAPE 1/9 : Debut du lissage de l'image" + endC)
@@ -193,6 +199,8 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
     # ETAPE 2 : SEGMENTATION
     if enable_segmentation :
         command = "otbcli_LSMSSegmentation -in %s -inpos %s -out %s -ranger 1 -spatialr 1 -minsize 0 -tilesizex %s -tilesizey %s -cleanup 1" %(image_filtered_range,image_filtered_spat,image_segmented, tilesize, tilesize)
+        if ram_otb > 0:
+            command += " -ram %d" %(ram_otb)
 
         if debug >=2:
             print(cyan + "vectorizeClassification() : " + bold + green + "ETAPE 2/9 : Debut de la segmentation de l'image" + endC)
@@ -232,6 +240,9 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
         if enable_small_region_merging :
 
             command = "otbcli_LSMSSmallRegionsMerging -in %s -inseg %s -out %s -minsize %d -tilesizex %s -tilesizey %s" %(image_filtered_range, image_segmented, image_segmented_merged, umc, tilesize, tilesize)
+            if ram_otb > 0:
+                command += " -ram %d" %(ram_otb)
+
             if debug >=2:
                 print(cyan + "vectorizeClassification() : " + bold + green + "ETAPE 3/9 : Debut de la fusion des petits polygones - UMC = " + uml_label + " m2" + endC)
                 print(command)
@@ -247,6 +258,8 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
         # ETAPE 4 : VECTORISATION
         if enable_vectorization :
             command = "otbcli_LSMSVectorization -in %s -inseg %s -out %s -tilesizex %s -tilesizey %s" %(image_raster, image_segmented_merged, vector_segmented_merged, tilesize, tilesize)
+            if ram_otb > 0:
+                command += " -ram %d" %(ram_otb)
 
             if debug >=2:
                 print(cyan + "vectorizeClassification() : " + bold + green + "ETAPE 4/9 : Debut de la vectorisation " + endC)
@@ -374,7 +387,7 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
         if os.path.isfile(image_raster_mask) :
             removeFile(image_raster_mask)
         if os.path.isfile(vector_boundaries_mask) :
-            removeFile(vector_boundaries_mask)
+            removeVectorFile(vector_boundaries_mask)
         if os.path.isfile(image_filtered_range) :
             removeFile(image_filtered_range)
         if os.path.isfile(image_filtered_spat) :
@@ -669,7 +682,7 @@ def topologicalCorrection(vector_output, epsg, project_encoding, server_postgis,
     createDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number))
 
     # Import du fichier vecteur dans la base
-    importVectorByOgr2ogr(database_postgis, vector_output, table_correct_name, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding, )
+    importVectorByOgr2ogr(database_postgis, vector_output, table_correct_name, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
 
     # Connexion à la base SQL postgis
     connection = openConnection(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis)
@@ -755,6 +768,7 @@ def main(gui=False):
     parser.add_argument('-pwd','--password_postgis', default="postgres",help="Postgis password user.", type=str, required=False)
     parser.add_argument('-db','--database_postgis', default="ocs_verification",help="Postgis database name.", type=str, required=False)
     parser.add_argument('-sch','--schema_postgis', default="public",help="Postgis schema name.", type=str, required=False)
+    parser.add_argument('-ram','--ram_otb',default=0,help="Ram available for processing otb applications (in MB)", type=int, required=False)
     parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output vector file.", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-vee','--extension_vector',default=".shp",help="Option : Extension file for vector. By default : '.shp'", type=str, required=False)
@@ -866,6 +880,10 @@ def main(gui=False):
     if args.schema_postgis != None :
         schema_postgis = args.schema_postgis
 
+    # Récupération du parametre ram
+    if args.ram_otb != None:
+        ram_otb = args.ram_otb
+
     # Récupération du format du fichier de sortie
     if args.format_vector != None :
         format_vector = args.format_vector
@@ -924,6 +942,7 @@ def main(gui=False):
         print(cyan + "Vectorization : " + endC + "password_postgis : " + str(password_postgis) + endC)
         print(cyan + "Vectorization : " + endC + "database_postgis : " + str(database_postgis) + endC)
         print(cyan + "Vectorization : " + endC + "schema_postgis : " + str(schema_postgis) + endC)
+        print(cyan + "Vectorization : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "Vectorization : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "Vectorization : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "Vectorization : " + endC + "extension_vector : " + str(extension_vector) + endC)
@@ -943,7 +962,7 @@ def main(gui=False):
         vectorizeGrassClassification(image_input, vector_output, name_column, umc_list, enable_reaffectation_raster, vectorization, boundaries, boundaries_vector, dissolve, path_time_log, expression, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
     else :
         # Traitement image à vectoriser par outil OTB
-        vectorizeClassification(image_input, vector_output, name_column, umc_list, tilesize, enable_reaffectation_raster, meanshift_filtering, segmentation, small_region_merging, vectorization, boundaries, boundaries_vector, dissolve, reaffectation_vector, corbord, wrongval_list, path_time_log, expression, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+        vectorizeClassification(image_input, vector_output, name_column, umc_list, tilesize, enable_reaffectation_raster, meanshift_filtering, segmentation, small_region_merging, vectorization, boundaries, boundaries_vector, dissolve, reaffectation_vector, corbord, wrongval_list, path_time_log, expression, ram_otb, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
     # POST TRAITEMENT TOPOLOGIQUE SQL
     if correction_sql :

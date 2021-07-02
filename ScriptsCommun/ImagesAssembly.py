@@ -292,7 +292,7 @@ def selectAssembyImagesByHold(emprise_vector, input_repertories_list, output_fil
 
                     file_name = os.path.splitext(os.path.basename(image_file_tmp))[0]
                     extension = os.path.splitext(image_file_tmp)[1]
-                    clean_file_tmp = output_rep + os.sep + file_name + file_out_suffix_clean + extension
+                    clean_file_tmp = output_rep + os.sep + file_name + file_out_suffix_clean + extension_raster
                     changeDataValueToOtherValue(image_file_tmp, clean_file_tmp, 0, clean_zero_value, format_raster)
                     images_list.append(clean_file_tmp)
 

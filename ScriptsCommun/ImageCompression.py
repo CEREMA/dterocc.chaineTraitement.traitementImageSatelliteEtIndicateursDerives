@@ -25,7 +25,8 @@ from gdalconst import *
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_operator import switch, case
 from Lib_log import timeLine
-from Lib_file import removeFile
+from Lib_file import removeFile, renameFile
+from Lib_raster import getGeometryImage
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
@@ -40,8 +41,8 @@ debug = 3
 #
 # ENTREES DE LA FONCTION :
 #    image_input : nom de l'image .tif a traiter
-#    huit_bits_image : nom de l'image 8 bits
-#    image_compressed : non de l'image de sortie compressée
+#    image_output_8bits : nom de l'image 8 bits
+#    image_output_compress : non de l'image de sortie compressée
 #    need_8bits : booleen si vrai, l'image d'entrée sera convertie en 8 bits
 #    need_compress : booleen si vrai, l'image d'entrée sera compressée ou l'image 8bits si la converion 8bits est demandée
 #    compress_type : Type d algorithme disponibles de compression. Choix entre DEFLATE, LZW ou...
@@ -50,8 +51,10 @@ debug = 3
 #    suppr_min : Pourcentage des valeurs qui seront tronquees pour les valeurs minimales
 #    suppr_max : Pourcentage des valeurs qui seront tronquees pour les valeurs minimales
 #    need_optimize8b: booleen si vrai, le passage en 8bits sera optimisé centrer sur l'histograme
-#    need_rvb : booleen si vrai, la sortie sera en RVB, sinon, la sortie aura le meme nombre de bandes que l image initiale
+#    need_rvb : booleen si vrai, la sortie sera en RVB, sinon, la sortie aura le meme nombre de bandes que l'image initiale
+#    need_irc : booleen si vrai, la sortie sera en IRC, sinon, la sortie aura le meme nombre de bandes que l'image initiale (RVB prioritaire sur IRC, si les 2 sont True)
 #    path_time_log : le fichier de log de sortie
+#    channel_order : identifiant des canaux de l'image, exemple : {"Red":1,"Green":2,"Blue":3,"RE":4,"NIR":5}, defaut=[Red,Green,Blue,NIR]
 #    format_raster : Format de l'image de sortie, par défaut : GTiff
 #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
 #    save_results_intermediate : sauvegarde ou suppression des images résultats, par defaut à False
@@ -59,7 +62,7 @@ debug = 3
 # SORTIES DE LA FONCTION :
 #    Image convertie
 #
-def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, need_compress, compress_type, predictor, zlevel, suppr_min, suppr_max, need_optimize8b, need_rvb, path_time_log, format_raster='GTiff', extension_raster=".tif", save_results_intermediate=False, overwrite=True):
+def convertImage(image_input, image_output_8bits, image_output_compress, need_8bits, need_compress, compress_type, predictor, zlevel, suppr_min, suppr_max, need_optimize8b, need_rvb, need_irc, path_time_log, channel_order=['Red','Green','Blue','NIR'], format_raster='GTiff', extension_raster=".tif", save_results_intermediate=False, overwrite=True):
 
     # Mise à jour du Log
     starting_event = "convertImage() : conversion image starting : "
@@ -68,8 +71,8 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
     # Affichage des parametres
     if debug >= 3:
         print(cyan + "convertImage() : " + endC + "image_input: ",image_input)
-        print(cyan + "convertImage() : " + endC + "huit_bits_image: ",huit_bits_image)
-        print(cyan + "convertImage() : " + endC + "image_compressed: ",image_compressed)
+        print(cyan + "convertImage() : " + endC + "image_output_8bits: ",image_output_8bits)
+        print(cyan + "convertImage() : " + endC + "image_output_compress: ",image_output_compress)
         print(cyan + "convertImage() : " + endC + "need_8bits: ",need_8bits)
         print(cyan + "convertImage() : " + endC + "need_compress: ",need_compress)
         print(cyan + "convertImage() : " + endC + "compress_type: ",compress_type)
@@ -78,7 +81,9 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
         print(cyan + "convertImage() : " + endC + "suppr_min: ",suppr_min)
         print(cyan + "convertImage() : " + endC + "suppr_max: ",suppr_max)
         print(cyan + "convertImage() : " + endC + "need_rvb: ",need_rvb)
+        print(cyan + "convertImage() : " + endC + "need_irc: ",need_irc)
         print(cyan + "convertImage() : " + endC + "path_time_log: ",path_time_log)
+        print(cyan + "convertImage() : " + endC + "channel_order : " + str(channel_order) + endC)
         print(cyan + "convertImage() : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "convertImage() : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "convertImage() : " + endC + "save_results_intermediate: ",save_results_intermediate)
@@ -90,10 +95,16 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
     # Definition des dossiers de travail
     image_name = os.path.splitext(os.path.basename(image_input))[0]
 
-    if not need_compress:
-        image_compressed = huit_bits_image
+    # Definir le nombre de bande de l'image d'entrée
+    cols, rows, bands = getGeometryImage(image_input)
+    inputBand4Found = False
+    if bands >= 4 and not need_rvb and not need_irc:
+        inputBand4Found = True
 
-    repertory_tmp = os.path.dirname(image_compressed) + os.sep + FOLDER_TEMP + image_name # repertory_tmp : Dossier dans lequel on va placer les images temporaires
+    if not need_compress:
+        image_output_compress = image_output_8bits
+
+    repertory_tmp = os.path.dirname(image_output_compress) + os.sep + FOLDER_TEMP + image_name # repertory_tmp : Dossier dans lequel on va placer les images temporaires
     if not os.path.isdir(repertory_tmp):
         os.makedirs(repertory_tmp)
 
@@ -108,7 +119,7 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
         print(cyan + "convertImage() : " + endC + "%s pourcents des petites valeurs initiales et %s pourcents des grandes valeurs initiales seront supprimees" %(suppr_min,suppr_max))
 
     # VERIFICATION SI L'IMAGE DE SORTIE EXISTE DEJA
-    check = os.path.isfile(image_compressed)
+    check = os.path.isfile(image_output_compress)
 
     # Si oui et si la vérification est activée, passe à l'étape suivante
     if check and not overwrite :
@@ -116,7 +127,7 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
     else:
         # Tente de supprimer le fichier
         try:
-            removeFile(image_compressed)
+            removeFile(image_output_compress)
         except Exception:
             # Ignore l'exception levée si le fichier n'existe pas (et ne peut donc pas être supprimé)
             pass
@@ -125,8 +136,8 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
         #   Conversion du fichier en 8bits                        #
         ###########################################################
         if need_8bits:
-            convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b, need_rvb, suppr_min, suppr_max, extension_raster)
-            image_to_compress = huit_bits_image
+            convertion8Bits(image_input, image_output_8bits, repertory_tmp, inputBand4Found, need_optimize8b, need_rvb, need_irc, channel_order, suppr_min, suppr_max, format_raster, extension_raster, save_results_intermediate)
+            image_to_compress = image_output_8bits
         else :
             image_to_compress = image_input
 
@@ -134,12 +145,12 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
         #   Compression du fichier                                #
         ###########################################################
         if need_compress:
-            compressImage(image_to_compress, image_compressed, compress_type, predictor, zlevel, format_raster)
+            compressImage(image_to_compress, image_output_compress, inputBand4Found, compress_type, predictor, zlevel, format_raster)
 
     ###########################################################
     #   nettoyage du repertoire temporaire                    #
     ###########################################################
-    if not save_results_intermediate and need_compress:
+    if not save_results_intermediate:
         shutil.rmtree(repertory_tmp)
         if debug >= 1:
             print(bold + green + "Suppression du dossier temporaire : " + repertory_tmp + endC)
@@ -165,18 +176,23 @@ def convertImage(image_input, huit_bits_image, image_compressed, need_8bits, nee
 #
 # ENTREES DE LA FONCTION :
 #    image_input : nom de l'image .tif a traiter
-#    image_compressed : non de l'image de sortie compressée
-#    huit_bits_image : nom de l'image 8 bits
+#    image_output_compress : non de l'image de sortie compressée
+#    image_output_8bits : nom de l'image 8 bits
 #    repertory_tmp : repertoire temporaire de travail
+#    inputBand4Found : il existe une band 4 qui ne doit pas etre la transparence
 #    need_optimize8b: booleen si vrai, le passage en 8bits sera optimiser centrer sur l'histograme
-#    need_rvb : booleen si vrai, la sortie sera en RVB, sinon, la sortie aura le meme nombre de bandes que l image initiale
+#    need_rvb : booleen si vrai, la sortie sera en RVB, sinon, la sortie aura le meme nombre de bandes que l'image initiale
+#    need_irc : booleen si vrai, la sortie sera en IRC, sinon, la sortie aura le meme nombre de bandes que l'image initiale
+#    channel_order : identifiant des canaux de l'image
 #    suppr_min : Pourcentage des valeurs qui seront tronquees pour les valeurs minimales
 #    suppr_max : Pourcentage des valeurs qui seront tronquees pour les valeurs minimales
+#    format_raster : format de l'image de sortie
 #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+#    save_results_intermediate : sauvegarde ou suppression des images résultats, par defaut à False
 # SORTIES DE LA FONCTION :
 #    Image 8bits
 #
-def convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b, need_rvb, suppr_min, suppr_max, extension_raster=".tif", ):
+def convertion8Bits(image_input, image_output_8bits, repertory_tmp, inputBand4Found, need_optimize8b, need_rvb, need_irc, channel_order, suppr_min, suppr_max, format_raster, extension_raster=".tif", save_results_intermediate=False):
 
     # Constantes diverses
     NBR_COL_HISTO = 256
@@ -195,14 +211,21 @@ def convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b
     nbr_bandes_entree = dataset.RasterCount
 
     # Calcul du nombre de bandes dans l'image
-    if need_rvb :
+    nbr_bandes = nbr_bandes_entree
+    if need_rvb or need_irc:
         nbr_bandes = 3
-    else :
-        nbr_bandes = dataset.RasterCount
 
     if debug >= 2:
         print(cyan + "convertion8Bits() : " + endC + "nbr_bandes en entree = " + str(nbr_bandes_entree))
         print(cyan + "convertion8Bits() : " + endC + "nbr_bandes en sortie = " + str(nbr_bandes))
+
+    # Gestion des numéros de bandes (fonction sortie classique, RVB, IRC)
+    if need_rvb:
+        num_bands = [channel_order.index("Red")+1, channel_order.index("Green")+1, channel_order.index("Blue")+1]
+    elif need_irc:
+        num_bands = [channel_order.index("NIR")+1, channel_order.index("Red")+1, channel_order.index("Green")+1]
+    else:
+        num_bands = [num_band for num_band in range(1,nbr_bandes+1)]
 
     ###########################################################
     # Compression en 8 bits pour chaque bandes                #
@@ -215,7 +238,7 @@ def convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b
     # Chaque bande est compréssée en 8 bits                   #
     ###########################################################
 
-    for bande in range(1,nbr_bandes+1):
+    for bande in num_bands:
 
         ###########################################################
         # Si l'optimisation par calcul d'histograme est demandée  #
@@ -313,17 +336,17 @@ def convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b
         if debug >= 1:
             print(cyan + "convertion8Bits() : " + endC + bold + green + "Codage en 8 bits de la bande : " + str(bande) + endC)
 
-        output = repertory_tmp + os.sep + os.path.splitext(os.path.basename(image_input))[0] + "_band_" + str(bande) + extension_raster
+        image_output = repertory_tmp + os.sep + os.path.splitext(os.path.basename(image_input))[0] + "_band_" + str(bande) + extension_raster
 
         if debug >= 2:
             print("Expression : " + str(expression))
-            print("image : " + image_input)
-            print("output : " + output)
+            print("image_input : " + image_input)
+            print("image_output : " + image_output)
 
-        if os.path.isfile(output):
-            print("le fichier " + output + " est deja traite")
+        if os.path.isfile(image_output):
+            print("le fichier " + image_output + " est deja traite")
         else :
-            exitCode = os.system("otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input,output,CODAGE,expression))
+            exitCode = os.system("otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_output, CODAGE, expression))
             if exitCode != 0:
                 raise NameError(bold + red + "convertion8Bits() : An error occured during otbcli_BandMath command. See error message above." + endC)
         # end for bande
@@ -341,21 +364,37 @@ def convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b
     # Creation de la liste des n bandes a concatener
     bands_to_concatenate_list = []
     bands_to_concatenate_list_str = ''
-    for bande in range(1,nbr_bandes+1):
+    for bande in num_bands:
         band_name = repertory_tmp + os.sep +  os.path.splitext(os.path.basename(image_input))[0] + "_band_" + str(bande) + extension_raster
         bands_to_concatenate_list.append(band_name)
         bands_to_concatenate_list_str += band_name + " "
 
-    if os.path.isfile(huit_bits_image):
-        print(bold + yellow + "ATTENTION : un fichier concatene existe deja dans " + huit_bits_image + endC)
+    if os.path.isfile(image_output_8bits):
+        print(bold + yellow + "ATTENTION : un fichier concatene existe deja dans " + image_output_8bits + endC)
         print(bold + yellow + "L'image en 8 bits n est pas mise a jour " + endC)
     else :
-        print( bold + green + "Concatenation des bandes codees en 8 bits : " + huit_bits_image + endC)
-        comand = "otbcli_ConcatenateImages -il %s -out %s %s " %(bands_to_concatenate_list_str, huit_bits_image,CODAGE)
+        print( bold + green + "Concatenation des bandes codees en 8 bits : " + image_output_8bits + endC)
+        huit_bits_image_tmp = repertory_tmp + os.sep +  os.path.splitext(os.path.basename(image_input))[0] + "_tmp" + extension_raster
+        comand = "otbcli_ConcatenateImages -il %s -out %s %s " %(bands_to_concatenate_list_str, huit_bits_image_tmp, CODAGE)
         exitCode = os.system(comand)
         if exitCode != 0:
             print(comand)
             raise NameError(bold + red + "convertion8Bits() : An error occured during otbcli_ConcatenateImages command. See error message above." + endC)
+
+        ###########################################################
+        # La bande 4 ne doit pas etre la transparence             #
+        ###########################################################
+        if inputBand4Found :
+            command = "gdal_translate -of %s -colorinterp_4 undefined %s %s" %(format_raster, huit_bits_image_tmp, image_output_8bits)
+            exitCode = os.system(command)
+            if exitCode != 0:
+                print(command)
+                raise NameError(bold + red + "convertion8Bits() : An error occured during gdal_translate command. See error message above." + endC)
+
+            if not save_results_intermediate :
+                removeFile(huit_bits_image_tmp)
+        else :
+            renameFile(huit_bits_image_tmp, image_output_8bits)
 
     if debug >= 1:
         print(cyan + "convertion8Bits() : " + endC + "Fin de la concatenation des bandes en 8 bits de %s" %(image_input) + endC)
@@ -372,7 +411,8 @@ def convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b
 #
 # ENTREES DE LA FONCTION :
 #    image_input : nom de l'image .tif a traiter
-#    image_compressed : non de l'image de sortie compressée
+#    image_output_compress : non de l'image de sortie compressée
+#    inputBand4Found : il existe une band 4 qui ne doit pas etre la transparence
 #    compress_type : Type d algorithme disponibles de compression. Choix entre DEFLATE, LZW ou...
 #    predictor : réglage du predicteur pour compression LZW ou DEFLATEgdal_translate
 #    zlevel : reglage du taux de compression pour la compression DEFLATE
@@ -380,23 +420,27 @@ def convertion8Bits(image_input, huit_bits_image, repertory_tmp, need_optimize8b
 # SORTIES DE LA FONCTION :
 #    Image compressé
 #
-def compressImage(image_input, image_compressed, compress_type, predictor, zlevel, format_raster):
+def compressImage(image_input, image_output_compress, inputBand4Found, compress_type, predictor, zlevel, format_raster):
 
     if debug >= 1:
         print(cyan + "compressImage() : " + endC + "Debut de la compression de %s" %(image_input))
 
-    # Selon le type de compression
+    # Preparation de la commande
     command = ""
+    caseBand4 = ""
+    if inputBand4Found :
+        caseBand4 = "-colorinterp_4 undefined"
+    # Selon le type de compression
     while switch(compress_type.upper()):
         if case("DEFLATE"):
             if debug >= 2:
                 print("Compression DEFLATE : ")
-            command = "gdal_translate -of %s -co TILED=YES -co COMPRESS=%s -co PREDICTOR=%s -co ZLEVEL=%s %s %s" %(format_raster, compress_type, predictor, zlevel, image_input, image_compressed)
+            command = "gdal_translate -of %s %s -co TILED=YES -co COMPRESS=%s -co PREDICTOR=%s -co ZLEVEL=%s %s %s" %(format_raster, caseBand4, compress_type, predictor, zlevel, image_input, image_output_compress)
             break
         if case("LZW"):
             if debug >= 2:
                 print("Compression LZW : ")
-            command = "gdal_translate -of %s -co TILED=YES -co COMPRESS=%s -co ZLEVEL=%s %s %s" %(format_raster, compress_type, zlevel, image_input, image_compressed)
+            command = "gdal_translate -of %s %s -co TILED=YES -co COMPRESS=%s -co ZLEVEL=%s %s %s" %(format_raster, caseBand4, compress_type, zlevel, image_input, image_output_compress)
             break
         break
     if command =="":
@@ -407,7 +451,7 @@ def compressImage(image_input, image_compressed, compress_type, predictor, zleve
         print(cyan + "compressImage() : " + endC + "Predicteur : " + str(predictor) + endC)
         if compress_type == "DEFLATE" :
             print(cyan + "compressImage() : " + endC + "Taux de compression : " + str(zlevel) + endC)
-        print(cyan + "compressImage() : " + endC + "Fichier de sortie : " + image_compressed + endC)
+        print(cyan + "compressImage() : " + endC + "Fichier de sortie : " + image_output_compress + endC)
 
     exitCode = os.system(command)
     if exitCode != 0:
@@ -450,6 +494,8 @@ def main(gui=False):
     parser.add_argument('-mx','--max_val', default=0.1, help="Percentage values that will be truncated for maximum values. By default: 0.1", type=float, required=False)
     parser.add_argument('-opt8b','--optimize_8bits', action='store_true', default=False, help="If active, optimize the used of 8 bits preserved histogram calculation. By default : False", required=False)
     parser.add_argument('-rvb','--rvb', action='store_true', default=False, help="If active, the output will be in RGB, otherwise the output will have the same number of bands that initial image. By default : False", required=False)
+    parser.add_argument('-irc','--irc', action='store_true', default=False, help="If active, the output will be in IRC, otherwise the output will have the same number of bands that initial image. If -rvb and -irc are True, -rvb have priority. By default : False", required=False)
+    parser.add_argument('-chao','--channel_order',nargs="+", default=['Red','Green','Blue','NIR'],help="Type of multispectral image : rapideye or spot6 or pleiade. By default : [Red,Green,Blue,NIR]",type=str,required=False)
     parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image, by default : GTiff (GTiff, HFA...)", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-log','--path_time_log',default="",help="Name of log", type=str, required=False)
@@ -504,6 +550,10 @@ def main(gui=False):
 
     if args.rvb!= None:
         need_rvb = args.rvb
+    if args.irc!= None:
+        need_irc = args.irc
+    if args.channel_order != None:
+        channel_order = args.channel_order
 
     # Paramètre format des images de sortie
     if args.format_raster != None:
@@ -544,6 +594,8 @@ def main(gui=False):
         print(cyan + "ImageCompression : " + endC + "suppr_max : " + str(suppr_max) + endC)
         print(cyan + "ImageCompression : " + endC + "optimize_8bits : " + str(need_optimize8b) + endC)
         print(cyan + "ImageCompression : " + endC + "rvb : " + str(need_rvb) + endC)
+        print(cyan + "ImageCompression : " + endC + "irc : " + str(need_irc) + endC)
+        print(cyan + "ImageCompression : " + endC + "channel_order : " + str(channel_order) + endC)
         print(cyan + "ImageCompression : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "ImageCompression : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "ImageCompression : " + endC + "path_time_log : " + str(path_time_log) + endC)
@@ -564,7 +616,7 @@ def main(gui=False):
 
     # Lancement de la fonction compression d'image
     if need_8bits or need_compress:
-        convertImage(image_input, image_output_8bits, image_output_compress, need_8bits, need_compress, compress_type, predictor, zlevel, suppr_min, suppr_max, need_optimize8b, need_rvb, path_time_log, format_raster, extension_raster, save_results_intermediate, overwrite)
+        convertImage(image_input, image_output_8bits, image_output_compress, need_8bits, need_compress, compress_type, predictor, zlevel, suppr_min, suppr_max, need_optimize8b, need_rvb, need_irc, path_time_log, channel_order, format_raster, extension_raster, save_results_intermediate, overwrite)
 
 # ================================================
 

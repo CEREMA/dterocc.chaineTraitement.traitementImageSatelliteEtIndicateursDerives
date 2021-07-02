@@ -148,10 +148,9 @@ def segmentImage(image_input, segmented_vector_output, segmentation_mode, sms_pa
             layer_name = os.path.splitext(os.path.basename(segmented_vector_output))[0]
             segmented_raster_tmp = repertory_output + os.sep + os.path.splitext(os.path.basename(segmented_vector_output))[0] + os.path.splitext(os.path.basename(image_input))[1]
             command = "otbcli_GenericRegionMerging -in %s -criterion %s -threshold %f -niter %d -speed %d  -cw %f -sw %f -out %s %s" %(image_input, srm_parametres_struct.homogeneity_criterion, srm_parametres_struct.threshol_criterion, srm_parametres_struct.number_iteration, srm_parametres_struct.segmentation_speed, srm_parametres_struct.weight_spectral_homogeneity, srm_parametres_struct.weight_spatial_homogeneity, segmented_raster_tmp, CODAGE)
-            """
+
             if ram_otb > 0:
                 command += " -ram %d" %(ram_otb)
-            """
 
             if debug >=2:
                 print(cyan + "segmentImage() : " + bold + green + "Debut de la segmentation de l'image" + endC)

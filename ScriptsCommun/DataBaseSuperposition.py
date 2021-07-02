@@ -24,7 +24,7 @@ from __future__ import print_function
 import os,sys,glob,shutil,string, argparse
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_vector import simplifyVector, cutoutVectors, bufferVector, getAttributeNameList, filterSelectDataVector
-from Lib_raster import mergeListRaster, createVectorMask, rasterizeBinaryVector
+from Lib_raster import mergeListRaster, createVectorMask, rasterizeBinaryVector, getNodataValueImage, getGeometryImage
 from Lib_log import timeLine
 from Lib_file import cleanTempData, deleteDir, removeFile
 from Lib_text import extractDico, cleanSpaceText
@@ -156,7 +156,11 @@ def addDataBaseExo(image_input, image_classif_add_output, class_file_dico, class
         # 2.1 : Création des masques délimitant l'emprise de la zone par image
 
         vector_mask = repertory_mask_temp + os.sep + image_name + SUFFIX_MASK_CRUDE + extension_vector
-        createVectorMask(image_input, vector_mask)
+        cols, rows, num_band = getGeometryImage(image_input)
+        no_data_value = getNodataValueImage(image_input, num_band)
+        if no_data_value == None :
+            no_data_value = 0
+        createVectorMask(image_input, vector_mask, no_data_value, format_vector)
 
         # 2.2 : Simplification du masque global
 

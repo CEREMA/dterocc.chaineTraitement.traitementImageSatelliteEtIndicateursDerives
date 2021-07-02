@@ -39,7 +39,7 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displ
 from Lib_text import writeTextFile, appendTextFileCR
 from Lib_file import removeFile, removeDir
 from Lib_log import timeLine
-from Lib_raster import countPixelsOfValue, updateReferenceProjection, reallocateClassRaster, deletePixelsSuperpositionMasks, mergeListRaster, identifyPixelValues, updateReferenceProjection
+from Lib_raster import countPixelsOfValue, updateReferenceProjection, deletePixelsSuperpositionMasks, mergeListRaster, identifyPixelValues, updateReferenceProjection
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
@@ -47,7 +47,7 @@ from Lib_raster import countPixelsOfValue, updateReferenceProjection, reallocate
 debug = 3
 
 # Les parametres de la fonction OTB otbcli_KMeansClassification a changé à partir de la version 7.0 de l'OTB
-IS_VERSION_UPPER_OTB_7_0 = True
+IS_VERSION_UPPER_OTB_7_0 = False
 pythonpath = os.environ["PYTHONPATH"]
 print ("Identifier la version d'OTB : ")
 pythonpath_list = pythonpath.split(os.sep)

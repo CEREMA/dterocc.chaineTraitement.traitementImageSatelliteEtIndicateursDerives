@@ -36,7 +36,7 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displ
 from KmeansMaskApplication import applyKmeansMasks
 from Lib_log import timeLine
 from Lib_text import readTextFileBySeparator, readReallocationTable, writeTextFile
-from Lib_raster import reallocateClassRaster, countPixelsOfValue, identifyPixelValues
+from Lib_raster import countPixelsOfValue, identifyPixelValues
 from Lib_file import removeFile
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script

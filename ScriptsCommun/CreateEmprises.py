@@ -99,6 +99,11 @@ def createEmprise(input_dir, output_file, is_not_assembled, is_all_polygons_used
     ATTR_NAME_DATEACQUI = "DateAcqui"
     ATTR_NAME_HEUREACQUI = "HeureAcqui"
     ATTR_NAME_REFDOSSIER = "RefDossier"
+    SUFFIX_IMGSAT = 'Img_Sat_'
+    PREFIX_ASS = '_ass'
+    PREFIX_OPT = '_opti_'
+
+
 
     # Variables
     points_list = []
@@ -296,7 +301,8 @@ def createEmprise(input_dir, output_file, is_not_assembled, is_all_polygons_used
             attribute_dico = {ATTR_NAME_NOMIMAGE:ogr.OFTString,ATTR_NAME_REFDOSSIER:ogr.OFTString,ATTR_NAME_DATEACQUI:ogr.OFTDate, ATTR_NAME_HEUREACQUI:ogr.OFTString}
 
             for i in range(len(points_list)):
-                polygons_attr_coord_dico[str(i)] = [points_list[i],{ATTR_NAME_NOMIMAGE:name_rep_list[i], ATTR_NAME_REFDOSSIER:ref_dossier_list[i], ATTR_NAME_DATEACQUI:date_list[i], ATTR_NAME_HEUREACQUI:heure_list[i]}]
+                polygons_attr_coord_dico[str(i)] = [points_list[i],{ATTR_NAME_NOMIMAGE:SUFFIX_IMGSAT + date_list[i] + PREFIX_OPT + ref_dossier_list[i] + PREFIX_ASS + extension_raster, ATTR_NAME_REFDOSSIER:ref_dossier_list[i], ATTR_NAME_DATEACQUI:date_list[i], ATTR_NAME_HEUREACQUI:heure_list[i]}]
+
 
         # Cas optimisation de l'emprise en elevant les nodata
         colum = ""

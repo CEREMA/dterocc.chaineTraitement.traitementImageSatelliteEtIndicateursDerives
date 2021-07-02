@@ -37,7 +37,7 @@ from __future__ import print_function
 import os,sys,glob,shutil,string, argparse
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_vector import simplifyVector, cutoutVectors, bufferVector, fusionVectors, filterSelectDataVector, getAttributeNameList, getNumberFeature, getGeometryType
-from Lib_raster import createVectorMask, rasterizeBinaryVector
+from Lib_raster import createVectorMask, rasterizeBinaryVector, getNodataValueImage, getGeometryImage
 from Lib_log import timeLine
 from Lib_file import cleanTempData, deleteDir, removeVectorFile, copyVectorFile, removeFile
 
@@ -169,7 +169,11 @@ def createMacroSamples(image_input, vector_to_cut_input, vector_sample_output, r
             # 2.1 : Création du masque délimitant l'emprise de la zone par image
             image_name = os.path.splitext(os.path.basename(image_input))[0]
             vector_mask = repertory_mask_temp + os.sep + image_name + SUFFIX_MASK_CRUDE + extension_vector
-            createVectorMask(image_input, vector_mask)
+            cols, rows, num_band = getGeometryImage(image_input)
+            no_data_value = getNodataValueImage(image_input, num_band)
+            if no_data_value == None :
+                no_data_value = 0
+            createVectorMask(image_input, vector_mask, no_data_value, format_vector)
 
             # 2.2 : Simplification du masque
             vector_simple_mask = repertory_mask_temp + os.sep + image_name + SUFFIX_MASK + extension_vector
@@ -383,6 +387,16 @@ def main(gui=False):
     if args.vector_sample_output != None:
         vector_sample_output = args.vector_sample_output
 
+    # Récupération du raster de sortie
+    if args.raster_sample_output != None:
+        raster_sample_output = args.raster_sample_output
+
+        if vector_sample_output == "" and raster_sample_output == "" :
+            raise NameError (cyan + "MacroSamplesCreation : " + bold + red  + "At least one ouput file must be defined vector or raster" + endC)
+
+        if vector_sample_output == "" :
+            vector_sample_output = os.path.splitext(raster_sample_output)[0] + extension_vector
+
     # Récupération des vecteurs de bd exogenes
     if args.bd_vector_input_list != None :
         bd_vector_input_list = args.bd_vector_input_list
@@ -416,16 +430,6 @@ def main(gui=False):
     # Récupération de l'extension des fichiers vecteurs
     if args.extension_vector != None:
         extension_vector = args.extension_vector
-
-    # Récupération du raster de sortie
-    if args.raster_sample_output != None:
-        raster_sample_output = args.raster_sample_output
-
-        if vector_sample_output == "" and raster_sample_output == "" :
-            raise NameError (cyan + "MacroSamplesCreation : " + bold + red  + "At least one ouput file must be defined vector or raster" + endC)
-
-        if vector_sample_output == "" :
-            vector_sample_output = os.path.splitext(raster_sample_output)[0] + format_vector
 
     # Récupération du nom du fichier log
     if args.path_time_log!= None:

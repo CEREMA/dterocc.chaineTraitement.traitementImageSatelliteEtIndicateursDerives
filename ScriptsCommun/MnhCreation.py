@@ -408,7 +408,7 @@ def createMnh(image_mns_input, image_mnt_input, image_threshold_input, vector_em
                 input(bold + red + "Appuyez sur entree pour continuer le programme..." + endC)
 
             # Creation du masque bati avec pour H la hauteur des batiments
-            rasterizeVector(vector_bd_bati, raster_bd_bati, image_mnh_road, COLUMN_H_BUILD)
+            rasterizeVector(vector_bd_bati, raster_bd_bati, image_mnh_road, COLUMN_H_BUILD, codage=CODAGE_F)
 
             # Fusion du mask des batis et du MNH temporaire
             expression = "\"im1b1 > 0.0?im1b1:im2b1\""
