@@ -210,7 +210,7 @@ def buildablePlot(input_plot_vector, output_plot_vector, footprint_vector, input
     if input_plu_vector != "":
         print(cyan + "buildablePlot() : " + bold + green + "ETAPE 2/4 - Début du croisement avec le PLU." + endC + '\n')
 
-        plu_values_list_unique = crossingZoningVector(input_plu_vector, plot_vector_cut, footprint_mask, temp_directory, plu_field, NO_PLU_FIELD, REGEX, REGEX_REPLACE, epsg, no_data_value, format_vector, extension_raster, extension_vector, postgis_database_name, postgis_user_name, postgis_password, postgis_ip_host, postgis_num_port, postgis_schema_name, postgis_encoding, path_time_log, save_results_intermediate, overwrite)
+        plu_values_list_unique = crossingZoningVector(input_plu_vector, plot_vector_cut, footprint_mask, temp_directory, plu_field, NO_PLU_FIELD, REGEX, REGEX_REPLACE, epsg, no_data_value, format_vector, extension_raster, extension_vector, postgis_database_name, postgis_user_name, postgis_password, postgis_ip_host, postgis_num_port, postgis_schema_name, postgis_encoding, ENCODING_RASTER, path_time_log, save_results_intermediate, overwrite)
 
         print(cyan + "buildablePlot() : " + bold + green + "ETAPE 2/4 - Fin du croisement avec le PLU." + endC + '\n')
 
@@ -224,7 +224,7 @@ def buildablePlot(input_plot_vector, output_plot_vector, footprint_vector, input
     if input_ppr_vector != "":
         print(cyan + "buildablePlot() : " + bold + green + "ETAPE 3/4 - Début du croisement avec le PPRi." + endC + '\n')
 
-        ppr_values_list_unique = crossingZoningVector(input_ppr_vector, plot_vector_cut, footprint_mask, temp_directory, ppr_field, NO_PPR_FIELD, REGEX, REGEX_REPLACE, epsg, no_data_value, format_vector, extension_raster, extension_vector, postgis_database_name, postgis_user_name, postgis_password, postgis_ip_host, postgis_num_port, postgis_schema_name, postgis_encoding, path_time_log, save_results_intermediate, overwrite)
+        ppr_values_list_unique = crossingZoningVector(input_ppr_vector, plot_vector_cut, footprint_mask, temp_directory, ppr_field, NO_PPR_FIELD, REGEX, REGEX_REPLACE, epsg, no_data_value, format_vector, extension_raster, extension_vector, postgis_database_name, postgis_user_name, postgis_password, postgis_ip_host, postgis_num_port, postgis_schema_name, postgis_encoding, ENCODING_RASTER, path_time_log, save_results_intermediate, overwrite)
 
         print(cyan + "buildablePlot() : " + bold + green + "ETAPE 3/4 - Fin du croisement avec le PPRi." + endC + '\n')
 
@@ -358,6 +358,7 @@ def buildablePlot(input_plot_vector, output_plot_vector, footprint_vector, input
 #     postgis_database_name : nom de la base PostGIS
 #     postgis_schema_name : nom du schéma dans la base PostGIS
 #     postgis_encoding : l'encodage des fichiers pour l'import de vecteurs dans PostGIS
+#     encoding_raster : encodage de sortie du fichier raster
 #     path_time_log : fichier log de sortie
 #     save_results_intermediate : fichiers temporaires conservés
 #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie
@@ -365,7 +366,7 @@ def buildablePlot(input_plot_vector, output_plot_vector, footprint_vector, input
 # SORTIES DE LA FONCTION :
 #     values_list_unique : liste des valeurs uniques du zonage
 
-def crossingZoningVector(zoning_vector, plot_vector, footprint_mask, temp_directory, zoning_field, no_zoning_field, regex, regex_replace, epsg, no_data_value, format_vector, extension_raster, extension_vector, postgis_database_name, postgis_user_name, postgis_password, postgis_ip_host, postgis_num_port, postgis_schema_name, postgis_encoding, path_time_log, save_results_intermediate, overwrite):
+def crossingZoningVector(zoning_vector, plot_vector, footprint_mask, temp_directory, zoning_field, no_zoning_field, regex, regex_replace, epsg, no_data_value, format_vector, extension_raster, extension_vector, postgis_database_name, postgis_user_name, postgis_password, postgis_ip_host, postgis_num_port, postgis_schema_name, postgis_encoding, encoding_raster, path_time_log, save_results_intermediate, overwrite):
 
     basename = os.path.splitext(os.path.basename(zoning_vector))[0]
     zoning_vector_new = temp_directory + os.sep + basename + extension_vector
@@ -399,7 +400,7 @@ def crossingZoningVector(zoning_vector, plot_vector, footprint_mask, temp_direct
     exportVectorByOgr2ogr(postgis_database_name, zoning_vector_new, zoning_table, user_name=postgis_user_name, password=postgis_password, ip_host=postgis_ip_host, num_port=postgis_num_port, schema_name=postgis_schema_name, format_type=format_vector)
 
     # Récupération des statistiques du zonage par parcelle
-    rasterizeVector(zoning_vector_new, zoning_file, footprint_mask, zoning_field_int)
+    rasterizeVector(zoning_vector_new, zoning_file, footprint_mask, zoning_field_int, codage=encoding_raster)
     statisticsVectorRaster(zoning_file, plot_vector, "", 1, True, False, False, [], [], class_label_dico, path_time_log, clean_small_polygons=True, format_vector=format_vector, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
 
     return values_list_unique

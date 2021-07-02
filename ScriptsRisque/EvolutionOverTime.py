@@ -11,7 +11,7 @@
 Nom de l'objet : EvolutionOverTime.py
 Description :
     Objectif : étudier l'évolution d'un territoire dans le temps
-    Remarque : compare l'état à t0 avec autant de t0+x que l'on souhaite, en terme de surface et/ou de taux d'évolution
+    Remarque : compare divers états à t0, t1, t2... en termes de surface et/ou de taux d'évolution
 
 -----------------
 Outils utilisés :
@@ -50,9 +50,8 @@ debug = 3
 #     input_plot_vector : fichier parcellaire en entrée (en format vecteur)
 #     output_plot_vector : fichier parcellaire en sortie (en format vecteur)
 #     footprint_vector : fichier emprise en entrée (en format vecteur)
-#     input_t0_file : fichier OCS à t0 en entrée (en format raster)
-#     input_tx_files_list : liste des fichier OCS à t0+x en entrée (en format raster)
-#     evolutions_list : liste des évolutions à quantifier (taux et/ou surface d'une classe). Par défaut : ['11000:10:50:and', '12000:10:50:and', '21000:10:50:and', '22000:10:50:and', '23000:10:50:and']
+#     input_tx_files_list : liste des fichier OCS à tx en entrée (en format raster)
+#     evolutions_list : liste des évolutions à quantifier. Par défaut : ['0:1:11000:10:50:and', '0:1:12000:10:50:and', '0:1:21000:10:50:and', '0:1:22000:10:50:and', '0:1:23000:10:50:and']
 #     class_label_dico : dictionnaire des classes OCS. Par défaut : {11000:'Bati', 12000:'Route', 21000:'SolNu', 22000:'Eau', 23000:'Vegetation'}
 #     epsg : code epsg du système de projection. Par défaut : 2154
 #     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
@@ -74,14 +73,13 @@ debug = 3
 # SORTIES DE LA FONCTION :
 #     N.A.
 
-def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector, input_t0_file, input_tx_files_list, evolutions_list=['11000:10:50:and', '12000:10:50:and', '21000:10:50:and', '22000:10:50:and', '23000:10:50:and'], class_label_dico={11000:'Bati', 12000:'Route', 21000:'SolNu', 22000:'Eau', 23000:'Vegetation'}, epsg=2154, no_data_value=0, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster='.tif', extension_vector='.shp', postgis_ip_host='localhost', postgis_num_port=5432, postgis_user_name='postgres', postgis_password='postgres', postgis_database_name='database', postgis_schema_name='public', postgis_encoding='latin1', path_time_log='', save_results_intermediate=False, overwrite=True):
+def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector, input_tx_files_list, evolutions_list=['0:1:11000:10:50:and', '0:1:12000:10:50:and', '0:1:21000:10:50:and', '0:1:22000:10:50:and', '0:1:23000:10:50:and'], class_label_dico={11000:'Bati', 12000:'Route', 21000:'SolNu', 22000:'Eau', 23000:'Vegetation'}, epsg=2154, no_data_value=0, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster='.tif', extension_vector='.shp', postgis_ip_host='localhost', postgis_num_port=5432, postgis_user_name='postgres', postgis_password='postgres', postgis_database_name='database', postgis_schema_name='public', postgis_encoding='latin1', path_time_log='', save_results_intermediate=False, overwrite=True):
 
     if debug >= 3:
         print('\n' + bold + green + "Evolution de l'OCS par parcelle - Variables dans la fonction :" + endC)
         print(cyan + "    soilOccupationChange() : " + endC + "input_plot_vector : " + str(input_plot_vector) + endC)
         print(cyan + "    soilOccupationChange() : " + endC + "output_plot_vector : " + str(output_plot_vector) + endC)
         print(cyan + "    soilOccupationChange() : " + endC + "footprint_vector : " + str(footprint_vector) + endC)
-        print(cyan + "    soilOccupationChange() : " + endC + "input_t0_file : " + str(input_t0_file) + endC)
         print(cyan + "    soilOccupationChange() : " + endC + "input_tx_files_list : " + str(input_tx_files_list) + endC)
         print(cyan + "    soilOccupationChange() : " + endC + "evolutions_list : " + str(evolutions_list) + endC)
         print(cyan + "    soilOccupationChange() : " + endC + "class_label_dico : " + str(class_label_dico) + endC)
@@ -137,10 +135,10 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
     dropDatabase(postgis_database_name, user_name=postgis_user_name, password=postgis_password, ip_host=postgis_ip_host, num_port=postgis_num_port, schema_name=postgis_schema_name)
 
     #############
-    # Etape 0/3 # Préparation des traitements
+    # Etape 0/2 # Préparation des traitements
     #############
 
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 0/3 - Début de la préparation des traitements." + endC + '\n')
+    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 0/2 - Début de la préparation des traitements." + endC + '\n')
 
     # Découpage du parcellaire à la zone d'étude
     cutVector(footprint_vector, input_plot_vector, plot_vector_cut, overwrite=overwrite, format_vector=format_vector)
@@ -152,52 +150,21 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
     # Préparation de PostGIS
     createDatabase(postgis_database_name, user_name=postgis_user_name, password=postgis_password, ip_host=postgis_ip_host, num_port=postgis_num_port, schema_name=postgis_schema_name)
 
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 0/3 - Fin de la préparation des traitements." + endC + '\n')
+    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 0/2 - Fin de la préparation des traitements." + endC + '\n')
 
     #############
-    # Etape 1/3 # Calcul des statistiques à t0
+    # Etape 1/2 # Calculs des statistiques à tx
     #############
 
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 1/3 - Début du calcul des statistiques à t0." + endC + '\n')
-
-    # Statistiques OCS par parcelle
-    statisticsVectorRaster(input_t0_file, plot_vector_cut, "", 1, True, False, False, [], [], class_label_dico, path_time_log, clean_small_polygons=True, format_vector=format_vector, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
-
-    # Récupération du nom des champs dans le fichier parcellaire (avec les champs créés précédemment dans CVR)
-    attr_names_list_t0 = getAttributeNameList(plot_vector_cut, format_vector=format_vector)
-
-    # Isolement des nouveaux champs issus du CVR
-    fields_name_list  = []
-    for attr_name in attr_names_list_t0:
-        if attr_name not in attr_names_list_origin:
-            fields_name_list.append(attr_name)
-
-    # Gestion des nouveaux noms des champs issus du CVR
-    new_fields_name_list  = []
-    for field_name in fields_name_list:
-        new_field_name = 't0_' + field_name
-        new_field_name = new_field_name[:10]
-        new_fields_name_list.append(new_field_name)
-        new_attr_names_list_origin.append(new_field_name)
-
-    # Renommage des champs issus du CVR, pour le relancer par la suite sur d'autres dates
-    renameFieldsVector(plot_vector_cut, fields_name_list, new_fields_name_list, format_vector=format_vector)
-
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 1/3 - Fin du calcul des statistiques à t0." + endC + '\n')
-
-    #############
-    # Etape 2/3 # Calculs des statistiques à t0+x
-    #############
-
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 2/3 - Début des calculs des statistiques à t0+x." + endC + '\n')
+    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 1/2 - Début des calculs des statistiques à tx." + endC + '\n')
 
     len_tx = len(input_tx_files_list)
-    tx = 1
+    tx = 0
 
     # Boucle sur les fichiers d'entrés à t0+x
     for input_tx_file in input_tx_files_list:
         if debug >= 3:
-            print(cyan + "soilOccupationChange() : " + endC + bold + "Calcul des statistiques à t%s / %s." % (tx, len_tx) + endC + '\n')
+            print(cyan + "soilOccupationChange() : " + endC + bold + "Calcul des statistiques à tx %s/%s." % (tx+1, len_tx) + endC + '\n')
 
         # Statistiques OCS par parcelle
         statisticsVectorRaster(input_tx_file, plot_vector_cut, "", 1, True, False, False, [], [], class_label_dico, path_time_log, clean_small_polygons=True, format_vector=format_vector, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
@@ -224,15 +191,13 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
 
         tx += 1
 
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 2/3 - Fin des calculs des statistiques à t0+x." + endC + '\n')
+    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 1/2 - Fin des calculs des statistiques à tx." + endC + '\n')
 
     #############
-    # Etape 3/3 # Caractérisation des changements
+    # Etape 2/2 # Caractérisation des changements
     #############
 
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 3/3 - Début de la caractérisation des changements." + endC + '\n')
-
-    len_tx = len(input_tx_files_list)
+    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 2/2 - Début de la caractérisation des changements." + endC + '\n')
 
     # Pré-traitements dans PostGIS
     plot_table = importVectorByOgr2ogr(postgis_database_name, plot_vector_cut, plot_table, user_name=postgis_user_name, password=postgis_password, ip_host=postgis_ip_host, num_port=postgis_num_port, schema_name=postgis_schema_name, epsg=epsg, codage=postgis_encoding)
@@ -242,82 +207,83 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
     sql_query = "ALTER TABLE %s ADD COLUMN %s REAL;\n" % (plot_table, AREA_FIELD)
     sql_query += "UPDATE %s SET %s = ST_Area(%s);\n" % (plot_table, AREA_FIELD, GEOM_FIELD)
 
-    # Boucle sur les dates à comparer (t vs t+1)
+    # Boucle sur les évolutions à quantifier
     temp_field = 1
-    for idx in range(0, len_tx):
-        idx_bef = str(idx)
-        idx_aft = str(idx+1)
+    for evolution in evolutions_list:
+        evolution_split = evolution.split(':')
+        idx_bef = int(evolution_split[0])
+        idx_aft = int(evolution_split[1])
+        label = int(evolution_split[2])
+        evol = abs(int(evolution_split[3]))
+        evol_s = abs(int(evolution_split[4]))
+        combi = evolution_split[5]
+        class_name = class_label_dico[label]
+        def_evo_field = "def_evo_%s" % str(temp_field)
+        if debug >= 3:
+            print(cyan + "soilOccupationChange() : " + endC + bold + "Caractérisation des changements t%s/t%s pour la classe '%s' (%s)." % (idx_bef, idx_aft, class_name, label) + endC + '\n')
 
-        # Boucle sur les évolutions à quantifier
-        for evolution in evolutions_list:
-            evolution_split = evolution.split(':')
-            label = int(evolution_split[0])
-            evol = abs(int(evolution_split[1]))
-            evol_s = abs(int(evolution_split[2]))
-            combi = evolution_split[3]
-            class_name = class_label_dico[label]
-            def_evo_field = "def_evo_%s" % str(temp_field)
-            if evol != 0 or evol_s != 0:
+        if evol != 0 or evol_s != 0:
 
-                # Gestion de l'évolution via le taux
-                evol_str = str(evol) + ' %'
-                evo_field = "evo_%s" % str(temp_field)
-                t0_field = 't%s_' % idx_bef + class_name.lower()[:7]
-                t1_field = 't%s_' % idx_aft + class_name.lower()[:7]
+            # Gestion de l'évolution via le taux
+            evol_str = str(evol) + ' %'
+            evo_field = "evo_%s" % str(temp_field)
+            t0_field = 't%s_' % idx_bef + class_name.lower()[:7]
+            t1_field = 't%s_' % idx_aft + class_name.lower()[:7]
 
-                # Gestion de l'évolution via la surface
-                evol_s_str = str(evol_s) + ' m²'
-                evo_s_field = "evo_s_%s" % str(temp_field)
-                t0_s_field = 't%s_s_' % idx_bef + class_name.lower()[:5]
-                t1_s_field = 't%s_s_' % idx_aft + class_name.lower()[:5]
+            # Gestion de l'évolution via la surface
+            evol_s_str = str(evol_s) + ' m²'
+            evo_s_field = "evo_s_%s" % str(temp_field)
+            t0_s_field = 't%s_s_' % idx_bef + class_name.lower()[:5]
+            t1_s_field = 't%s_s_' % idx_aft + class_name.lower()[:5]
 
-                # Requête SQL pour le calcul brut de l'évolution
-                sql_query += "ALTER TABLE %s ADD COLUMN %s REAL;\n" % (plot_table, evo_field)
-                sql_query += "UPDATE %s SET %s = %s - %s;\n" % (plot_table, evo_field, t1_field, t0_field)
-                sql_query += "ALTER TABLE %s ADD COLUMN %s REAL;\n" % (plot_table, evo_s_field)
-                sql_query += "UPDATE %s SET %s = %s - %s;\n" % (plot_table, evo_s_field, t1_s_field, t0_s_field)
-                sql_query += "ALTER TABLE %s ADD COLUMN %s VARCHAR;\n" % (plot_table, def_evo_field)
-                sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - aucune evolution';\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name)
+            # Requête SQL pour le calcul brut de l'évolution
+            sql_query += "ALTER TABLE %s ADD COLUMN %s REAL;\n" % (plot_table, evo_field)
+            sql_query += "UPDATE %s SET %s = %s - %s;\n" % (plot_table, evo_field, t1_field, t0_field)
+            sql_query += "ALTER TABLE %s ADD COLUMN %s REAL;\n" % (plot_table, evo_s_field)
+            sql_query += "UPDATE %s SET %s = %s - %s;\n" % (plot_table, evo_s_field, t1_s_field, t0_s_field)
+            sql_query += "ALTER TABLE %s ADD COLUMN %s VARCHAR;\n" % (plot_table, def_evo_field)
+            sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - aucune evolution';\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name)
 
-                # Si évolution à la fois via taux et via surface
-                if evol != 0 and evol_s != 0:
-                    text_evol = "taux à %s" % evol_str
-                    if combi == 'and':
-                        text_evol += " ET "
-                        sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution positive' WHERE %s >= %s AND %s >= %s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_field, evol, evo_s_field, evol_s)
-                        sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution negative' WHERE %s <= -%s AND %s <= -%s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_field, evol, evo_s_field, evol_s)
-                    elif combi == 'or':
-                        text_evol += " OU "
-                        sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution positive' WHERE %s >= %s OR %s >= %s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_field, evol, evo_s_field, evol_s)
-                        sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution negative' WHERE %s <= -%s OR %s <= -%s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_field, evol, evo_s_field, evol_s)
-                    text_evol += "surface à %s" % evol_s_str
+            # Si évolution à la fois via taux et via surface
+            if evol != 0 and evol_s != 0:
+                text_evol = "taux à %s" % evol_str
+                if combi == 'and':
+                    text_evol += " ET "
+                elif combi == 'or':
+                    text_evol += " OU "
+                text_evol += "surface à %s" % evol_s_str
+                sql_where_pos = "%s >= %s %s %s >= %s" % (evo_field, evol, combi, evo_s_field, evol_s)
+                sql_where_neg = "%s <= -%s %s %s <= -%s" % (evo_field, evol, combi, evo_s_field, evol_s)
 
-                # Si évolution uniquement via taux
-                elif evol != 0:
-                    text_evol = "taux à %s" % evol_str
-                    sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution positive' WHERE %s >= %s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_field, evol)
-                    sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution negative' WHERE %s <= -%s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_field, evol)
+            # Si évolution uniquement via taux
+            elif evol != 0:
+                text_evol = "taux à %s" % evol_str
+                sql_where_pos = "%s >= %s" % (evo_field, evol)
+                sql_where_neg = "%s <= -%s" % (evo_field, evol)
 
-                # Si évolution uniquement via surface
-                elif evol_s != 0:
-                    text_evol = "surface à %s" % evol_s_str
-                    sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution positive' WHERE %s >= %s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_s_field, evol_s)
-                    sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution negative' WHERE %s <= -%s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, evo_s_field, evol_s)
+            # Si évolution uniquement via surface
+            elif evol_s != 0:
+                text_evol = "surface à %s" % evol_s_str
+                sql_where_pos = "%s >= %s" % (evo_s_field, evol_s)
+                sql_where_neg = "%s <= -%s" % (evo_s_field, evol_s)
 
-                # Ajout des paramètres de l'évolution quantifiée (temporalités, classe, taux/surface) au fichier texte de sortie
-                text = "%s --> évolution entre t%s et t%s, pour la classe '%s' (label %s) :\n" % (def_evo_field, idx_bef, idx_aft, class_name, label)
-                text += "    %s --> taux d'évolution brut" % evo_field + " (%)\n"
-                text += "    %s --> surface d'évolution brute" % evo_s_field + " (m²)\n"
-                text += "Evolution quantifiée : %s\n" % text_evol
-                appendTextFileCR(output_evolution_text_file, text)
-                temp_field += 1
+            sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution positive' WHERE %s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, sql_where_pos)
+            sql_query += "UPDATE %s SET %s = 't%s a t%s - %s - evolution negative' WHERE %s;\n" % (plot_table, def_evo_field, idx_bef, idx_aft, class_name, sql_where_neg)
+
+            # Ajout des paramètres de l'évolution quantifiée (temporalités, classe, taux/surface) au fichier texte de sortie
+            text = "%s --> évolution entre t%s et t%s, pour la classe '%s' (label %s) :\n" % (def_evo_field, idx_bef, idx_aft, class_name, label)
+            text += "    %s --> taux d'évolution brut" % evo_field + " (%)\n"
+            text += "    %s --> surface d'évolution brute" % evo_s_field + " (m²)\n"
+            text += "Evolution quantifiée : %s\n" % text_evol
+            appendTextFileCR(output_evolution_text_file, text)
+            temp_field += 1
 
     # Traitements SQL de l'évolution des classes OCS
     executeQuery(connection, sql_query)
     closeConnection(connection)
     exportVectorByOgr2ogr(postgis_database_name, output_plot_vector, plot_table, user_name=postgis_user_name, password=postgis_password, ip_host=postgis_ip_host, num_port=postgis_num_port, schema_name=postgis_schema_name, format_type=format_vector)
 
-    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 3/3 - Fin de la caractérisation des changements." + endC + '\n')
+    print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 2/2 - Fin de la caractérisation des changements." + endC + '\n')
 
     # Suppression des fichiers temporaires
     if not save_results_intermediate:
@@ -344,15 +310,13 @@ def main(gui=False):
     Exemple : python3 -m EvolutionOverTime.py -in /mnt/RAM_disk/BD_Parcellaire.shp \n\
                                               -out /mnt/RAM_disk/EvolutionOverTime.shp \n\
                                               -emp /mnt/RAM_disk/zone_etude.shp \n\
-                                              -it0 /mnt/RAM_disk/OCS_sat_t0.tif \n\
-                                              -itxl /mnt/RAM_disk/OCS_sat_t1.tif /mnt/RAM_disk/OCS_sat_t2.tif /mnt/RAM_disk/OCS_sat_t3.tif")
+                                              -itxl /mnt/RAM_disk/OCS_sat_t0.tif /mnt/RAM_disk/OCS_sat_t1.tif")
 
     parser.add_argument('-in', '--input_plot_vector', default="", type=str, required=True, help="Input plot vector file.")
     parser.add_argument('-out', '--output_plot_vector', default="", type=str, required=True, help="Output plot vector file.")
     parser.add_argument('-emp', '--footprint_vector', default="", type=str, required=True, help="Input footprint vector file.")
-    parser.add_argument('-it0', '--input_t0_file', default="", type=str, required=True, help="Input soil occupation mapping raster file, at t0.")
-    parser.add_argument('-itxl', '--input_tx_files_list', nargs="+", default=[], type=str, required=True, help="List of input soil occupation mapping raster(s) file(s), at t0+x.")
-    parser.add_argument('-evol', '--evolutions_list', nargs="+", default=['11000:10:50:and', '12000:10:50:and', '21000:10:50:and', '22000:10:50:and', '23000:10:50:and'], type=str, required=False, help="List of rates and/or surfaces evolutions for a specific soil occupation class (class_label:rate_evolution:surface_evolution:rate_surface_combination). If 0 for 'rate_evolution' or 'surface_evolution', rate or surface no taking into consideration. 'rate_surface_combination' must be and/or (use if 'rate_evolution' and 'surface_evolution' not 0). Default: '11000:10:50:and 12000:10:50:and 21000:10:50:and 22000:10:50:and 23000:10:50:and'.")
+    parser.add_argument('-itxl', '--input_tx_files_list', nargs="+", default=[], type=str, required=True, help="List of input soil occupation mapping rasters files.")
+    parser.add_argument('-evol', '--evolutions_list', nargs="+", default=['0:1:11000:10:50:and', '0:1:12000:10:50:and', '0:1:21000:10:50:and', '0:1:22000:10:50:and', '0:1:23000:10:50:and'], type=str, required=False, help="List of evolutions to quantify (first_date:second_date:class_label:rate_evolution:surface_evolution:rate_surface_combination). 'first_date' and 'second_date' correspond to the position of files in input_tx_files_list. If 0 for 'rate_evolution' or 'surface_evolution', rate or surface no taking into consideration. 'rate_surface_combination' must be and/or (use if 'rate_evolution' and 'surface_evolution' not 0). Default: '0:1:11000:10:50:and 0:1:12000:10:50:and 0:1:21000:10:50:and 0:1:22000:10:50:and 0:1:23000:10:50:and'.")
     parser.add_argument('-cld', '--class_label_dico', nargs="+", default=['11000:Bati', '12000:Route', '21000:SolNu', '22000:Eau', '23000:Vegetation'], type=str, required=False, help="List of pixel values with their related soil occupation class (label:class). Default: '11000:Bati 12000:Route 21000:SolNu 22000:Eau 23000:Vegetation'.")
     parser.add_argument('-epsg', '--epsg', default=2154, type=int, required=False, help="Projection of the output file. Default: 2154.")
     parser.add_argument('-ndv', '--no_data_value', default=0, type=int, required=False, help="Value of the NoData pixel. Default: 0.")
@@ -389,13 +353,7 @@ def main(gui=False):
         if not os.path.isfile(footprint_vector):
             raise NameError (cyan + "EvolutionOverTime: " + bold + red  + "File %s not exists (footprint_vector)." % footprint_vector + endC)
 
-    # Récupération de la classif OCS à t0
-    if args.input_t0_file != None:
-        input_t0_file = args.input_t0_file
-        if not os.path.isfile(input_t0_file):
-            raise NameError (cyan + "EvolutionOverTime: " + bold + red  + "File %s not exists (input_t0_file)." % input_t0_file + endC)
-
-    # Récupération de la liste des classif OCS à t0+x
+    # Récupération de la liste des classif OCS à tx
     if args.input_tx_files_list != None:
         input_tx_files_list = args.input_tx_files_list
         if input_tx_files_list != []:
@@ -464,7 +422,6 @@ def main(gui=False):
         print(cyan + "    EvolutionOverTime : " + endC + "input_plot_vector : " + str(input_plot_vector) + endC)
         print(cyan + "    EvolutionOverTime : " + endC + "output_plot_vector : " + str(output_plot_vector) + endC)
         print(cyan + "    EvolutionOverTime : " + endC + "footprint_vector : " + str(footprint_vector) + endC)
-        print(cyan + "    EvolutionOverTime : " + endC + "input_t0_file : " + str(input_t0_file) + endC)
         print(cyan + "    EvolutionOverTime : " + endC + "input_tx_files_list : " + str(input_tx_files_list) + endC)
         print(cyan + "    EvolutionOverTime : " + endC + "evolutions_list : " + str(evolutions_list) + endC)
         print(cyan + "    EvolutionOverTime : " + endC + "class_label_dico : " + str(class_label_dico) + endC)
@@ -491,7 +448,7 @@ def main(gui=False):
         os.makedirs(os.path.dirname(output_plot_vector))
 
     # EXECUTION DE LA FONCTION
-    soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector, input_t0_file, input_tx_files_list, evolutions_list, class_label_dico, epsg, no_data_value, format_raster, format_vector, extension_raster, extension_vector, postgis_ip_host, postgis_num_port, postgis_user_name, postgis_password, postgis_database_name, postgis_schema_name, postgis_encoding, path_time_log, save_results_intermediate, overwrite)
+    soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector, input_tx_files_list, evolutions_list, class_label_dico, epsg, no_data_value, format_raster, format_vector, extension_raster, extension_vector, postgis_ip_host, postgis_num_port, postgis_user_name, postgis_password, postgis_database_name, postgis_schema_name, postgis_encoding, path_time_log, save_results_intermediate, overwrite)
 
 if __name__ == '__main__':
     main(gui=False)
