@@ -6,11 +6,16 @@
 #############################################################################################################################################
 
 from __future__ import print_function
-import os, sys, argparse
+import os, sys, shutil, argparse
+from osgeo import ogr
 from Lib_log import timeLine
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_postgis import executeQuery, openConnection, closeConnection, createDatabase, dropDatabase, importVectorByOgr2ogr, exportVectorByOgr2ogr
+from Lib_vector import renameFieldsVector, addNewFieldVector, getAttributeValues, setAttributeValuesList
+from Lib_raster import getProjectionImage, identifyPixelValues
 from Lib_file import removeVectorFile
+from Lib_vector import getAttributeNameList
+from CrossingVectorRaster import statisticsVectorRaster
 
 # debug = 1 : affichage requête SQL
 debug = 3
@@ -25,6 +30,8 @@ debug = 3
 #     grid_input : fichier de maillage en entrée
 #     grid_output : fichier de maillage en sortie
 #     built_input : fichier de la BD TOPO bâti en entrée
+#     height_field : nom du champs contenant l'information de hauteur
+#     id_field : nom du champs contenant l'information id
 #     epsg : EPSG code de projection
 #     project_encoding : encodage des fichiers d'entrés
 #     server_postgis : nom du serveur postgis
@@ -41,7 +48,7 @@ debug = 3
 # SORTIES DE LA FONCTION :
 #     N.A
 
-def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log, format_vector='ESRI Shapefile', save_results_intermediate=False, overwrite=True):
+def heightOfRoughnessElements(grid_input, grid_output, built_input, height_field, id_field, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log, format_vector='ESRI Shapefile', save_results_intermediate=False, overwrite=True):
 
     print(bold + yellow + "Début du calcul de l'indicateur Height of Roughness Elements." + endC + "\n")
     timeLine(path_time_log, "Début du calcul de l'indicateur Height of Roughness Elements : ")
@@ -51,6 +58,8 @@ def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, projec
         print(cyan + "heightOfRoughnessElements() : " + endC + "grid_input : " + str(grid_input) + endC)
         print(cyan + "heightOfRoughnessElements() : " + endC + "grid_output : " + str(grid_output) + endC)
         print(cyan + "heightOfRoughnessElements() : " + endC + "built_input : " + str(built_input) + endC)
+        print(cyan + "heightOfRoughnessElements() : " + endC + "height_field : " + str(height_field) + endC)
+        print(cyan + "heightOfRoughnessElements() : " + endC + "id_field : " + str(id_field) + endC)
         print(cyan + "heightOfRoughnessElements() : " + endC + "epsg : " + str(epsg) + endC)
         print(cyan + "heightOfRoughnessElements() : " + endC + "project_encoding : " + str(project_encoding) + endC)
         print(cyan + "heightOfRoughnessElements() : " + endC + "server_postgis : " + str(server_postgis) + endC)
@@ -78,16 +87,20 @@ def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, projec
             removeVectorFile(grid_output)
 
         # Création de la base de données PostGIS
-        # ~ dropDatabase(database_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Terrain Roughness Class)
-        createDatabase(database_postgis)
+        # ~ dropDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Terrain Roughness Class)
+        createDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis)
 
         # Import des fichiers shapes maille et bati dans la base de données PostGIS
         table_name_maille = importVectorByOgr2ogr(database_postgis, grid_input, 'hre_maille', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
-        print("\n")
         table_name_bati = importVectorByOgr2ogr(database_postgis, built_input, 'hre_bati', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
-        print("\n")
 
-        print("\n")
+        # Gestion de l'ID
+        connection = openConnection(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis)
+        attr_names_list = getAttributeNameList(built_input, format_vector=format_vector)
+        if id_field not in attr_names_list:
+            id_field = 'ogc_fid'
+            # ~ id_query = "ALTER TABLE %s ADD COLUMN %s SERIAL PRIMARY KEY" % (table_name_bati, id_field)
+            # ~ executeQuery(connection, id_query)
 
         ###############################################
         ### Calcul de l'indicateur par requêtes SQL ###
@@ -106,11 +119,13 @@ def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, projec
         query += """
         DROP TABLE IF EXISTS hre_decoup;
         CREATE TABLE hre_decoup AS
-            SELECT b.ID as ID, b.HAUTEUR as hauteur, ST_Intersection(b.geom, m.geom) as geom
+            SELECT b.%s as ID, b.%s as hauteur, ST_Intersection(b.geom, m.geom) as geom
             FROM %s as b, %s as m
-            WHERE ST_Intersects(b.geom, m.geom);
+            WHERE ST_Intersects(b.geom, m.geom)
+                AND (ST_GeometryType(b.geom) = 'ST_Polygon' OR ST_GeometryType(b.geom) = 'ST_MultiPolygon')
+                AND (ST_GeometryType(m.geom) = 'ST_Polygon' OR ST_GeometryType(m.geom) = 'ST_MultiPolygon');
         CREATE INDEX IF NOT EXISTS decoup_geom_gist ON hre_decoup USING GIST (geom);
-        """ % (table_name_bati, table_name_maille)
+        """ % (id_field, height_field, table_name_bati, table_name_maille)
 
         # Table intermédiaire de calculs d'indicateurs secondaires
         query += """
@@ -128,9 +143,11 @@ def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, projec
             SELECT m.ID as ID, ((sum(t.volume) / count(t.geom)) / (sum(t.surface) / count(t.geom))) as mean_h, m.geom as geom
             FROM %s as m, hre_temp as t
             WHERE ST_Intersects(m.geom, t.geom)
+                AND (ST_GeometryType(m.geom) = 'ST_Polygon' OR ST_GeometryType(m.geom) = 'ST_MultiPolygon')
+                AND (ST_GeometryType(t.geom) = 'ST_Polygon' OR ST_GeometryType(t.geom) = 'ST_MultiPolygon')
             GROUP BY m.ID, m.geom;
         CREATE INDEX IF NOT EXISTS maille_bis_geom_gist ON hre_maille_bis USING GIST (geom);
-        """ % table_name_maille
+        """ % (table_name_maille)
 
         # Table intermédiaire seulement pour les mailles n'intersectant pas de bâti (par défaut, mean_h = 0)
         query += """
@@ -144,7 +161,7 @@ def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, projec
         ALTER TABLE hre_maille_ter ADD mean_h DOUBLE PRECISION;
         UPDATE hre_maille_ter SET mean_h = 0;
         CREATE INDEX IF NOT EXISTS maille_ter_geom_gist ON hre_maille_ter USING GIST (geom);
-        """ % table_name_maille
+        """ % (table_name_maille)
 
         # Union des 2 tables précédentes pour récupérer l'ensemble des polygones maille de départ
         query += """
@@ -161,28 +178,198 @@ def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, projec
         # Exécution de la requête SQL
         if debug >= 1:
             print(query)
-        connection = openConnection(database_postgis, user_postgis, password_postgis, server_postgis, str(port_number), schema_name=schema_postgis)
         executeQuery(connection, query)
         closeConnection(connection)
 
         # Export en shape de la table contenant l'indicateur calculé
         exportVectorByOgr2ogr(database_postgis, grid_output, 'hre_height', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, format_type=format_vector)
-        print("\n")
 
         ##########################################
         ### Nettoyage des fichiers temporaires ###
         ##########################################
 
         if not save_results_intermediate:
-            # ~ dropDatabase(database_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Terrain Roughness Class)
+            # ~ dropDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Terrain Roughness Class)
             pass
 
     else:
         print(bold + magenta + "Le calcul de Height of Roughness Elements a déjà eu lieu." + endC)
-        print("\n")
 
     print(bold + yellow + "Fin du calcul de l'indicateur Height of Roughness Elements." + endC + "\n")
     timeLine(path_time_log, "Fin du calcul de l'indicateur Height of Roughness Elements : ")
+
+    return
+
+####################################################################################################
+# FONCTION computeRoughnessByOcsMnh()                                                              #
+####################################################################################################
+# ROLE :
+#     Calcul de l'indicateur LCZ hauteur des élements de rugosité
+#
+# ENTREES DE LA FONCTION :
+#
+#     grid_input : fichier de maillage en entrée
+#     grid_output : fichier de maillage en sortie
+#     mnh_input : Modèle Numérique de Hauteur en entrée
+#     classif_input : classification OCS en entrée
+#     class_build_list : liste des classes choisis pour definir les zones baties
+#     epsg : EPSG des fichiers de sortie utilisation de la valeur des fichiers d'entrée si la valeur = 0
+#     no_data_value : Valeur des pixels sans données pour les rasters
+#     path_time_log : fichier log de sortie
+#     format_raster : Format de l'image de sortie, par défaut : GTiff
+#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+#     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+#
+# SORTIES DE LA FONCTION :
+#     N.A
+
+def computeRoughnessByOcsMnh( grid_input, grid_output, mnh_input, classif_input, class_build_list, epsg, no_data_value, path_time_log, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+
+    # Constante
+    FIELD_H_TYPE = ogr.OFTReal
+    FIELD_ID_TYPE = ogr.OFTInteger
+    FIELD_NAME_HSUM = "sum_h"
+    FIELD_NAME_HRE = "mean_h"
+    FIELD_NAME_AREA = "nb_area"
+    FIELD_NAME_ID = "id"
+
+    SUFFIX_HEIGHT = '_hauteur'
+    SUFFIX_BUILT = '_bati'
+    SUFFIX_TEMP = '_temp'
+    SUFFIX_MASK = '_mask'
+
+    # Mise à jour du Log
+    timeLine(path_time_log, "Début du calcul de l'indicateur Height of Roughness Elements par OCS et MNT starting : ")
+    print(cyan + "computeRoughnessByOcsMnh() : " + endC + "Début du calcul de l'indicateur Height of Roughness Elements par OCS et MNT." + endC + "\n")
+
+    if debug >= 3:
+        print(bold + green + "computeRoughnessByOcsMnh() : Variables dans la fonction" + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "grid_input : " + str(grid_input) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "grid_output : " + str(grid_output) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "mnh_input : " + str(mnh_input) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "classif_input : " + str(classif_input) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "class_build_list : " + str(class_build_list) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "epsg : " + str(epsg) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "no_data_value : " + str(no_data_value) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "path_time_log : " + str(path_time_log) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "format_vector : " + str(format_vector) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
+        print(cyan + "computeRoughnessByOcsMnh() : " + endC + "overwrite : " + str(overwrite) + endC)
+
+    # Test si le vecteur de sortie existe déjà et si il doit être écrasés
+    check = os.path.isfile(grid_output)
+
+    if check and not overwrite: # Si le fichier de sortie existent deja et que overwrite n'est pas activé
+        print(cyan + "computeRoughnessByOcsMnh() : " + bold + yellow + "Le calcul de Roughness par OCS et MNT a déjà eu lieu." + endC + "\n")
+        print(cyan + "computeRoughnessByOcsMnh() : " + bold + yellow + "Grid vector output : " + grid_output + " already exists and will not be created again." + endC)
+    else :
+        if check:
+            try:
+                removeVectorFile(grid_output)
+            except Exception:
+                pass # si le fichier n'existe pas, il ne peut pas être supprimé : cette étape est ignorée
+
+        ############################################
+        ### Préparation générale des traitements ###
+        ############################################
+
+        # Récuperation de la projection de l'image
+        epsg_proj = getProjectionImage(classif_input)
+        if epsg_proj == 0:
+            epsg_proj = epsg
+
+        # Préparation des fichiers temporaires
+        temp_path = os.path.dirname(grid_output) + os.sep + "RoughnessByOcsAndMnh"
+
+        # Nettoyage du repertoire temporaire si il existe
+        if os.path.exists(temp_path):
+            shutil.rmtree(temp_path)
+        os.makedirs(temp_path)
+
+        basename = os.path.splitext(os.path.basename(grid_output))[0]
+        built_height = temp_path + os.sep + basename + SUFFIX_HEIGHT + SUFFIX_BUILT + extension_raster
+        built_height_temp = temp_path + os.sep + basename + SUFFIX_HEIGHT + SUFFIX_BUILT + SUFFIX_TEMP + extension_raster
+        classif_built_mask = temp_path + os.sep + basename + SUFFIX_BUILT + SUFFIX_MASK + extension_raster
+        grid_output_temp = temp_path + os.sep + basename + SUFFIX_TEMP + extension_vector
+
+        ##############################
+        ### Calcul de l'indicateur ###
+        ##############################
+
+        # liste des classes de bati a prendre en compte dans l'expression du BandMath
+        expression_bati = ""
+        for id_class in class_build_list :
+            expression_bati += "im1b1==%s or " %(str(id_class))
+        expression_bati = expression_bati[:-4]
+        expression = "(%s) and (im2b1!=%s) and (im2b1>0)" %(expression_bati, str(no_data_value))
+
+        # Creation d'un masque vecteur des batis pour la surface des zones baties
+        command = "otbcli_BandMath -il %s %s -out %s uint8 -exp '%s ? 1 : 0'" %(classif_input, mnh_input, classif_built_mask, expression)
+        if debug >= 3:
+            print(command)
+        exit_code = os.system(command)
+        if exit_code != 0:
+            print(command)
+            print(cyan + "computeRoughnessByOcsMnh() : " + bold + red + "!!! Une erreur c'est produite au cours de la commande otbcli_BandMath : " + command + ". Voir message d'erreur." + endC, file=sys.stderr)
+            raise
+
+        # Récupération de la hauteur du bati
+        command = "otbcli_BandMath -il %s %s -out %s float -exp '%s ? im2b1 : 0'" %(classif_input, mnh_input, built_height_temp, expression)
+        if debug >= 3:
+            print(command)
+        exit_code = os.system(command)
+        if exit_code != 0:
+            print(command)
+            print(cyan + "computeRoughnessByOcsMnh() : " + bold + red + "!!! Une erreur c'est produite au cours de la commande otbcli_BandMath : " + command + ". Voir message d'erreur." + endC, file=sys.stderr)
+            raise
+
+        command = "gdal_translate -a_srs EPSG:%s -a_nodata %s -of %s %s %s" %(str(epsg_proj), str(no_data_value), format_raster, built_height_temp, built_height)
+        if debug >= 3:
+            print(command)
+        exit_code = os.system(command)
+        if exit_code != 0:
+            print(command)
+            print(cyan + "computeRoughnessByOcsMnh() : " + bold + red + "!!! Une erreur c'est produite au cours de la comande : gdal_translate : " + command + ". Voir message d'erreur." + endC, file=sys.stderr)
+            raise
+
+        # Récupération du nombre de pixel bati de chaque maille pour definir la surface
+        statisticsVectorRaster(classif_built_mask, grid_input, grid_output_temp, 1, False, False, True, ["min", "max", "median", "mean", "std", "unique", "range"], [], {}, path_time_log, True, format_vector, save_results_intermediate, overwrite)
+
+        # Renomer le champ 'sum' en FIELD_NAME_AREA
+        renameFieldsVector(grid_output_temp, ['sum'], [FIELD_NAME_AREA], format_vector)
+
+        # Récupération de la hauteur moyenne du bati de chaque maille
+        statisticsVectorRaster(built_height, grid_output_temp, grid_output, 1, False, False, True, ["min", "max", "median", 'mean', "std", "unique", "range"], [], {}, path_time_log, True, format_vector, save_results_intermediate, overwrite)
+
+        # Renomer le champ 'mean' en FIELD_NAME_HRE
+        renameFieldsVector(grid_output, ['sum'], [FIELD_NAME_HSUM], format_vector)
+
+        # Calcul de la colonne FIELD_NAME_HRE division de FIELD_NAME_HSUM par FIELD_NAME_AREA
+        field_values_list = getAttributeValues(grid_output, None, None, {FIELD_NAME_ID:FIELD_ID_TYPE, FIELD_NAME_HSUM:FIELD_H_TYPE, FIELD_NAME_AREA:FIELD_H_TYPE}, format_vector)
+
+        field_new_values_list = []
+        for index in range(0, len(field_values_list[FIELD_NAME_ID])) :
+            value_h = 0.0
+            if field_values_list[FIELD_NAME_AREA][index] > 0 :
+                value_h = field_values_list[FIELD_NAME_HSUM][index] / field_values_list[FIELD_NAME_AREA][index]
+            field_new_values_list.append({FIELD_NAME_HRE:value_h})
+
+        # Ajour de la nouvelle colonne calculé FIELD_NAME_HRE
+        addNewFieldVector(grid_output, FIELD_NAME_HRE, FIELD_H_TYPE, 0, None, None, format_vector)
+        setAttributeValuesList(grid_output, field_new_values_list, format_vector)
+
+        ##########################################
+        ### Nettoyage des fichiers temporaires ###
+        ##########################################
+        if not save_results_intermediate:
+            if os.path.exists(temp_path):
+                shutil.rmtree(temp_path)
+
+    print(cyan + "computeRoughnessByOcsMnh() : " + endC + "Fin du calcul de l'indicateur Height of Roughness Elements par OCS et MNT." + endC + "\n")
+    timeLine(path_time_log, "Fin du calcul de l'indicateur Height of Roughness Elements par OCS et MNT  ending : ")
 
     return
 
@@ -191,42 +378,89 @@ def heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, projec
 #############################################################################################################################
 
 def main(gui=False):
-    parser = argparse.ArgumentParser(prog = "Calcul de la hauteur des elements de rugosite (Height of Roughness Elements)",
+    parser = argparse.ArgumentParser(prog = "Calcul de la hauteur des elements de rugosite (Height of Roughness Elements) a partir d'une bd de bati ou avec les données raster OCS et MNH",
     description = """Calcul de l'indicateur LCZ hauteur des elements de rugosite (Height of Roughness Elements) :
-    Exemple : python /home/scgsi/Documents/ChaineTraitement/ScriptsLCZ/PerviousSurfaceFraction.py
-                        -in  /mnt/Donnees_Etudes/10_Agents/Benjamin/LCZ/Nancy/UrbanAtlas.shp
-                        -out /mnt/Donnees_Etudes/10_Agents/Benjamin/LCZ/Nancy/HeightOfRoughnessElements.shp
-                        -bi  /mnt/Donnees_Etudes/10_Agents/Benjamin/LCZ/Nancy/bati.shp""")
+    Exemple1 : python HeightOfRoughnessElements.py
+                        -in  ../UrbanAtlas.shp
+                        -out ../HeightOfRoughnessElements.shp
+                        -bi  ../Nancy/bati.shp
+    Example2 : python HeightOfRoughnessElements.py
+                        -in  ../UrbanAtlas.shp
+                        -out ../HeightOfRoughnessElements.shp
+                        -cla ../Classif_OCS.tif
+                        -mnh  ../Nancy/MNH.tif
+                        -cldb 11100
+                        -epsg 2154
+                        -log ../fichierTestLog.txt""")
 
-    parser.add_argument('-in', '--grid_input', default="", type=str, required=True, help="Fichier de maillage en entree (vecteur).")
-    parser.add_argument('-out', '--grid_output', default="", type=str, required=True, help="Fichier de maillage en sortie, avec la valeur de Height of Roughness Elements par maille (vecteur).")
-    parser.add_argument('-bi', '--built_input', default="", type=str, required=True, help="Fichier de la BD TOPO bati en entree (vecteur).")
-    parser.add_argument('-epsg','--epsg', default=2154,help="EPSG code projection.", type=int, required=False)
-    parser.add_argument('-pe','--project_encoding', default="latin1",help="Project encoding.", type=str, required=False)
-    parser.add_argument('-serv','--server_postgis', default="localhost",help="Postgis serveur name or ip.", type=str, required=False)
-    parser.add_argument('-port','--port_number', default=5432,help="Postgis port number.", type=int, required=False)
-    parser.add_argument('-user','--user_postgis', default="postgres",help="Postgis user name.", type=str, required=False)
-    parser.add_argument('-pwd','--password_postgis', default="postgres",help="Postgis password user.", type=str, required=False)
-    parser.add_argument('-db','--database_postgis', default="lcz_hre",help="Postgis database name.", type=str, required=False)
-    parser.add_argument('-sch','--schema_postgis', default="public",help="Postgis schema name.", type=str, required=False)
-    parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output file.", type=str, required=False)
-    parser.add_argument('-log', '--path_time_log', default="/home/scgsi/Bureau/logLCZ.txt", type=str, required=False, help="Name of log")
+    parser.add_argument('-in', '--grid_input', default="", help="Fichier de maillage en entree (vecteur).", type=str, required=True)
+    parser.add_argument('-out', '--grid_output', default="", help="Fichier de maillage en sortie, avec la valeur de Height of Roughness Elements par maille (vecteur).", type=str, required=True)
+    parser.add_argument('-bi', '--built_input', default="", help="Fichier de la BD TOPO bati en entree (vecteur).", type=str, required=False)
+    parser.add_argument('-hf', '--height_field', default="HAUTEUR", help="Nom du champs contenant l'information de hauteur.", type=str, required=False)
+    parser.add_argument('-id', '--id_field', default="ID", help="Nom du champs contenant l'information d'identification.", type=str, required=False)
+    parser.add_argument('-ocs', '--classif_input', default="", help="Input file Modele classification OCS (raster).", type=str, required=False)
+    parser.add_argument('-mnh', '--mnh_input', default="", help="Input file Modele Numerique de Hauteur(raster).", type=str, required=False)
+    parser.add_argument('-cbl', '--class_build_list', nargs="+", default=[11100], help="Liste des indices de classe de type bati.", type=int, required=False)
+    parser.add_argument('-epsg','--epsg', default=2154, help="EPSG code projection.", type=int, required=False)
+    parser.add_argument("-ndv",'--no_data_value',default=0, help="Option : Pixel value for raster file to no data, default : 0 ", type=int, required=False)
+    parser.add_argument('-pe','--project_encoding', default="latin1", help="Project encoding.", type=str, required=False)
+    parser.add_argument('-serv','--server_postgis', default="localhost", help="Postgis serveur name or ip.", type=str, required=False)
+    parser.add_argument('-port','--port_number', default=5432, help="Postgis port number.", type=int, required=False)
+    parser.add_argument('-user','--user_postgis', default="postgres", help="Postgis user name.", type=str, required=False)
+    parser.add_argument('-pwd','--password_postgis', default="postgres", help="Postgis password user.", type=str, required=False)
+    parser.add_argument('-db','--database_postgis', default="lcz_hre", help="Postgis database name.", type=str, required=False)
+    parser.add_argument('-sch','--schema_postgis', default="public", help="Postgis schema name.", type=str, required=False)
+    parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image, by default : GTiff (GTiff, HFA...)", type=str, required=False)
+    parser.add_argument('-vef','--format_vector', default="ESRI Shapefile", help="Format of the output file.", type=str, required=False)
+    parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
+    parser.add_argument('-vee','--extension_vector',default=".shp", help="Option : Extension file for vector. By default : '.shp'", type=str, required=False)
+    parser.add_argument('-log', '--path_time_log', default="", type=str, required=False, help="Name of log")
     parser.add_argument('-sav', '--save_results_intermediate', action='store_true', default=False, required=False, help="Save or delete intermediate result after the process. By default, False")
     parser.add_argument('-now', '--overwrite', action='store_false', default=True, required=False, help="Overwrite files with same names. By default, True")
     parser.add_argument('-debug', '--debug', default=3, type=int, required=False, help="Option : Value of level debug trace, default : 3")
     args = displayIHM(gui, parser)
 
-    # Récupération des fichiers d'entrées et de sorties
+    # Récupération du vecteur d'entrée de grille
     if args.grid_input != None:
         grid_input = args.grid_input
+        if not os.path.isfile(grid_input):
+            raise NameError (cyan + "HeightOfRoughnessElements : " + bold + red  + "File %s not existe!" %(grid_input) + endC)
+
+    # Récupération du vecteur de sortie de grille
     if args.grid_output != None:
         grid_output = args.grid_output
+
+     # Récupération du fichier vecteur bati d'entrée
     if args.built_input != None:
         built_input = args.built_input
+
+    # Récupération du nom du champs hauteur
+    if args.height_field != None :
+        height_field = args.height_field
+
+    # Récupération du nom du champs id
+    if args.id_field != None :
+        id_field = args.id_field
+
+    # Récupération de l'image mnh
+    if args.mnh_input != None:
+        mnh_input = args.mnh_input
+
+   # Récupération de l'image classif
+    if args.classif_input != None:
+        classif_input = args.classif_input
+
+    # Récupération de la liste des classes bati
+    if args.class_build_list != None:
+        class_build_list = args.class_build_list
 
     # Récupération du code EPSG de la projection du shapefile trait de côte
     if args.epsg != None :
         epsg = args.epsg
+
+    # Paramettre des no data
+    if args.no_data_value != None:
+        no_data_value = args.no_data_value
 
     # Récupération de l'encodage des fichiers
     if args.project_encoding != None :
@@ -256,9 +490,21 @@ def main(gui=False):
     if args.schema_postgis != None :
         schema_postgis = args.schema_postgis
 
+    # Paramètre format des images de sortie
+    if args.format_raster != None:
+        format_raster = args.format_raster
+
     # Récupération du format du fichier de sortie
     if args.format_vector != None :
         format_vector = args.format_vector
+
+    # Paramètre de l'extension des images rasters
+    if args.extension_raster != None:
+        extension_raster = args.extension_raster
+
+    # Récupération de l'extension des fichiers vecteurs
+    if args.extension_vector != None:
+        extension_vector = args.extension_vector
 
     # Récupération du nom du fichier log
     if args.path_time_log!= None:
@@ -282,6 +528,11 @@ def main(gui=False):
         print(cyan + "HeightOfRoughnessElements : " + endC + "grid_input : " + str(grid_input) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "grid_output : " + str(grid_output) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "built_input : " + str(built_input) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "height_field : " + str(height_field) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "id_field : " + str(id_field) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "mnh_input : " + str(mnh_input) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "classif_input : " + str(classif_input) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "class_build_list : " + str(class_build_list) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "epsg : " + str(epsg) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "project_encoding : " + str(project_encoding) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "server_postgis : " + str(server_postgis) + endC)
@@ -290,7 +541,10 @@ def main(gui=False):
         print(cyan + "HeightOfRoughnessElements : " + endC + "password_postgis : " + str(password_postgis) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "database_postgis : " + str(database_postgis) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "schema_postgis : " + str(schema_postgis) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "format_vector : " + str(format_vector) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "extension_raster : " + str(extension_raster) + endC)
+        print(cyan + "HeightOfRoughnessElements : " + endC + "extension_vector : " + str(extension_vector) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
         print(cyan + "HeightOfRoughnessElements : " + endC + "overwrite : " + str(overwrite) + endC)
@@ -299,7 +553,17 @@ def main(gui=False):
     if not os.path.exists(os.path.dirname(grid_output)):
         os.makedirs(os.path.dirname(grid_output))
 
-    heightOfRoughnessElements(grid_input, grid_output, built_input, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log, format_vector, save_results_intermediate, overwrite)
+    if os.path.isfile(built_input):
+        # Calcul du "height Of Roughness" par base de données batis
+        heightOfRoughnessElements(grid_input, grid_output, built_input, height_field, id_field, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log, format_vector, save_results_intermediate, overwrite)
+
+    else :
+        if not os.path.isfile(mnh_input):
+            raise NameError (cyan + "HeightOfRoughnessElements : " + bold + red  + "File %s not existe!" %(mnh_input) + endC)
+        if not os.path.isfile(classif_input):
+            raise NameError (cyan + "HeightOfRoughnessElements : " + bold + red  + "File %s not existe!" %(classif_input) + endC)
+        # Calcul du "height Of Roughness" par données raster OCS et MNH (méthode international)
+        computeRoughnessByOcsMnh(grid_input, grid_output, mnh_input, classif_input, class_build_list, epsg, no_data_value, path_time_log, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
 if __name__ == '__main__':
     main(gui=False)

@@ -25,6 +25,9 @@ Origine : Réécriture d'un ancien script qui faisait la même chose, mais sous 
 19/01/2017 : Ajout de l'indicateur 'soil occupation'
 23/02/2017 : Tri des valeurs indicateurs suivant ID croissant
 16/04/2019 : Adaptation a la V9.2 du Logigramme ajout de info H_moy_Veg, H_max_Veg, Bati, Route, Eau, SolNu, Vegetation
+08/10/2020 : Finalisation de l'internationalisation, ajout nouvel indicateur 'HighVegetationRate' + gestion indicateurs "inutiles" + gestion sans code UA
+
+28/06/2021 : Création d'un script ClassificationLczOperational en parallèle, pour la méthode opérationnelle (via SQL), développée et validée lors du projet SCO SatLCZ
 ----------------------------------------------------------------------------------------------------
 
 '''
@@ -166,6 +169,9 @@ def stackShapeLCZ(urban_atlas_input, lcz_output, building_surface_fraction_input
             if case('MaxVegetationHeight'):
                 indiceInfoDico[indice].append(soil_occupation_input)
                 break
+            if case('HighVegetationRate'):
+                indiceInfoDico[indice].append(soil_occupation_input)
+                break
             break
 
         # Ajout des noms des colonnes sources et destinations
@@ -220,21 +226,58 @@ def stackShapeLCZ(urban_atlas_input, lcz_output, building_surface_fraction_input
     field_new_values_dico = {}
     for i in range(len(res_dico[column_src])):
         id_polygon = res_dico[column_id_ua][i]
-        field_new_values_dico[id_polygon] = {indiceInfoDico['BuildingSurfaceFraction'][2]:indiceInfoDico['BuildingSurfaceFraction'][3][indiceInfoDico['BuildingSurfaceFraction'][1]][i], \
-                                             indiceInfoDico['ImperviousSurfaceFraction'][2]:indiceInfoDico['ImperviousSurfaceFraction'][3][indiceInfoDico['ImperviousSurfaceFraction'][1]][i], \
-                                             indiceInfoDico['PerviousSurfaceFraction'][2]:indiceInfoDico['PerviousSurfaceFraction'][3][indiceInfoDico['PerviousSurfaceFraction'][1]][i], \
-                                             indiceInfoDico['SkyViewFactor'][2]:indiceInfoDico['SkyViewFactor'][3][indiceInfoDico['SkyViewFactor'][1]][i], \
-                                             indiceInfoDico['HeightOfRoughnessElements'][2]:indiceInfoDico['HeightOfRoughnessElements'][3][indiceInfoDico['HeightOfRoughnessElements'][1]][i], \
-                                             indiceInfoDico['TerrainRoughnessClass'][2]:indiceInfoDico['TerrainRoughnessClass'][3][indiceInfoDico['TerrainRoughnessClass'][1]][i], \
-                                             indiceInfoDico['AspectRatio'][2]:indiceInfoDico['AspectRatio'][3][indiceInfoDico['AspectRatio'][1]][i], \
-                                             indiceInfoDico['SoilOccupation'][2]:indiceInfoDico['SoilOccupation'][3][indiceInfoDico['SoilOccupation'][1]][i], \
-                                             indiceInfoDico['BuiltRate'][2]:indiceInfoDico['BuiltRate'][3][indiceInfoDico['BuiltRate'][1]][i], \
-                                             indiceInfoDico['RoadRate'][2]:indiceInfoDico['RoadRate'][3][indiceInfoDico['RoadRate'][1]][i], \
-                                             indiceInfoDico['WaterRate'][2]:indiceInfoDico['WaterRate'][3][indiceInfoDico['WaterRate'][1]][i], \
-                                             indiceInfoDico['BareSoilRate'][2]:indiceInfoDico['BareSoilRate'][3][indiceInfoDico['BareSoilRate'][1]][i], \
-                                             indiceInfoDico['VegetationRate'][2]:indiceInfoDico['VegetationRate'][3][indiceInfoDico['VegetationRate'][1]][i], \
-                                             indiceInfoDico['AverageVegetationHeight'][2]:indiceInfoDico['AverageVegetationHeight'][3][indiceInfoDico['AverageVegetationHeight'][1]][i], \
-                                             indiceInfoDico['MaxVegetationHeight'][2]:indiceInfoDico['MaxVegetationHeight'][3][indiceInfoDico['MaxVegetationHeight'][1]][i]}
+        field_new_values_dico[id_polygon] = {}
+        for indicator in indicator_list:
+            while switch(indicator):
+                if case('BuildingSurfaceFraction'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['BuildingSurfaceFraction'][2]] = indiceInfoDico['BuildingSurfaceFraction'][3][indiceInfoDico['BuildingSurfaceFraction'][1]][i]
+                    break
+                if case('ImperviousSurfaceFraction'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['ImperviousSurfaceFraction'][2]] = indiceInfoDico['ImperviousSurfaceFraction'][3][indiceInfoDico['ImperviousSurfaceFraction'][1]][i]
+                    break
+                if case('PerviousSurfaceFraction'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['PerviousSurfaceFraction'][2]] = indiceInfoDico['PerviousSurfaceFraction'][3][indiceInfoDico['PerviousSurfaceFraction'][1]][i]
+                    break
+                if case('SkyViewFactor'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['SkyViewFactor'][2]] = indiceInfoDico['SkyViewFactor'][3][indiceInfoDico['SkyViewFactor'][1]][i]
+                    break
+                if case('HeightOfRoughnessElements'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['HeightOfRoughnessElements'][2]] = indiceInfoDico['HeightOfRoughnessElements'][3][indiceInfoDico['HeightOfRoughnessElements'][1]][i]
+                    break
+                if case('TerrainRoughnessClass'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['TerrainRoughnessClass'][2]] = indiceInfoDico['TerrainRoughnessClass'][3][indiceInfoDico['TerrainRoughnessClass'][1]][i]
+                    break
+                if case('AspectRatio'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['AspectRatio'][2]] = indiceInfoDico['AspectRatio'][3][indiceInfoDico['AspectRatio'][1]][i]
+                    break
+                if case('SoilOccupation'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['SoilOccupation'][2]] = indiceInfoDico['SoilOccupation'][3][indiceInfoDico['SoilOccupation'][1]][i]
+                    break
+                if case('BuiltRate'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['BuiltRate'][2]] = indiceInfoDico['BuiltRate'][3][indiceInfoDico['BuiltRate'][1]][i]
+                    break
+                if case('RoadRate'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['RoadRate'][2]] = indiceInfoDico['RoadRate'][3][indiceInfoDico['RoadRate'][1]][i]
+                    break
+                if case('WaterRate'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['WaterRate'][2]] = indiceInfoDico['WaterRate'][3][indiceInfoDico['WaterRate'][1]][i]
+                    break
+                if case('BareSoilRate'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['BareSoilRate'][2]] = indiceInfoDico['BareSoilRate'][3][indiceInfoDico['BareSoilRate'][1]][i]
+                    break
+                if case('VegetationRate'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['VegetationRate'][2]] = indiceInfoDico['VegetationRate'][3][indiceInfoDico['VegetationRate'][1]][i]
+                    break
+                if case('AverageVegetationHeight'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['AverageVegetationHeight'][2]] = indiceInfoDico['AverageVegetationHeight'][3][indiceInfoDico['AverageVegetationHeight'][1]][i]
+                    break
+                if case('MaxVegetationHeight'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['MaxVegetationHeight'][2]] = indiceInfoDico['MaxVegetationHeight'][3][indiceInfoDico['MaxVegetationHeight'][1]][i]
+                    break
+                if case('HighVegetationRate'):
+                    field_new_values_dico[id_polygon][indiceInfoDico['HighVegetationRate'][2]] = indiceInfoDico['HighVegetationRate'][3][indiceInfoDico['HighVegetationRate'][1]][i]
+                    break
+                break
 
     # Mise à jour des champs indicateurs
     setAttributeIndexValuesList(lcz_output, column_id_ua, field_new_values_dico, format_vector)
@@ -253,7 +296,7 @@ def stackShapeLCZ(urban_atlas_input, lcz_output, building_surface_fraction_input
 #     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
 #
 # ENTREES DE LA FONCTION :
-#     inport_tree : l'arbre de décision
+#     import_tree : l'arbre de décision
 #     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
 #     abbreviation_list : liste des abréviations utilisées
 #     column_id_ua : nom de la colonne 'id' du fichier Urban Atlas en d'entree
@@ -269,7 +312,7 @@ def stackShapeLCZ(urban_atlas_input, lcz_output, building_surface_fraction_input
 # SORTIES DE LA FONCTION :
 #     N.A.
 
-def computeLCZ(inport_tree, lcz_output, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, correspondance_values_dico, path_time_log, format_vector='ESRI Shapefile', save_results_intermediate=False, overwrite=True):
+def computeLCZ(import_tree, lcz_output, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, correspondance_values_dico, path_time_log, format_vector='ESRI Shapefile', save_results_intermediate=False, overwrite=True):
 
     if debug >= 2:
         print(cyan + "computeLCZ() : " + bold + green + "Début du calcul des LCZ à partir des indicateurs." + endC + "\n")
@@ -292,7 +335,8 @@ def computeLCZ(inport_tree, lcz_output, abbreviation_list, column_id_ua, column_
     # Lecture des champs de données
     attribute_name_dico = {}
     attribute_name_dico[column_id_ua] = ogr.OFTInteger
-    attribute_name_dico[column_code_ua] = ogr.OFTString
+    if column_code_ua != "":
+        attribute_name_dico[column_code_ua] = ogr.OFTString
     for field_name in abbreviation_list:
         attribute_name_dico[field_name] = ogr.OFTReal
     res_indices_dico = getAttributeValues(lcz_output, None, None, attribute_name_dico)
@@ -304,29 +348,50 @@ def computeLCZ(inport_tree, lcz_output, abbreviation_list, column_id_ua, column_
     # Calcul des LCZ
     field_new_values_dico = {}
     for i in range(len(res_indices_dico[column_id_ua])) :
+        bsf, isf, psf, svf, hre, trc, ara, ocs, bur, ror, war, bsr, ver, vea, vem, vhr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         historic = "None"
         lcz = "None"
         id_polygon = res_indices_dico[column_id_ua][i]
-        code_ua = res_indices_dico[column_code_ua][i]
-        bsf = res_indices_dico['BSF'][i]
-        isf = res_indices_dico['ISF'][i]
-        psf = res_indices_dico['PSF'][i]
-        svf = res_indices_dico['SVF'][i]
-        hre = res_indices_dico['HRE'][i]
-        trc = res_indices_dico['TRC'][i]
-        ara = res_indices_dico['ARa'][i]
-        ocs = res_indices_dico['OCS'][i]
-        bur = res_indices_dico['BUr'][i]
-        ror = res_indices_dico['ROr'][i]
-        war = res_indices_dico['WAr'][i]
-        bsr = res_indices_dico['BSr'][i]
-        ver = res_indices_dico['VEr'][i]
-        vea = res_indices_dico['VEa'][i]
-        vem = res_indices_dico['VEm'][i]
+        if column_code_ua == "":
+            code_ua = None
+        else:
+            code_ua = res_indices_dico[column_code_ua][i]
+        if 'BSF' in res_indices_dico:
+            bsf = res_indices_dico['BSF'][i]
+        if 'ISF' in res_indices_dico:
+            isf = res_indices_dico['ISF'][i]
+        if 'PSF' in res_indices_dico:
+            psf = res_indices_dico['PSF'][i]
+        if 'SVF' in res_indices_dico:
+            svf = res_indices_dico['SVF'][i]
+        if 'HRE' in res_indices_dico:
+            hre = res_indices_dico['HRE'][i]
+        if 'TRC' in res_indices_dico:
+            trc = res_indices_dico['TRC'][i]
+        if 'ARa' in res_indices_dico:
+            ara = res_indices_dico['ARa'][i]
+        if 'OCS' in res_indices_dico:
+            ocs = res_indices_dico['OCS'][i]
+        if 'BUr' in res_indices_dico:
+            bur = res_indices_dico['BUr'][i]
+        if 'ROr' in res_indices_dico:
+            ror = res_indices_dico['ROr'][i]
+        if 'WAr' in res_indices_dico:
+            war = res_indices_dico['WAr'][i]
+        if 'BSr' in res_indices_dico:
+            bsr = res_indices_dico['BSr'][i]
+        if 'VEr' in res_indices_dico:
+            ver = res_indices_dico['VEr'][i]
+        if 'VEa' in res_indices_dico:
+            vea = res_indices_dico['VEa'][i]
+        if 'VEm' in res_indices_dico:
+            vem = res_indices_dico['VEm'][i]
+        if 'VHR' in res_indices_dico:
+            vhr = res_indices_dico['VHR'][i]
 
-        values_dico = {'HRE':hre, 'BSF':bsf, 'PSF':psf, 'SVF':svf, 'ISF':isf, 'ARa':ara, 'TRC':trc, 'OCS':ocs, 'BUr':bur, 'ROr':ror, 'WAr':war, 'BSr':bsr, 'VEr':ver, 'VEa':vea, 'VEm':vem}
+        values_dico = {'HRE':hre, 'BSF':bsf, 'PSF':psf, 'SVF':svf, 'ISF':isf, 'ARa':ara, 'TRC':trc, 'OCS':ocs, 'BUr':bur, 'ROr':ror, 'WAr':war, 'BSr':bsr, 'VEr':ver, 'VEa':vea, 'VEm':vem, 'VHR':vhr}
 
-        lcz,lcz_historic = selectTree(code_ua, values_dico, inport_tree, correspondance_values_dico)
+        lcz,lcz_historic = selectTree(code_ua, values_dico, import_tree, correspondance_values_dico)
         field_new_values_dico[id_polygon] = {column_lcz_histo:lcz_historic, column_lcz:lcz}
 
     # Mise à jour des champs LCZ
@@ -347,52 +412,56 @@ def computeLCZ(inport_tree, lcz_output, abbreviation_list, column_id_ua, column_
 # ENTREES DE LA FONCTION :
 #     code_ua     : identifiant quartier Urban Atlas
 #     values_dico : les valeurs des indicateurs pour un polygone sous forme de dico
-#     inport_tree : l'arbre de decision
+#     import_tree : l'arbre de decision
 #     correspondance_values_dico : dictionaire de correspondance variable et valeur
 #
 # SORTIES DE LA FONCTION :
 #      la valeur LCZ finale
 
-def selectTree(code_ua, values_dico, inport_tree, correspondance_values_dico={}):
+def selectTree(code_ua, values_dico, import_tree, correspondance_values_dico={}):
 
-    while switch(int(code_ua)):
-        if case(11100) or case(11210) or case(11220) or case(11230) or case(11240) or case(11300) or case(12100):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_A'), correspondance_values_dico)
+    if code_ua is None:
+        historic = runTree(values_dico, getattr(import_tree, 'tree_A'), correspondance_values_dico)
+
+    else:
+        while switch(int(code_ua)):
+            if case(11100) or case(11210) or case(11220) or case(11230) or case(11240) or case(11300) or case(12100):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_A'), correspondance_values_dico)
+                break
+            if case(12300) or case(12400) or case(13100) or case(13300) or case(13400) or case(14200):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_B'), correspondance_values_dico)
+                break
+            if case(14100):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_C'), correspondance_values_dico)
+                break
+            if case(21000):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_D'), correspondance_values_dico)
+                break
+            if case(22000) or case(23000):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_E'), correspondance_values_dico)
+                break
+            if case(24000) or case(32000):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_F'), correspondance_values_dico)
+                break
+            if case(25000):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_G'), correspondance_values_dico)
+                break
+            if case(31000):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_H'), correspondance_values_dico)
+                break
+            if case(33000):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_I'), correspondance_values_dico)
+                break
+            if case(40000):
+                historic = runTree(values_dico, getattr(import_tree, 'tree_J'), correspondance_values_dico)
+                break
+            if case(12210) or case(12220) or case(12230):
+                historic = 'LCZ E_031'
+                break
+            if case(50000):
+                historic = 'LCZ G_041'
+                break
             break
-        if case(12300) or case(12400) or case(13100) or case(13300) or case(13400) or case(14200):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_B'), correspondance_values_dico)
-            break
-        if case(14100):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_C'), correspondance_values_dico)
-            break
-        if case(21000):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_D'), correspondance_values_dico)
-            break
-        if case(22000) or case(23000):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_E'), correspondance_values_dico)
-            break
-        if case(24000) or case(32000):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_F'), correspondance_values_dico)
-            break
-        if case(25000):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_G'), correspondance_values_dico)
-            break
-        if case(31000):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_H'), correspondance_values_dico)
-            break
-        if case(33000):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_I'), correspondance_values_dico)
-            break
-        if case(40000):
-            historic = runTree(values_dico, getattr(inport_tree, 'tree_J'), correspondance_values_dico)
-            break
-        if case(12210) or case(12220) or case(12230):
-            historic = 'LCZ E_031'
-            break
-        if case(50000):
-            historic = 'LCZ G_041'
-            break
-        break
 
     lcz = convertToLCZ(historic)
 
@@ -498,7 +567,7 @@ def convertToLCZ(historic):
 #     Fabrique le modele Random Forest destiné à supplanter l'arbre en cas d'indecision
 #
 # ENTREES DE LA FONCTION :
-#     inport_tree : l'arbre de décision
+#     import_tree : l'arbre de décision
 #     nb_sample_rf : nombre d'echantillons pour le Randon Forest
 #     model_file_rf : nom du fichier contenant le model du Randon Forest
 #     types_lcz_list : liste des type de classification LCZ
@@ -508,7 +577,7 @@ def convertToLCZ(historic):
 # SORTIES DE LA FONCTION :
 #     le modele RF
 
-def computeTreeRFmodel(inport_tree, nb_sample_rf, model_file_rf, types_lcz_list, categories_ua_list, correspondance_values_dico):
+def computeTreeRFmodel(import_tree, nb_sample_rf, model_file_rf, types_lcz_list, categories_ua_list, correspondance_values_dico):
 
      if debug >= 3:
         print(bold + green + "computeTreeRFmodel() : Variables dans la fonction" + endC)
@@ -545,7 +614,7 @@ def computeTreeRFmodel(inport_tree, nb_sample_rf, model_file_rf, types_lcz_list,
         values_dico = {'HRE':x.HRE, 'BSF':x.BSF, 'PSF':x.PSF, 'SVF':x.SVF, 'ISF':x.ISF, 'ARa':x.AR, 'TRC':x.TRC, 'OCS':x.OCS,'VEr':x.VEr,'VEa':x.VEa}
 
         # Application de l'arbre
-        lcz_genere,lcz_historic = selectTree(code_ua, values_dico, inport_tree, correspondance_values_dico)
+        lcz_genere,lcz_historic = selectTree(code_ua, values_dico, import_tree, correspondance_values_dico)
 
         # Si la configuration a genere un lcz admissible, on la sauvegarde
         if lcz_genere in types_lcz_list :
@@ -569,7 +638,8 @@ def computeTreeRFmodel(inport_tree, nb_sample_rf, model_file_rf, types_lcz_list,
      forest = RandomForestClassifier(n_estimators=300, n_jobs=-1, criterion='gini', max_depth=None, min_samples_split=2, min_samples_leaf=1, max_features=5, max_leaf_nodes=None, bootstrap=True, oob_score=True)
 
      # Apprentissage du modele Random Forest
-     modele_RF = forest.fit(df_X_train_RF,df_Y_train_RF)
+     #modele_RF = forest.fit(df_X_train_RF,df_Y_train_RF)
+     modele_RF = forest.fit(df_X_train_RF,df_Y_train_RF.values.ravel())
 
      # Sauvegarde du model au format (.pkl)
      if model_file_rf != "" :
@@ -588,7 +658,7 @@ def computeTreeRFmodel(inport_tree, nb_sample_rf, model_file_rf, types_lcz_list,
 #     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
 #
 # ENTREES DE LA FONCTION :
-#     inport_tree : l'arbre de décision
+#     import_tree : l'arbre de décision
 #     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
 #     nb_sample_rf : nombre d'echantillons pour le Randon Forest
 #     model_file_rf : nom du fichier contenant le model du Randon Forest
@@ -606,7 +676,7 @@ def computeTreeRFmodel(inport_tree, nb_sample_rf, model_file_rf, types_lcz_list,
 # SORTIES DE LA FONCTION :
 #     N.A.
 
-def computeLCZbyRF(inport_tree, lcz_output, nb_sample_rf, model_file_rf, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, column_lcz_rf, correspondance_values_dico, path_time_log, save_results_intermediate=False, overwrite=True):
+def computeLCZbyRF(import_tree, lcz_output, nb_sample_rf, model_file_rf, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, column_lcz_rf, correspondance_values_dico, path_time_log, save_results_intermediate=False, overwrite=True):
 
     if debug >= 2:
         print(cyan + "computeLCZbyRF() : " + bold + green + "Début du calcul des LCZ par Randon Forest." + endC + "\n")
@@ -641,7 +711,7 @@ def computeLCZbyRF(inport_tree, lcz_output, nb_sample_rf, model_file_rf, abbrevi
     else :
         if debug >= 2:
             print(cyan + "computeLCZbyRF() : " + bold + green + "Calcul du model pour la classification par Random Forest pour les LCZ" + endC + "\n")
-        tree_RF_model = computeTreeRFmodel(inport_tree, nb_sample_rf, model_file_rf, TYPES_LCZ, CATEGORIES_UA, correspondance_values_dico)
+        tree_RF_model = computeTreeRFmodel(import_tree, nb_sample_rf, model_file_rf, TYPES_LCZ, CATEGORIES_UA, correspondance_values_dico)
 
     # Conversion d'information du fichier shape d'entrée en fichier csv
     repertory_output = os.path.dirname(lcz_output)
@@ -690,7 +760,7 @@ def computeLCZbyRF(inport_tree, lcz_output, nb_sample_rf, model_file_rf, abbrevi
 
         # Recuperation de la partie de l'arbre qui nous interesse
         values_dico = {'HRE':hre, 'BSF':bsf, 'PSF':psf, 'SVF':svf, 'ISF':isf, 'ARa':ara, 'TRC':trc, 'OCS':ocs, 'BUr':bur,' ROr':ror, 'WAr':war, 'BSr':bsr, 'VEr':ver, 'VEa':vea, 'VEm':vem}
-        lcz_final,lcz_initial = selectTree(code_ua, values_dico, inport_tree, correspondance_values_dico)
+        lcz_final,lcz_initial = selectTree(code_ua, values_dico, import_tree, correspondance_values_dico)
 
         # Calcul de la classification en RF
         code_ua_num = CATEGORIES_UA.index(int(code_ua))
@@ -770,11 +840,11 @@ def main(gui=False):
     parser.add_argument('-crf', '--used_randon_forest', action='store_true', default=False, help="Option : Used classification LCZ by classifier Randon Forest. By default : False", required=False)
     parser.add_argument('-nsrf', '--nb_sample_rf', default=100000, type=int, required=False, help="Number of sample to compute Random Forest model default : 100000")
     parser.add_argument('-mfrf', '--model_file_rf', default="",type=str, required=False, help="File name model Random Forest input or output (.pkl).")
-    parser.add_argument('-ind_lst', '--indicator_list', nargs="+", default=['BuildingSurfaceFraction','ImperviousSurfaceFraction','PerviousSurfaceFraction','SkyViewFactor','HeightOfRoughnessElements','TerrainRoughnessClass','AspectRatio','SoilOccupation','BuiltRate','RoadRate','WaterRate','BareSoilRate','VegetationRate','AverageVegetationHeight','MaxVegetationHeight'], type=str, required=False, help="Liste des indicateurs utilises pour l'attribution des LCZ.")
-    parser.add_argument('-col_lst', '--column_list', nargs="+", default=['Bati','Imperm','Perm','mean','MEAN_H','CL_RUGO','ASP_RATIO','class_OCS','Bati','Route','Eau','SolNu','Vegetation','H_moy_Veg','H_max_Veg'], type=str, required=False, help="Liste des colonnes contenant chacun des indicateurs precedents.")
-    parser.add_argument('-abb_lst', '--abbreviation_list', nargs="+", default=['BSF','ISF','PSF','SVF','HRE','TRC','ARa','OCS','BUr','ROr','WAr','BSr','VEr','VEa','VEm'], type=str, required=False, help="Liste des abreviations utilisees.")
+    parser.add_argument('-ind_lst', '--indicator_list', nargs="+", default=['BuildingSurfaceFraction','ImperviousSurfaceFraction','PerviousSurfaceFraction','SkyViewFactor','HeightOfRoughnessElements','TerrainRoughnessClass','AspectRatio','SoilOccupation','BuiltRate','RoadRate','WaterRate','BareSoilRate','VegetationRate','AverageVegetationHeight','MaxVegetationHeight','HighVegetationRate'], type=str, required=False, help="Liste des indicateurs utilises pour l'attribution des LCZ.")
+    parser.add_argument('-col_lst', '--column_list', nargs="+", default=['Bati','Imperm','Perm','SkyView','MEAN_H','CL_RUGO','ASP_RATIO','class_OCS','Bati','Route','Eau','SolNu','Vegetation','veg_h_mean','veg_h_max','veg_h_rate'], type=str, required=False, help="Liste des colonnes contenant chacun des indicateurs precedents.")
+    parser.add_argument('-abb_lst', '--abbreviation_list', nargs="+", default=['BSF','ISF','PSF','SVF','HRE','TRC','ARa','OCS','BUr','ROr','WAr','BSr','VEr','VEa','VEm','VHR'], type=str, required=False, help="Liste des abreviations utilisees.")
     parser.add_argument('-cid', '--column_id_ua', default="ID", type=str, required=False, help="Nom de la colonne 'id' du fichier Urban Atlas en entree.")
-    parser.add_argument('-cco', '--column_code_ua', default="CODE201", type=str, required=False, help="Nom de la colonne 'code' du fichier Urban Atlas en entree.")
+    parser.add_argument('-cco', '--column_code_ua', default="", type=str, required=False, help="Nom de la colonne 'code' du fichier Urban Atlas en entree.")
     parser.add_argument('-chis', '--column_lcz_histo', default="LCZ_HISTO", type=str, required=False, help="Nom de la colonne contenant la classe LCZ intermediaire dans le fichier de sortie.")
     parser.add_argument('-clcz', '--column_lcz', default="LCZ", type=str, required=False, help="Nom de la colonne contenant la classe LCZ dans le fichier de sortie.")
     parser.add_argument('-clczrf', '--column_lcz_rf', default="LCZ_RF", type=str, required=False, help="Nom de la colonne contenant la classe LCZ_RF dans le fichier de sortie.")
@@ -929,16 +999,16 @@ def main(gui=False):
     path_import_file = os.path.dirname(file_tree_input)
     import_file = os.path.splitext(os.path.basename(file_tree_input))[0]
     sys.path.append(path_import_file)
-    new_inport_tree = __import__(import_file)
+    new_import_tree = __import__(import_file)
 
     # Fusion les données attributaires
     stackShapeLCZ(urban_atlas_input, lcz_output, building_surface_fraction_input, impervious_surface_fraction_input, pervious_surface_fraction_input, sky_view_factor_input, height_roughness_elements_input, terrain_roughness_class_input, aspect_ratio_input, soil_occupation_input, indicator_list, column_list, abbreviation_list, column_id_ua, path_time_log, format_vector, save_results_intermediate, overwrite)
 
     # Calcul des LCZ pour l'arbre
     if used_randon_forest :
-        computeLCZbyRF(new_inport_tree, lcz_output, nb_sample_rf, model_file_rf, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, column_lcz_rf, correspondance_values_dico, path_time_log, save_results_intermediate, overwrite)
+        computeLCZbyRF(new_import_tree, lcz_output, nb_sample_rf, model_file_rf, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, column_lcz_rf, correspondance_values_dico, path_time_log, save_results_intermediate, overwrite)
     else :
-        computeLCZ(new_inport_tree, lcz_output, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, correspondance_values_dico, path_time_log, format_vector, save_results_intermediate, overwrite)
+        computeLCZ(new_import_tree, lcz_output, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, correspondance_values_dico, path_time_log, format_vector, save_results_intermediate, overwrite)
 
 if __name__ == '__main__':
     main(gui=False)

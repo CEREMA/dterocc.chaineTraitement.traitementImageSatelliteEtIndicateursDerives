@@ -136,8 +136,8 @@ def aspectRatio(grid_input, grid_output, roads_input, built_input, seg_dist, seg
         timeLine(path_time_log, "    Préparation de la base de données PostGIS : ")
 
         # Création de la base de données PostGIS
-        # Conflits avec autres indicateurs (Height of Roughness Elements / Terrain Roughness Class)
-        createDatabase(database_postgis)
+        # ~ dropDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis) # Conflits avec autres indicateurs (Height of Roughness Elements / Terrain Roughness Class)
+        createDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis)
 
         # Import des fichiers shapes maille, bati et routes segmentées dans la base de données PostGIS
         table_name_maille = importVectorByOgr2ogr(database_postgis, grid_input, 'ara_maille', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
@@ -145,7 +145,7 @@ def aspectRatio(grid_input, grid_output, roads_input, built_input, seg_dist, seg
         table_name_routes_seg = importVectorByOgr2ogr(database_postgis, roads_segmented, 'ara_routes_seg', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
 
         # Connection à la base de données PostGIS et initialisation de 'cursor' (permet de récupérer des résultats de requêtes SQL pour les traiter en Python)
-        connection = openConnection(database_postgis, user_postgis, password_postgis, server_postgis, str(port_number), schema_name=schema_postgis)
+        connection = openConnection(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis)
         cursor = connection.cursor()
 
         # Requête d'ajout de champ ID segment route dans la table routes_seg et création des index pour les shapes importés
@@ -562,7 +562,7 @@ def aspectRatio(grid_input, grid_output, roads_input, built_input, seg_dist, seg
         if not save_results_intermediate:
             if os.path.exists(temp_path):
                 shutil.rmtree(temp_path)
-            # ~ dropDatabase(database_postgis) # Conflits avec autres indicateurs (Height of Roughness Elements / Terrain Roughness Class)
+            # ~ dropDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis) # Conflits avec autres indicateurs (Height of Roughness Elements / Terrain Roughness Class)
 
     else:
         print(bold + magenta + "Le calcul de Aspect Ratio a déjà eu lieu." + endC)
@@ -603,7 +603,7 @@ def main(gui=False):
     parser.add_argument('-sch','--schema_postgis', default="public",help="Postgis schema name.", type=str, required=False)
     parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output vector file.", type=str, required=False)
     parser.add_argument('-vee','--extension_vector',default=".shp",help="Option : Extension file for vector. By default : '.shp'", type=str, required=False)
-    parser.add_argument('-log', '--path_time_log', default="/home/scgsi/Bureau/logLCZ.txt", type=str, required=False, help="Name of log")
+    parser.add_argument('-log', '--path_time_log', default="", type=str, required=False, help="Name of log")
     parser.add_argument('-sav', '--save_results_intermediate', action='store_true', default=False, required=False, help="Save or delete intermediate result after the process. By default, False")
     parser.add_argument('-now', '--overwrite', action='store_false', default=True, required=False, help="Overwrite files with same names. By default, True")
     parser.add_argument('-debug', '--debug', default=3, type=int, required=False, help="Option : Value of level debug trace, default : 3")

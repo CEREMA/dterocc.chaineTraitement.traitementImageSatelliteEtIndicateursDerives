@@ -82,14 +82,12 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
             removeVectorFile(grid_output)
 
         # Création de la base de données PostGIS
-        # ~ dropDatabase(database_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Height of Roughness Elements)
-        createDatabase(database_postgis)
+        # ~ dropDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Height of Roughness Elements)
+        createDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis)
 
         # Import des fichiers shapes maille et bati dans la base de données PostGIS
         table_name_maille = importVectorByOgr2ogr(database_postgis, grid_input, 'trc_maille', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
-        print("\n")
         table_name_bati = importVectorByOgr2ogr(database_postgis, built_input, 'trc_bati', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
-        print("\n")
 
         # Récupération de l'emprise de la zone d'étude, définie par le fichier maillage d'entrée
         xmin,xmax,ymin,ymax = getEmpriseFile(grid_input, format_vector)
@@ -99,7 +97,6 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
             print("    xmax = " + str(xmax))
             print("    ymin = " + str(ymin))
             print("    ymax = " + str(ymax))
-            print("\n")
 
         # Création de la liste des valeurs de x à entrer dans la requêtes SQL de création de lignes
         x_list = [xmin] # Initialisation de la liste
@@ -119,8 +116,6 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         if debug >= 2:
             print(bold + "y_list : "  + endC + str(y_list) + "\n")
 
-        print("\n")
-
         #################################################
         ### Création des lignes parallèles N-S et W-E ###
         #################################################
@@ -128,7 +123,7 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         print(bold + cyan + "Création des lignes parallèles N-S et W-E :" + endC)
         timeLine(path_time_log, "    Création des lignes parallèles N-S et W-E : ")
 
-        connection = openConnection(database_postgis, user_postgis, password_postgis, server_postgis, str(port_number), schema_name=schema_postgis)
+        connection = openConnection(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis)
 
         # Construction de la requête de création des lignes parallèles N-S
         query_lines_NS = "DROP TABLE IF EXISTS trc_lines_NS;\n"
@@ -166,8 +161,6 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         if debug >= 1:
             print(query_lines_WE)
         executeQuery(connection, query_lines_WE)
-
-        print("\n")
 
         #####################################################################################################
         ### Découpage des bâtiments, et des lignes N-S et W-E à cheval sur plusieurs mailles (intersects) ###
@@ -207,8 +200,6 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         if debug >= 1:
             print(query_intersect)
         executeQuery(connection, query_intersect)
-
-        print("\n")
 
         #######################################################################################################################################################
         ### Calculs pour l'obtention des sous-indicateurs liés à l'intersect des bâtiments dans chaque maille :  h, plan area ratio, hauteur de déplacement ###
@@ -268,8 +259,6 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
             print(query_bati)
         executeQuery(connection, query_bati)
 
-        print("\n")
-
         #####################################################################################################################################################
         ### Calculs pour l'obtention des sous-indicateurs liés à l'intersect des bâtiments avec chaque ligne N-S, dans chaque maille : frontal area ratio ###
         #####################################################################################################################################################
@@ -319,8 +308,6 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         if debug >= 1:
             print(query_NS)
         executeQuery(connection, query_NS)
-
-        print("\n")
 
         #####################################################################################################################################################
         ### Calculs pour l'obtention des sous-indicateurs liés à l'intersect des bâtiments avec chaque ligne W-E, dans chaque maille : frontal area ratio ###
@@ -372,8 +359,6 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
             print(query_WE)
         executeQuery(connection, query_WE)
 
-        print("\n")
-
         ########################################################################################################################
         ### Calculs finaux pour l'obtention de l'indicateur de classe de rugosité : longueur de rugosité, classe de rugosité ###
         ########################################################################################################################
@@ -416,19 +401,17 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         executeQuery(connection, query_rugo)
         closeConnection(connection)
         exportVectorByOgr2ogr(database_postgis, grid_output, 'trc_rugo', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, format_type=format_vector)
-        print("\n")
 
         ##########################################
         ### Nettoyage des fichiers temporaires ###
         ##########################################
 
         if not save_results_intermediate:
-            # ~ dropDatabase(database_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Height of Roughness Elements)
+            # ~ dropDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=port_number, schema_name=schema_postgis) # Conflits avec autres indicateurs (Aspect Ratio / Height of Roughness Elements)
             pass
 
     else:
         print(bold + magenta + "Le calcul de Terrain Roughness Class a déjà eu lieu." + endC)
-        print("\n")
 
     print(bold + yellow + "Fin du calcul de l'indicateur Terrain Roughness Class." + endC + "\n")
     timeLine(path_time_log, "Fin du calcul de l'indicateur Terrain Roughness Class : ")
@@ -461,7 +444,7 @@ def main(gui=False):
     parser.add_argument('-db','--database_postgis', default="lcz_trc",help="Postgis database name.", type=str, required=False)
     parser.add_argument('-sch','--schema_postgis', default="public",help="Postgis schema name.", type=str, required=False)
     parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output file.", type=str, required=False)
-    parser.add_argument('-log', '--path_time_log', default="/home/scgsi/Bureau/logLCZ.txt", type=str, required=False, help="Name of log")
+    parser.add_argument('-log', '--path_time_log', default="", type=str, required=False, help="Name of log")
     parser.add_argument('-sav', '--save_results_intermediate', action='store_true', default=False, required=False, help="Save or delete intermediate result after the process. By default, False")
     parser.add_argument('-now', '--overwrite', action='store_false', default=True, required=False, help="Overwrite files with same names. By default, True")
     parser.add_argument('-debug', '--debug', default=3, type=int, required=False, help="Option : Value of level debug trace, default : 3")

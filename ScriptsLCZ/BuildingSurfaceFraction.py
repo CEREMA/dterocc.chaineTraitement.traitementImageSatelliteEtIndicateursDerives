@@ -24,6 +24,7 @@ debug = 3
 #     grid_input : fichier de maillage en entrée
 #     grid_output : fichier de maillage en sortie
 #     classif_input : fichier raster de l'occupation du sol en entrée
+#     class_build_list : liste des classes choisis pour definir les zones baties
 #     path_time_log : fichier log de sortie
 #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
 #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
@@ -33,7 +34,7 @@ debug = 3
 # SORTIES DE LA FONCTION :
 #     N.A
 
-def buildingSurfaceFraction(grid_input, grid_output, classif_input, path_time_log, format_vector='ESRI Shapefile', extension_raster=".tif", save_results_intermediate=False, overwrite=True):
+def buildingSurfaceFraction(grid_input, grid_output, classif_input, class_build_list, path_time_log, format_vector='ESRI Shapefile', extension_raster=".tif", save_results_intermediate=False, overwrite=True):
 
     print(bold + yellow + "Début du calcul de l'indicateur Building Surface Fraction." + endC + "\n")
     timeLine(path_time_log, "Début du calcul de l'indicateur Building Surface Fraction : ")
@@ -43,6 +44,7 @@ def buildingSurfaceFraction(grid_input, grid_output, classif_input, path_time_lo
         print(cyan + "buildingSurfaceFraction() : " + endC + "grid_input : " + str(grid_input) + endC)
         print(cyan + "buildingSurfaceFraction() : " + endC + "grid_output : " + str(grid_output) + endC)
         print(cyan + "buildingSurfaceFraction() : " + endC + "classif_input : " + str(classif_input) + endC)
+        print(cyan + "buildingSurfaceFraction() : " + endC + "class_build_list : " + str(class_build_list) + endC)
         print(cyan + "buildingSurfaceFraction() : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "buildingSurfaceFraction() : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "buildingSurfaceFraction() : " + endC + "extension_raster : " + str(extension_raster) + endC)
@@ -71,8 +73,11 @@ def buildingSurfaceFraction(grid_input, grid_output, classif_input, path_time_lo
 
         print(bold + cyan + "Création de la carte de bâti :" + endC)
         timeLine(path_time_log, "    Création de la carte de bâti : ")
-
-        command = "otbcli_BandMath -il %s -out %s uint8 -exp 'im1b1==11100 ? 1 : 99'" % (classif_input, building_raster)
+        expression = ""
+        for id_class in class_build_list :
+            expression += "im1b1==%s or " %(str(id_class))
+        expression = expression[:-4]
+        command = "otbcli_BandMath -il %s -out %s uint8 -exp '%s ? 1 : 99'" %(classif_input, building_raster, expression)
         if debug >= 3 :
             print(command)
         exit_code = os.system(command)
@@ -118,20 +123,31 @@ def main(gui=False):
     parser.add_argument('-in', '--grid_input', default="", type=str, required=True, help="Fichier de maillage en entree (vecteur).")
     parser.add_argument('-out', '--grid_output', default="", type=str, required=True, help="Fichier de maillage en sortie, avec la valeur moyenne de Building Surface Fraction par maille (vecteur).")
     parser.add_argument('-cla', '--classif_input', default="", type=str, required=True, help="Fichier raster de l'occupation du sol en entree (raster).")
+    parser.add_argument('-cbl', '--class_build_list', nargs="+", default=[11100], type=int, required=False, help="Liste des indices de classe de type bati.")
     parser.add_argument('-vef','--format_vector',default="ESRI Shapefile",help="Option : Vector format. By default : ESRI Shapefile", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
-    parser.add_argument('-log', '--path_time_log', default="/home/scgsi/Bureau/logLCZ.txt", type=str, required=False, help="Name of log")
+    parser.add_argument('-log', '--path_time_log', default="", type=str, required=False, help="Name of log")
     parser.add_argument('-sav', '--save_results_intermediate', action='store_true', default=False, required=False, help="Save or delete intermediate result after the process. By default, False")
     parser.add_argument('-now', '--overwrite', action='store_false', default=True, required=False, help="Overwrite files with same names. By default, True")
     parser.add_argument('-debug', '--debug', default=3, type=int, required=False, help="Option : Value of level debug trace, default : 3")
     args = displayIHM(gui, parser)
 
+
+    # Récupération du vecteur grille d'entrée
     if args.grid_input != None:
         grid_input = args.grid_input
+
+    # Récupération du vecteur grille de sortie
     if args.grid_output != None:
         grid_output = args.grid_output
+
+    # Récupération du fichier raster ocs
     if args.classif_input != None:
         classif_input = args.classif_input
+
+    # Récupération de la liste des classes bati
+    if args.class_build_list != None:
+        class_build_list = args.class_build_list
 
     # Récupération du nom du format des fichiers vecteur
     if args.format_vector != None:
@@ -163,6 +179,7 @@ def main(gui=False):
         print(cyan + "BuildingSurfaceFraction : " + endC + "grid_input : " + str(grid_input) + endC)
         print(cyan + "BuildingSurfaceFraction : " + endC + "grid_output : " + str(grid_output) + endC)
         print(cyan + "BuildingSurfaceFraction : " + endC + "classif_input : " + str(classif_input) + endC)
+        print(cyan + "BuildingSurfaceFraction : " + endC + "class_build_list : " + str(class_build_list) + endC)
         print(cyan + "BuildingSurfaceFraction : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "BuildingSurfaceFraction : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "BuildingSurfaceFraction : " + endC + "path_time_log : " + str(path_time_log) + endC)
@@ -173,7 +190,7 @@ def main(gui=False):
     if not os.path.exists(os.path.dirname(grid_output)):
         os.makedirs(os.path.dirname(grid_output))
 
-    buildingSurfaceFraction(grid_input, grid_output, classif_input, path_time_log, format_vector, extension_raster, save_results_intermediate, overwrite)
+    buildingSurfaceFraction(grid_input, grid_output, classif_input, class_build_list, path_time_log, format_vector, extension_raster, save_results_intermediate, overwrite)
 
 if __name__ == '__main__':
     main(gui=False)
