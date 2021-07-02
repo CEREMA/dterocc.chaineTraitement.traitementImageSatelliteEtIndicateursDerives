@@ -463,6 +463,37 @@ class StructTask120_SupervisedClassification:
         self.rf_sizeFeatures = 0
         self.rf_obbError = 0.0
 
+# Task125_DeepLearningClassification
+class StructTask125_DeepLearningClassification:
+    def __init__(self):
+        self.inputFile = ''
+        self.inputSample = ''
+        self.inputVector = ''
+        self.outputFile = ''
+        self.outputModelFile = ''
+        self.inputModelFile = ''
+        self.gridSize = 0
+        self.overflowSize = 0
+        self.increaseSample = False
+        self.numberClass = 0
+        self.networkType = ''
+        self.computeMode = ''
+        self.idGpuCard = 0
+        self.rand = 0
+        self.nn_batch = 0
+        self.nn_numberConvFilter = 0
+        self.nn_kernelSize = 0
+        self.nn_inOneBlock = 0
+        self.nn_rateValidation = 0.0
+        self.nn_numberEpoch = 0
+        self.nn_earlyStoppingMonitor = ''
+        self.nn_earlyStoppingPatience = 0
+        self.nn_earlyStoppingMinDelta = 0.0
+        self.nn_reduceLearningRateMonitor = ''
+        self.nn_reduceLearningRateFactor = 0.0
+        self.nn_reduceLearningRatePatience = 0
+        self.nn_reduceLearningRateMinLR = 0.0
+
 # Task130_PostTraitementsRaster
 class StructPostTraitementsRaste_InputCorrectionFile:
     def __init__(self):
@@ -640,6 +671,23 @@ class StructTask270_ClassificationVector:
         self.outputCfield = ''
         self.expression = ''
 
+# Task280_GenerateOcsWithVectors
+class StructTask280_GenerateOcsWithVectors:
+    def __init__(self):
+        self.inputText = ''
+        self.outputRaster = ''
+        self.codage = ''
+        self.footprintVector = ''
+        self.referenceRaster = ''
+
+# Task290_RasterBandMathX
+class StructTask290_RasterBandMathX:
+    def __init__(self):
+        self.inputFilesList = []
+        self.outputFile = ''
+        self.expression = ''
+        self.encodingOutput = ''
+
 # Task5_TDC_CreateEmprise
 class StructTask5_TDC_CreateEmprise:
     def __init__(self):
@@ -703,6 +751,7 @@ class StructTask30_TDC_TDCSeuil:
         self.attributeValPrecis = ''
         self.attributeValContac = ''
         self.attributeValType = ''
+        self.attributeValReal = ''
 
 # Task40_TDC_TDCKmeans
 class StructTask40_TDC_TDCKmeans:
@@ -855,6 +904,7 @@ class StructTask10_LCZ_BuildingSurfaceFraction:
         self.inputGridFile = ''
         self.outputGridFile = ''
         self.inputClassifFile = ''
+        self.buildingClassLabelList = []
 
 # Task20_LCZ_ImperviousSurfaceFraction
 class StructTask20_LCZ_ImperviousSurfaceFraction:
@@ -879,6 +929,7 @@ class StructTask40_LCZ_SkyViewFactor:
         self.outputGridFile = ''
         self.inputMnsFile = ''
         self.inputClassifFile = ''
+        self.buildingClassLabelList = []
         self.dimGridX = 0
         self.dimGridY = 0
         self.radius = 0
@@ -892,14 +943,11 @@ class StructTask50_LCZ_HeightOfRoughnessElements:
         self.inputGridFile = ''
         self.outputGridFile = ''
         self.inputBuiltFile = ''
-
-# Task55_LCZ_RoughnessByOcsAndMnh
-class StructTask55_LCZ_RoughnessByOcsAndMnh:
-    def __init__(self):
-        self.inputClassifFile = ''
+        self.heightField = ''
+        self.idField = ''
         self.inputMnhFile = ''
-        self.inputGridVector = ''
-        self.outputGridVector = ''
+        self.inputClassifFile = ''
+        self.buildingClassLabelList = []
 
 # Task60_LCZ_TerrainRoughnessClass
 class StructTask60_LCZ_TerrainRoughnessClass:
@@ -923,10 +971,19 @@ class StructTask70_LCZ_AspectRatio:
 # Task80_LCZ_OcsIndicators
 class StructTask80_LCZ_OcsIndicators:
     def __init__(self):
-        self.inputClassifFile = ''
-        self.inputMnhFile = ''
         self.inputGridVector = ''
         self.outputGridVector = ''
+        self.inputClassifVector = ''
+        self.fieldClassifName = ''
+        self.inputMnhFile = ''
+        self.inputClassifFile = ''
+        self.buildingClassLabelList = []
+        self.roadClassLabelList = []
+        self.baresoilClassLabelList = []
+        self.waterClassLabelList = []
+        self.vegetationClassLabelList = []
+        self.hightVegetationClassLabelList = []
+        self.lowVegetationClassLabelList = []
 
 # Task90_LCZ_ClassificationLCZ
 class StructClassificationLCZ_VariablesValuesTree:
@@ -956,6 +1013,15 @@ class StructTask90_LCZ_ClassificationLCZ:
         self.columnNameLcz = ''
         self.columnNameLczRf = ''
         self.indiceFilesList = []
+
+# Task95_LCZ_ClassificationLczOperational
+class StructTask95_LCZ_ClassificationLczOperational:
+    def __init__(self):
+        self.inputDivisionFile = ''
+        self.inputHreFile = ''
+        self.inputOcsFile = ''
+        self.outputLczFile = ''
+        self.columnNameId = ''
 
 # Task10_RSQ_WaterHeight
 class StructTask10_RSQ_WaterHeight:
@@ -994,9 +1060,25 @@ class StructTask30_RSQ_EvolutionOverTime:
         self.inputPlotVector = ''
         self.outputPlotVector = ''
         self.footprintVector = ''
-        self.inputT0File = ''
         self.inputTxFilesList = []
         self.evolutionsList = []
+
+# Task40_RSQ_UhiVulnerability
+class StructTask40_RSQ_UhiVulnerability:
+    def __init__(self):
+        self.inputDivisionVector = ''
+        self.footprintVector = ''
+        self.populationVector = ''
+        self.builtVector = ''
+        self.outputVulnerabilityVector = ''
+        self.idDivisionField = ''
+        self.idPopulationField = ''
+        self.idBuiltField = ''
+        self.stakeField = ''
+        self.healthVulnFieldsList = []
+        self.socialVulnFieldsList = []
+        self.heightField = ''
+        self.builtSqlFilter = ''
 
 # Ensemble des tasks
 class StructTasks:
@@ -1025,6 +1107,7 @@ class StructTasks:
         self.task110_ClassReallocationVector = []
         self.task115_SampleSelectionRaster = []
         self.task120_SupervisedClassification = []
+        self.task125_DeepLearningClassification = []
         self.task130_PostTraitementsRaster = []
         self.task140_SpecificSubSampling = []
         self.task150_ClassRealocationRaster = []
@@ -1041,6 +1124,8 @@ class StructTasks:
         self.task250_RA_ProductOcsRasterisation = []
         self.task260_SegmentationImage = []
         self.task270_ClassificationVector = []
+        self.task280_GenerateOcsWithVectors = []
+        self.task290_RasterBandMathX = []
         self.task5_TDC_CreateEmprise = []
         self.task10_TDC_PolygonMerToTDC = []
         self.task20_TDC_PrepareData = []
@@ -1060,14 +1145,15 @@ class StructTasks:
         self.task30_LCZ_PerviousSurfaceFraction = []
         self.task40_LCZ_SkyViewFactor = []
         self.task50_LCZ_HeightOfRoughnessElements = []
-        self.task55_LCZ_RoughnessByOcsAndMnh = []
         self.task60_LCZ_TerrainRoughnessClass = []
         self.task70_LCZ_AspectRatio = []
         self.task80_LCZ_OcsIndicators = []
         self.task90_LCZ_ClassificationLCZ = []
+        self.task95_LCZ_ClassificationLczOperational = []
         self.task10_RSQ_WaterHeight = []
         self.task20_RSQ_AreasUnderUrbanization = []
         self.task30_RSQ_EvolutionOverTime = []
+        self.task40_RSQ_UhiVulnerability = []
 
 # La structure settings
 class StructSettings:

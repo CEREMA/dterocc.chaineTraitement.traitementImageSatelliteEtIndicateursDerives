@@ -746,6 +746,74 @@ def xmlSettingsParser(settings_file) :
         if value != "" and value is not None:
             settings_struct.tasks.task120_SupervisedClassification[pos].rf_obbError = float(value)
 
+    # Task125_DeepLearningClassification
+    task125_DeepLearningClassification_elem_list = findAllElement(xmldoc, 'Task125_DeepLearningClassification','Tasks/Task125_DeepLearningClassification_List')
+    for pos in range (len(task125_DeepLearningClassification_elem_list)):
+        task125_DeepLearningClassification_elem = task125_DeepLearningClassification_elem_list[pos]
+        settings_struct.tasks.task125_DeepLearningClassification.append(StructTask125_DeepLearningClassification())
+        settings_struct.tasks.task125_DeepLearningClassification[pos].inputFile = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'InputFile')
+        settings_struct.tasks.task125_DeepLearningClassification[pos].inputSample = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'InputSample')
+        settings_struct.tasks.task125_DeepLearningClassification[pos].inputVector = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'InputVector')
+        settings_struct.tasks.task125_DeepLearningClassification[pos].outputFile = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'OutputFile')
+        settings_struct.tasks.task125_DeepLearningClassification[pos].outputModelFile = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'OutputModelFile')
+        settings_struct.tasks.task125_DeepLearningClassification[pos].inputModelFile = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'InputModelFile')
+
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'GridSize')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].gridSize = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'OverflowSize')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].overflowSize = int(value)
+        settings_struct.tasks.task125_DeepLearningClassification[pos].increaseSample = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'IncreaseSample').lower() == 'true'
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NumberClass')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].numberClass = int(value)
+        settings_struct.tasks.task125_DeepLearningClassification[pos].networkType = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NetworkType')
+        settings_struct.tasks.task125_DeepLearningClassification[pos].computeMode = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'ComputeMode')
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'IdGpuCard')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].idGpuCard = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'Rand')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].rand = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'Batch', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_batch = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NumberConvFilter', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_numberConvFilter = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'KernelSize', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_kernelSize = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'InOneBlock', 'NN')
+        if value != "" and value is not None:
+           settings_struct.tasks.task125_DeepLearningClassification[pos].nn_inOneBlock = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'RateValidation', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_rateValidation = float(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NumberEpoch', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_numberEpoch = int(value)
+
+        settings_struct.tasks.task125_DeepLearningClassification[pos].nn_earlyStoppingMonitor = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'EarlyStoppingMonitor', 'NN')
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'EarlyStoppingPatience', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_earlyStoppingPatience = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'EarlyStoppingMinDelta', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_earlyStoppingMinDelta = float(value)
+
+        settings_struct.tasks.task125_DeepLearningClassification[pos].nn_reduceLearningRateMonitor = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'ReduceLearningRateMonitor', 'NN')
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'ReduceLearningRateFactor', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_reduceLearningRateFactor = float(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'ReduceLearningRatePatience', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_reduceLearningRatePatience = int(value)
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'ReduceLearningRateMinLR', 'NN')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].nn_reduceLearningRateMinLR = float(value)
+
     # Task130_PostTraitementsRaster
     task130_PostTraitementsRaster_elem_list = findAllElement(xmldoc, 'Task130_PostTraitementsRaster','Tasks/Task130_PostTraitementsRaster_List')
     for pos in range (len(task130_PostTraitementsRaster_elem_list)):
@@ -1039,6 +1107,27 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task270_ClassificationVector[pos].outputCfield = getValueNodeDataDom(task270_ClassificationVector_elem, 'OutputCfield')
         settings_struct.tasks.task270_ClassificationVector[pos].expression = getValueNodeDataDom(task270_ClassificationVector_elem, 'Expression')
 
+    # Task280_GenerateOcsWithVectors
+    task280_GenerateOcsWithVectors_elem_list = findAllElement(xmldoc, 'Task280_GenerateOcsWithVectors','Tasks/Task280_GenerateOcsWithVectors_List')
+    for pos in range (len(task280_GenerateOcsWithVectors_elem_list)):
+        task280_GenerateOcsWithVectors_elem = task280_GenerateOcsWithVectors_elem_list[pos]
+        settings_struct.tasks.task280_GenerateOcsWithVectors.append(StructTask280_GenerateOcsWithVectors())
+        settings_struct.tasks.task280_GenerateOcsWithVectors[pos].inputText = getValueNodeDataDom(task280_GenerateOcsWithVectors_elem, 'InputText')
+        settings_struct.tasks.task280_GenerateOcsWithVectors[pos].outputRaster = getValueNodeDataDom(task280_GenerateOcsWithVectors_elem, 'OutputRaster')
+        settings_struct.tasks.task280_GenerateOcsWithVectors[pos].codage = getValueAttributeDom(task280_GenerateOcsWithVectors_elem, 'codage', 'OutputRaster')
+        settings_struct.tasks.task280_GenerateOcsWithVectors[pos].footprintVector = getValueNodeDataDom(task280_GenerateOcsWithVectors_elem, 'FootprintVector')
+        settings_struct.tasks.task280_GenerateOcsWithVectors[pos].referenceRaster = getValueNodeDataDom(task280_GenerateOcsWithVectors_elem, 'ReferenceRaster')
+
+   # Task290_RasterBandMathX
+    task290_RasterBandMathX_elem_list = findAllElement(xmldoc, 'Task290_RasterBandMathX','Tasks/Task290_RasterBandMathX_List')
+    for pos in range (len(task290_RasterBandMathX_elem_list)):
+        task290_RasterBandMathX_elem = task290_RasterBandMathX_elem_list[pos]
+        settings_struct.tasks.task290_RasterBandMathX.append(StructTask290_RasterBandMathX())
+        settings_struct.tasks.task290_RasterBandMathX[pos].inputFilesList = getListNodeDataDom(task290_RasterBandMathX_elem, 'InputFilesList', 'InputFile')
+        settings_struct.tasks.task290_RasterBandMathX[pos].outputFile = getValueNodeDataDom(task290_RasterBandMathX_elem, 'OutputFile')
+        settings_struct.tasks.task290_RasterBandMathX[pos].expression = getValueNodeDataDom(task290_RasterBandMathX_elem, 'Expression')
+        settings_struct.tasks.task290_RasterBandMathX[pos].encodingOutput = getValueNodeDataDom(task290_RasterBandMathX_elem, 'EncodingOutput')
+
     # Task5_TDC_CreateEmprise
     task5_TDC_CreateEmprise_elem_list = findAllElement(xmldoc, 'Task5_TDC_CreateEmprise','Tasks/Task5_TDC_CreateEmprise_List')
     for pos in range (len(task5_TDC_CreateEmprise_elem_list)):
@@ -1120,6 +1209,7 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task30_TDC_TDCSeuil[pos].attributeValPrecis = getValueNodeDataDom(task30_TDC_TDCSeuil_elem, 'AttributeValPrecis')
         settings_struct.tasks.task30_TDC_TDCSeuil[pos].attributeValContac = getValueNodeDataDom(task30_TDC_TDCSeuil_elem, 'AttributeValContac')
         settings_struct.tasks.task30_TDC_TDCSeuil[pos].attributeValType = getValueNodeDataDom(task30_TDC_TDCSeuil_elem, 'AttributeValType')
+        settings_struct.tasks.task30_TDC_TDCSeuil[pos].attributeValReal = getValueNodeDataDom(task30_TDC_TDCSeuil_elem, 'AttributeValReal')
 
     # Task40_TDC_TDCKmeans
     task40_TDC_TDCKmeans_elem_list = findAllElement(xmldoc, 'Task40_TDC_TDCKmeans','Tasks/Task40_TDC_TDCKmeans_List')
@@ -1324,6 +1414,7 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[pos].inputGridFile = getValueNodeDataDom(task10_LCZ_BuildingSurfaceFraction_elem, 'InputGridFile')
         settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[pos].outputGridFile = getValueNodeDataDom(task10_LCZ_BuildingSurfaceFraction_elem, 'OutputGridFile')
         settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[pos].inputClassifFile = getValueNodeDataDom(task10_LCZ_BuildingSurfaceFraction_elem, 'InputClassifFile')
+        settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[pos].buildingClassLabelList = getListNodeDataDom(task10_LCZ_BuildingSurfaceFraction_elem, 'BuildingClassLabelList', 'ClassLabel')
 
     # Task20_LCZ_ImperviousSurfaceFraction
     task20_LCZ_ImperviousSurfaceFraction_elem_list = findAllElement(xmldoc, 'Task20_LCZ_ImperviousSurfaceFraction','Tasks/Task20_LCZ_ImperviousSurfaceFraction_List')
@@ -1354,6 +1445,7 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task40_LCZ_SkyViewFactor[pos].outputGridFile = getValueNodeDataDom(task40_LCZ_SkyViewFactor_elem, 'OutputGridFile')
         settings_struct.tasks.task40_LCZ_SkyViewFactor[pos].inputMnsFile = getValueNodeDataDom(task40_LCZ_SkyViewFactor_elem, 'InputMnsFile')
         settings_struct.tasks.task40_LCZ_SkyViewFactor[pos].inputClassifFile = getValueNodeDataDom(task40_LCZ_SkyViewFactor_elem, 'InputClassifFile')
+        settings_struct.tasks.task40_LCZ_SkyViewFactor[pos].buildingClassLabelList = getListNodeDataDom(task40_LCZ_SkyViewFactor_elem, 'BuildingClassLabelList', 'ClassLabel')
         value = getValueNodeDataDom(task40_LCZ_SkyViewFactor_elem, 'DimGridX')
         if value != "" and value is not None:
             settings_struct.tasks.task40_LCZ_SkyViewFactor[pos].dimGridX = int(value)
@@ -1381,16 +1473,11 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].inputGridFile = getValueNodeDataDom(task50_LCZ_HeightOfRoughnessElements_elem, 'InputGridFile')
         settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].outputGridFile = getValueNodeDataDom(task50_LCZ_HeightOfRoughnessElements_elem, 'OutputGridFile')
         settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].inputBuiltFile = getValueNodeDataDom(task50_LCZ_HeightOfRoughnessElements_elem, 'InputBuiltFile')
-
-    # Task55_LCZ_RoughnessByOcsAndMnh
-    task55_LCZ_RoughnessByOcsAndMnh_elem_list = findAllElement(xmldoc, 'Task55_LCZ_RoughnessByOcsAndMnh','Tasks/Task55_LCZ_RoughnessByOcsAndMnh_List')
-    for pos in range (len(task55_LCZ_RoughnessByOcsAndMnh_elem_list)):
-        task55_LCZ_RoughnessByOcsAndMnh_elem = task55_LCZ_RoughnessByOcsAndMnh_elem_list[pos]
-        settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh.append(StructTask55_LCZ_RoughnessByOcsAndMnh())
-        settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[pos].inputClassifFile = getValueNodeDataDom(task55_LCZ_RoughnessByOcsAndMnh_elem, 'InputClassifFile')
-        settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[pos].inputMnhFile = getValueNodeDataDom(task55_LCZ_RoughnessByOcsAndMnh_elem, 'InputMnhFile')
-        settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[pos].inputGridVector = getValueNodeDataDom(task55_LCZ_RoughnessByOcsAndMnh_elem, 'InputGridVector')
-        settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[pos].outputGridVector = getValueNodeDataDom(task55_LCZ_RoughnessByOcsAndMnh_elem, 'OutputGridVector')
+        settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].heightField = getValueAttributeDom(task50_LCZ_HeightOfRoughnessElements_elem, 'heightField', 'InputBuiltFile')
+        settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].idField = getValueAttributeDom(task50_LCZ_HeightOfRoughnessElements_elem, 'idField', 'InputBuiltFile')
+        settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].inputMnhFile = getValueNodeDataDom(task50_LCZ_HeightOfRoughnessElements_elem, 'InputMnhFile')
+        settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].inputClassifFile = getValueNodeDataDom(task50_LCZ_HeightOfRoughnessElements_elem, 'InputClassifFile')
+        settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[pos].buildingClassLabelList = getListNodeDataDom(task50_LCZ_HeightOfRoughnessElements_elem, 'BuildingClassLabelList', 'ClassLabel')
 
     # Task60_LCZ_TerrainRoughnessClass
     task60_LCZ_TerrainRoughnessClass_elem_list = findAllElement(xmldoc, 'Task60_LCZ_TerrainRoughnessClass','Tasks/Task60_LCZ_TerrainRoughnessClass_List')
@@ -1428,10 +1515,19 @@ def xmlSettingsParser(settings_file) :
     for pos in range (len(task80_LCZ_OcsIndicators_elem_list)):
         task80_LCZ_OcsIndicators_elem = task80_LCZ_OcsIndicators_elem_list[pos]
         settings_struct.tasks.task80_LCZ_OcsIndicators.append(StructTask80_LCZ_OcsIndicators())
-        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].inputClassifFile = getValueNodeDataDom(task80_LCZ_OcsIndicators_elem, 'InputClassifFile')
-        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].inputMnhFile = getValueNodeDataDom(task80_LCZ_OcsIndicators_elem, 'InputMnhFile')
         settings_struct.tasks.task80_LCZ_OcsIndicators[pos].inputGridVector = getValueNodeDataDom(task80_LCZ_OcsIndicators_elem, 'InputGridVector')
         settings_struct.tasks.task80_LCZ_OcsIndicators[pos].outputGridVector = getValueNodeDataDom(task80_LCZ_OcsIndicators_elem, 'OutputGridVector')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].inputClassifVector = getValueNodeDataDom(task80_LCZ_OcsIndicators_elem, 'InputClassifVector')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].fieldClassifName = getValueAttributeDom(task80_LCZ_OcsIndicators_elem, 'fieldClassifName', 'InputClassifVector')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].inputClassifFile = getValueNodeDataDom(task80_LCZ_OcsIndicators_elem, 'InputClassifFile')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].inputMnhFile = getValueNodeDataDom(task80_LCZ_OcsIndicators_elem, 'InputMnhFile')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].buildingClassLabelList = getListNodeDataDom(task80_LCZ_OcsIndicators_elem, 'BuildingClassLabelList', 'ClassLabel')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].roadClassLabelList = getListNodeDataDom(task80_LCZ_OcsIndicators_elem, 'RoadClassLabelList', 'ClassLabel')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].baresoilClassLabelList = getListNodeDataDom(task80_LCZ_OcsIndicators_elem, 'BaresoilClassLabelList', 'ClassLabel')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].waterClassLabelList = getListNodeDataDom(task80_LCZ_OcsIndicators_elem, 'WaterClassLabelList', 'ClassLabel')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].vegetationClassLabelList = getListNodeDataDom(task80_LCZ_OcsIndicators_elem, 'VegetationClassLabelList', 'ClassLabel')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].hightVegetationClassLabelList = getListNodeDataDom(task80_LCZ_OcsIndicators_elem, 'HightVegetationClassLabelList', 'ClassLabel')
+        settings_struct.tasks.task80_LCZ_OcsIndicators[pos].lowVegetationClassLabelList = getListNodeDataDom(task80_LCZ_OcsIndicators_elem, 'LowVegetationClassLabelList', 'ClassLabel')
 
     # Task90_LCZ_ClassificationLCZ
     task90_LCZ_ClassificationLCZ_elem_list = findAllElement(xmldoc, 'Task90_LCZ_ClassificationLCZ','Tasks/Task90_LCZ_ClassificationLCZ_List')
@@ -1473,6 +1569,17 @@ def xmlSettingsParser(settings_file) :
             indice_file_struct.columnSrc = columnSrc_list[index]
             indice_file_struct.abbreviation = abbreviation_list[index]
             settings_struct.tasks.task90_LCZ_ClassificationLCZ[pos].indiceFilesList.append(indice_file_struct)
+
+    # Task95_LCZ_ClassificationLczOperational
+    task95_LCZ_ClassificationLczOperational_elem_list = findAllElement(xmldoc, 'Task95_LCZ_ClassificationLczOperational','Tasks/Task95_LCZ_ClassificationLczOperational_List')
+    for pos in range (len(task95_LCZ_ClassificationLczOperational_elem_list)):
+        task95_LCZ_ClassificationLczOperational_elem = task95_LCZ_ClassificationLczOperational_elem_list[pos]
+        settings_struct.tasks.task95_LCZ_ClassificationLczOperational.append(StructTask95_LCZ_ClassificationLczOperational())
+        settings_struct.tasks.task95_LCZ_ClassificationLczOperational[pos].inputDivisionFile = getValueNodeDataDom(task95_LCZ_ClassificationLczOperational_elem, 'InputDivisionFile')
+        settings_struct.tasks.task95_LCZ_ClassificationLczOperational[pos].inputHreFile = getValueNodeDataDom(task95_LCZ_ClassificationLczOperational_elem, 'InputHreFile')
+        settings_struct.tasks.task95_LCZ_ClassificationLczOperational[pos].inputOcsFile = getValueNodeDataDom(task95_LCZ_ClassificationLczOperational_elem, 'InputOcsFile')
+        settings_struct.tasks.task95_LCZ_ClassificationLczOperational[pos].outputLczFile = getValueNodeDataDom(task95_LCZ_ClassificationLczOperational_elem, 'OutputLczFile')
+        settings_struct.tasks.task95_LCZ_ClassificationLczOperational[pos].columnNameId = getValueNodeDataDom(task95_LCZ_ClassificationLczOperational_elem, 'ColumnNameId')
 
     # Task10_RSQ_WaterHeight
     task10_RSQ_WaterHeight_elem_list = findAllElement(xmldoc, 'Task10_RSQ_WaterHeight', 'Tasks/Task10_RSQ_WaterHeight_List')
@@ -1520,9 +1627,27 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task30_RSQ_EvolutionOverTime[pos].inputPlotVector = getValueNodeDataDom(task30_RSQ_EvolutionOverTime_elem, 'InputPlotVector')
         settings_struct.tasks.task30_RSQ_EvolutionOverTime[pos].outputPlotVector = getValueNodeDataDom(task30_RSQ_EvolutionOverTime_elem, 'OutputPlotVector')
         settings_struct.tasks.task30_RSQ_EvolutionOverTime[pos].footprintVector = getValueNodeDataDom(task30_RSQ_EvolutionOverTime_elem, 'FootprintVector')
-        settings_struct.tasks.task30_RSQ_EvolutionOverTime[pos].inputT0File = getValueNodeDataDom(task30_RSQ_EvolutionOverTime_elem, 'InputT0File')
         settings_struct.tasks.task30_RSQ_EvolutionOverTime[pos].inputTxFilesList = getListNodeDataDom(task30_RSQ_EvolutionOverTime_elem, 'InputTxFilesList', 'InputTxFile')
         settings_struct.tasks.task30_RSQ_EvolutionOverTime[pos].evolutionsList = getListNodeDataDom(task30_RSQ_EvolutionOverTime_elem, 'EvolutionsList', 'Evolution')
+
+    # Task40_RSQ_UhiVulnerability
+    task40_RSQ_UhiVulnerability_elem_list = findAllElement(xmldoc, 'Task40_RSQ_UhiVulnerability', 'Tasks/Task40_RSQ_UhiVulnerability_List')
+    for pos in range(len(task40_RSQ_UhiVulnerability_elem_list)):
+        task40_RSQ_UhiVulnerability_elem = task40_RSQ_UhiVulnerability_elem_list[pos]
+        settings_struct.tasks.task40_RSQ_UhiVulnerability.append(StructTask40_RSQ_UhiVulnerability())
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].inputDivisionVector = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'InputDivisionVector')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].footprintVector = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'FootprintVector')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].populationVector = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'PopulationVector')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].builtVector = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'BuiltVector')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].outputVulnerabilityVector = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'OutputVulnerabilityVector')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].idDivisionField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'IdDivisionField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].idPopulationField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'IdPopulationField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].idBuiltField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'IdBuiltField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].stakeField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'StakeField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].healthVulnFieldsList = getListNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'HealthVulnFieldsList', 'HealthVulnField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].socialVulnFieldsList = getListNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'SocialVulnFieldsList', 'SocialVulnField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].heightField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'HeightField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].builtSqlFilter = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'BuiltSqlFilter')
 
     # Retour de la structure remplie
     return settings_struct

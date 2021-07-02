@@ -6,7 +6,7 @@
 
     <!-- Donnees generales -->
     <General>
-        <Version>2.7.5</Version>
+        <Version>2.7.8</Version>
         <!-- Paramètres liés à l'execution du sequenceur -->
         <Processing>
             <!--
@@ -105,6 +105,7 @@
                     # 110 : Nettoyage apres controle visuel des echantillons d'Apprentissage VECTEUR en fonction de la table de proposition
                     # 115 : Selection des points d'échantions dans un fichier raster
                     # 120 : Execution d'une classification supervisee (SVN ou Random Forest)
+                    # 125 : Exection d'une classification en deep learning (Reseau de neurone Unet ou ResUnet)
                     # 130 : Post traitements des micro-classes de la classification en direct ou indirect a partir de donnees raster deja traites par ailleurs
                     # 140 : Sous echantillonnage des micro-classes identifiees a -2 dans la table de reaffectation
                     # 150 : Reaffectation apres controle visuel des micro-classes de classification RASTER en fonction de la table de proposition
@@ -121,6 +122,8 @@
                     # 250_RA : Rasterisation de l'OCS vecteurisé  (etude RA)
                     # 260 : Segmentation d'une image
                     # 270 : Classification vecteur
+                    # 280 : OCS raster à partir d'une liste de vecteurs
+                    # 290 : Utilisation de l'outil BandMathX de l'OTB
                     #
                     # TDC : Extraction TDC (chaîne complète)
                     # 5_TDC : Création d'une emprise vecteur des images contenues dans une arboresence cette emprise peut etre optimiser en ne prenant pas les no-data
@@ -142,17 +145,18 @@
                     # 20_LCZ : Calcul de l'indicateur LCZ pourcentage de surface imperméable (Impervious Surface Fraction)
                     # 30_LCZ : Calcul de l'indicateur LCZ pourcentage de surface perméable (Pervious Surface Fraction)
                     # 40_LCZ : Calcul de l'indicateur LCZ facteur de vue du ciel (Sky View Factor)
-                    # 50_LCZ : Calcul de l'indicateur LCZ hauteur des éléments de rugosité (Height of Roughness Elements)
-                    # 55_LCZ : Calcul de l'indicateur LCZ hauteur des éléments de rugosité (Height of Roughness Elements) Methode piur l'internationalisation avec OCS et MNS
+                    # 50_LCZ : Calcul de l'indicateur LCZ hauteur des éléments de rugosité (Height of Roughness Elements) ou Methode piur l'internationalisation avec OCS et MNS
                     # 60_LCZ : Calcul de l'indicateur LCZ classe de rugosité (Terrain Roughness Class)
                     # 70_LCZ : Calcul de l'indicateur LCZ rapport d'aspect (Aspect Ratio)
                     # 80_LCZ : Calcul d'indicateurs OCS (non-compris dans la classification LCZ d'origine)
                     # 90_LCZ : Classification LCZ à partir de tous les indicateurs calculés
+                    # 95_LCZ : Classification LCZ par la méthode dite opérationnelle
 
                     # RSQ : Indicateurs liés au risque
                     # 10_RSQ : Cartographie des classes de hauteurs d'eau
                     # 20_RSQ : Cartographie des parcelles disponibles et constructibles
                     # 30_RSQ : Cartographie des évolutions d'OCS à la parcelle
+                    # 40_RSQ : Cartographie des vulnérabilité au phénomène ICU
                 -->
 
                 <!-- Ex1 -->
@@ -181,6 +185,7 @@
                 <Task dependency="40">90</Task>
                 <Task dependency="90">100</Task>
                 <Task dependency="100">120</Task>
+                <Task dependency="">125</Task>
                 <Task dependency="120">160</Task>
                 <Task dependency="160">170</Task>
 
@@ -217,6 +222,7 @@
                 <Task dependency="170">230</Task>
                 <Task dependency="210_RA">240_RA</Task>
                 <Task dependency="240_RA">250_RA</Task>
+                <Task dependency="250_RA">290</Task>
 
                 <!-- Segmentation et classification vecteur -->
                 <Task>260</Task>
@@ -255,11 +261,16 @@
                 <Task dependency="00_LCZ" error_management="false">70_LCZ</Task>
                 <Task dependency="00_LCZ">80_LCZ</Task>
                 <Task dependency="10_LCZ,20_LCZ,30_LCZ,40_LCZ,50_LCZ,60_LCZ,70_LCZ,80_LCZ">90_LCZ</Task>
+                <!-- LCZ opérationnel -->
+                <Task>50_LCZ</Task>
+                <Task>80_LCZ</Task>
+                <Task dependency="50_LCZ,80_LCZ">95_LCZ</Task>
 
                 <!-- Risques -->
                 <Task>10_RSQ</Task>
                 <Task>20_RSQ</Task>
                 <Task>30_RSQ</Task>
+                <Task>40_RSQ</Task>
 
             </TasksList>
 
@@ -862,6 +873,9 @@
                     (Vegetation > Bati AND Vegetation > Route AND Vegetation > Eau AND Vegetation > SolNu) AND (mean >= 1 AND mean < 5)
                     (Bati >= SolNu AND Bati >= Vegetation) OR (Route >= SolNu AND Route >= Vegetation) OR (Eau >= SolNu AND Eau >= Vegetation)
                 -->
+                <!--
+                    ATTENTION : pour le choix du type fichier de sortie au format raster ou vecteur l'un ou l'autre est possible ou les 2 mais le vecteur est toujours creé le rasteur est issu de la rasterisation du veteur si demander
+                -->
                 <ClassMacroSampleList>
                     <ClassMacroSample name="bati">
                         <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_bati.shp</OutputVector>
@@ -875,7 +889,7 @@
                         <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route.shp</OutputVector>
                         <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route_mask.tif</OutputFile>
                         <DataBaseFilesList>
-                            <DataBaseFile buffer="5.0" sql="NATURE = 'Autoroute' AND FRANCHISSMT != 'Tunnel'">/mnt/Geomatique/REF_GEO/BD_Topo/D33/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_PRIMAIRE_BDT_033.SHP</DataBaseFile>
+                            <DataBaseFile buffer="5.0" sql="NATURE = 'Autoroute' AND FRANCHISST != 'Tunnel'">/mnt/Geomatique/REF_GEO/BD_Topo/D33/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_PRIMAIRE_BDT_033.SHP</DataBaseFile>
                             <DataBaseFile buffer="3.0" sql="">/mnt/Geomatique/REF_GEO/BD_Topo/D33/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_SECONDAIRE_BDT_033.SHP</DataBaseFile>
                             <DataBaseFile buffer="-1.0" sql="">/mnt/Geomatique/REF_GEO/BD_Topo/D33/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_SURFACE_ROUTE_BDT_033.SHP</DataBaseFile>
                         </DataBaseFilesList>
@@ -1166,6 +1180,73 @@
             </Task120_SupervisedClassification>
         </Task120_SupervisedClassification_List>
 
+        <!-- Supervised Classification -->
+        <!-- CLASSIFICATION SUPERVISEE -->
+        <Task125_DeepLearningClassification_List>
+            <Task125_DeepLearningClassification>
+                <!-- Fichier raster image stacké d'entrée -->
+                <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Stack/imageTest_stack.tif</InputFile>
+                <!-- Fichier rasteur contenant les données d'échantillons d'apprentissage -->
+                <InputSample>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Training/imageTraining.tif</InputSample>
+                <!-- Vecteur emprise zone d'etude si vide ce sera l'emprise du fichier raster InputFile sans les no-data -->
+                <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/EmpriseTest.shp</InputVector>
+                <!-- Fichier raster de sortie contenant la classification -->
+                <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Classification/imageTest_classif_raw.tif</OutputFile>
+                <!-- Fichier modele du reseau de neurone de sortie à conserver sinon mettre à vide (au format hfd5) -->
+                <OutputModelFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Classification/outputModel_neuronal.hfd5</OutputModelFile>
+                <!-- Fichier modele v d'entrée à  utiliser pour faire la classification, le resau de neurone ne sera pas recalculé, si rempli ce sera le mode prioritaire sinon mettre à vide (au format hfd5) -->
+                <InputModelFile></InputModelFile>
+
+                <!-- Dimension des carreaux de la grille idem en X et en Y des carreaux du quadrillage, puissance de 2 (en pixels) -->
+                <GridSize>256</GridSize>
+                <!-- Debord dans la grille de la partie utile des données pour eviter les effets de bord, multiple de 2 (en pixels) -->
+                <OverflowSize>20</OverflowSize>
+                <!-- Augmentation des donnees d'apprentissage -->
+                <IncreaseSample>false</IncreaseSample>
+                <!-- Nombre de classe pour la classification de l'image si 1 reseau en mono classe (exemple identification du bati) -->
+                <NumberClass>5</NumberClass>
+                <!-- Type de reseau de neurone : "Unet" ou "ResUnet" -->
+                <NetworkType>Unet</NetworkType>
+                <!-- Choix du mode d'execution du reseau par processeur cpu ou par carte graphique : "cpu" ou "gpu" -->
+                <ComputeMode>gpu</ComputeMode>
+                <!-- Choix de la carte graphique si plusieurs cartes graphiques par defaut la première disponible -->
+                <IdGpuCard>0</IdGpuCard>
+                <!-- Valeur pour fixer la partie random de tirage des points aléatoires -->
+                <Rand>5</Rand>
+
+                <!-- Paramètres des reseaux de neurone -->
+                <NN>
+                    <!-- Nombre d'échantillons par mise à jour du gradient -->
+                    <Batch>32</Batch>
+                    <!-- Nombre de filtres convolutifs dans une couche du réseau de neurone -->
+                    <NumberConvFilter>8</NumberConvFilter>
+                    <!-- Dimension des filtres convolutifs du reseau de neurone -->
+                    <KernelSize>5</KernelSize>
+                    <!-- Lors de la prédiction des réseaux de neurones, prédire tous les masques dans un ou plusieurs  -->
+                    <InOneBlock>1</InOneBlock>
+                    <!-- Part de l'ensemble de données dédié à la validation -->
+                    <RateValidation>0.2</RateValidation>
+                    <!-- Nombre d'époques pour former le réseau de neurone  -->
+                    <NumberEpoch>200</NumberEpoch>
+                    <!-- Arrêt précoce : Quantité à surveiller -->
+                    <EarlyStoppingMonitor>val_loss</EarlyStoppingMonitor>
+                    <!-- Arrêt précoce : Nombre d'époques sans amélioration après lesquelles l'entraînement sera arrêté -->
+                    <EarlyStoppingPatience>20</EarlyStoppingPatience>
+                    <!-- Arrêt précoce : Un changement absolu inférieur à min_delta comptera comme aucune amélioration -->
+                    <EarlyStoppingMinDelta>1e-7</EarlyStoppingMinDelta>
+                    <!-- Réduire le taux d'apprentissage : Quantité à surveiller -->
+                    <ReduceLearningRateMonitor>val_loss</ReduceLearningRateMonitor>
+                    <!-- Réduire le taux d'apprentissage : Facteur par lequel le taux d'apprentissage sera réduit -->
+                    <ReduceLearningRateFactor>0.1</ReduceLearningRateFactor>
+                    <!-- Réduire le taux d'apprentissage : Nombre d'époques sans amélioration après lesquelles le taux d'apprentissage sera réduit  -->
+                    <ReduceLearningRatePatience>10</ReduceLearningRatePatience>
+                    <!-- Réduire le taux d'apprentissage : Seuil de mesure du nouvel optimum, pour se concentrer uniquement sur les changements significatifs -->
+                    <ReduceLearningRateMinLR>1e-7</ReduceLearningRateMinLR>
+
+                </NN>
+            </Task125_DeepLearningClassification>
+        </Task125_DeepLearningClassification_List>
+
         <!-- Post Traitements Raster -->
         <!-- POST TRAITEMENTS DES MICRO-CLASSES SORTIE CLASSIF A PARTIR DE DONNEES RASTER -->
         <Task130_PostTraitementsRaster_List>
@@ -1259,7 +1340,7 @@
                 <ClassMacroSuperpositionList>
                     <ClassMacroSuperposition name="route" label="11200">
                         <DataBaseFilesList>
-                            <DataBaseFile buffer="3.0" sql="TYPE_ROUTE = 'Autoroute' OR TYPE_ROUTE = 'Départementale' OR TYPE_ROUTE = 'Nationale' OR TYPE_ROUTE ='Route européenne'">/mnt/Geomatique/REF_GEO/BD_Topo/D33/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_SECONDAIRE_BDT_033</DataBaseFile>
+                            <DataBaseFile buffer="3.0" sql="TYPE_ROUTE = 'Autoroute' OR TYPE_ROUTE = 'Départementale' OR TYPE_ROUTE = 'Nationale' OR TYPE_ROUTE ='Route européenne'">/mnt/Geomatique/REF_GEO/BD_Topo/D33/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_SECONDAIRE_BDT_033.SHP</DataBaseFile>
                             <DataBaseFile buffer="LARGEUR">/mnt/Geomatique/REF_GEO/BD_Topo/D33/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_PRIMAIRE_BDT_033.SHP.SHP</DataBaseFile>
                         </DataBaseFilesList>
                     </ClassMacroSuperposition>
@@ -1539,6 +1620,40 @@
             </Task270_ClassificationVector>
         </Task270_ClassificationVector_List>
 
+        <!-- OCS raster à partir d'une liste de vecteurs -->
+        <!-- GENERATE OCS WITH VECTORS -->
+        <Task280_GenerateOcsWithVectors_List>
+            <Task280_GenerateOcsWithVectors>
+                <!-- Fichier texte d'entrée, contenant la liste des vecteurs à traiter (et les traitements à réaliser) -->
+                <InputText>/mnt/RAM_disk/vectors_list.txt</InputText>
+                <!-- Fichier raster de sortie, correspondant à l'OCS issue de la liste des vecteurs -->
+                <OutputRaster codage="uint8">/mnt/RAM_disk/OCS_from_vectors.tif</OutputRaster>
+                <!-- Fichier vecteur d'emprise (pour le découpage des vecteurs à la zone d'étude) -->
+                <FootprintVector>/mnt/RAM_disk/study_area.shp</FootprintVector>
+                <!-- Fichier raster de référence (pour la rastérisation des vecteurs) -->
+                <ReferenceRaster>/mnt/RAM_disk/reference_image.tif</ReferenceRaster>
+            </Task280_GenerateOcsWithVectors>
+        </Task280_GenerateOcsWithVectors_List>
+
+        <!-- Utilisation du BandMathX de l'OTB en multi(bandes -->
+        <!-- BANDMATH DE COUCHES RASTER MULTI-BANDES  -->
+        <Task290_RasterBandMathX_List>
+            <Task290_RasterBandMathX>
+                <InputFilesList>
+                    <!-- Liste des rasteurs d'entrée -->
+                    <InputFile>/mnt/RAM_disk/Images/CoucheNuagePleiades1.tif</InputFile>
+                    <InputFile>/mnt/RAM_disk/Images/Pleiades1ToulouseMetropole_20180924_cut.tif</InputFile>
+                    <InputFile>/mnt/RAM_disk/Images/Pleiades2ToulouseMetropole_20180924_cut.tif</InputFile>
+                </InputFilesList>
+                <!-- Fichier raster résultat (sortie) -->
+                <OutputFile>/mnt/RAM_disk/Images/Pleiades12ToulouseMetropole_20180924_cut.tiff</OutputFile>
+                <!-- L'expression permettant le calcul raster -->
+                <Expression>im1b1==1? im3:im2</Expression>
+                <!-- Paramètres du BandMathX -->
+                <EncodingOutput>uint16</EncodingOutput>
+            </Task290_RasterBandMathX>
+        </Task290_RasterBandMathX_List>
+
         <!-- Polygon mer to TDC (Littoral) -->
         <!-- PASSAGE DE L'IMAGE VECTORISÉE AU TRAIT DE CÔTE  -->
         <Task10_TDC_PolygonMerToTDC_List>
@@ -1602,10 +1717,11 @@
                 <CalcIndiceImage>true</CalcIndiceImage>
                 <AttributeValLimite>Milieu jet de rive</AttributeValLimite>
                 <AttributeValProced>Numerisation semi-automatique</AttributeValProced>
-                <AttributeValDatepr></AttributeValDatepr>
+                <AttributeValDatepr>2020-09-15</AttributeValDatepr>
                 <AttributeValPrecis>Metrique</AttributeValPrecis>
-                <AttributeValContac>Cerema_CBosc</AttributeValContac>
+                <AttributeValContac>DREAL_Occ</AttributeValContac>
                 <AttributeValType>Pleiades</AttributeValType>
+                <AttributeValReal>Cerema_ACeyte</AttributeValReal>
             </Task30_TDC_TDCSeuil>
         </Task30_TDC_TDCSeuil_List>
 
@@ -1880,6 +1996,10 @@
                 <OutputGridFile>/home/scgsi/Bureau/LCZ/BuildingSurfaceFraction.shp</OutputGridFile>
                 <!-- Fichier raster de l'occupation du sol en entrée (raster entrée) -->
                 <InputClassifFile>/home/scgsi/Bureau/LCZ/source_data/Classif.tif</InputClassifFile>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones baties -->
+                <BuildingClassLabelList>
+                    <ClassLabel>11100</ClassLabel>
+                </BuildingClassLabelList>
             </Task10_LCZ_BuildingSurfaceFraction>
         </Task10_LCZ_BuildingSurfaceFraction_List>
 
@@ -1931,6 +2051,10 @@
                 <InputMnsFile>/home/scgsi/Bureau/LCZ/source_data/MNS.tif</InputMnsFile>
                 <!-- Fichier raster de l'occupation du sol en entrée (raster entrée) -->
                 <InputClassifFile>/home/scgsi/Bureau/LCZ/source_data/Classif.tif</InputClassifFile>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones baties -->
+                <BuildingClassLabelList>
+                    <ClassLabel>11100</ClassLabel>
+                </BuildingClassLabelList>
                 <!-- Largeur des carreaux du quadrillage (en mètres) -->
                 <DimGridX>1000</DimGridX>
                 <!-- Hauteur des carreaux du quadrillage (en mètres) -->
@@ -1948,6 +2072,7 @@
 
         <!-- Height of Roughness Elements (LCZ) -->
         <!-- CALCUL DE L'INDICATEUR LCZ HAUTEUR DES ELEMENTS DE RUGOSITE -->
+        <!-- 2 Methodes possibles avec une base de données bati contenant l'information hauteur ou avec des rasters OCS et MNH (Internationalisation) -->
         <Task50_LCZ_HeightOfRoughnessElements_List>
             <Task50_LCZ_HeightOfRoughnessElements>
                 <!-- Fichier de maillage en entrée (vecteur entrée) -->
@@ -1955,24 +2080,17 @@
                 <!-- Fichier de maillage en sortie, avec la valeur de Height of Roughness Elements par maille (vecteur sortie) -->
                 <OutputGridFile>/home/scgsi/Bureau/LCZ/HeightOfRoughnessElements.shp</OutputGridFile>
                 <!-- Fichier de la BD TOPO bâti en entrée (vecteur entrée) -->
-                <InputBuiltFile>/home/scgsi/Bureau/LCZ/source_data/built.shp</InputBuiltFile>
-            </Task50_LCZ_HeightOfRoughnessElements>
-        </Task50_LCZ_HeightOfRoughnessElements_List>
-
-        <!-- Height of Roughness Elements (LCZ) Bis Internationalisation -->
-        <!-- CALCUL DE L'INDICATEUR LCZ HAUTEUR DES ELEMENTS DE RUGOSITE -->
-        <Task55_LCZ_RoughnessByOcsAndMnh_List>
-            <Task55_LCZ_RoughnessByOcsAndMnh>
-                <!-- Classification OCS en entrée (raster entrée) -->
-                <InputClassifFile>/home/scgsi/Bureau/LCZ/source_data/Classif.tif</InputClassifFile>
+                <InputBuiltFile  heightField="HAUTEUR" idField="ID" >/home/scgsi/Bureau/LCZ/source_data/built.shp</InputBuiltFile>
                 <!-- Modèle Numérique de Hauteur en entrée (raster entrée) -->
                 <InputMnhFile>/home/scgsi/Bureau/LCZ/source_data/MNH.tif</InputMnhFile>
-                <!-- Vecteur de maillage en entrée (vecteur entrée) -->
-                <InputGridVector>/home/scgsi/Bureau/LCZ/source_data/UrbanAtlas_cleaned.shp</InputGridVector>
-                <!-- Vecteur de maillage en sortie, avec l'indicateur occupation du sol/hauteur de vegetation (vecteur sortie) -->
-                <OutputGridVector>/home/scgsi/Bureau/LCZ/SoilOccupation.shp</OutputGridVector>
-            </Task55_LCZ_RoughnessByOcsAndMnh>
-        </Task55_LCZ_RoughnessByOcsAndMnh_List>
+                <!-- Classification OCS en entrée (raster entrée) -->
+                <InputClassifFile>/home/scgsi/Bureau/LCZ/source_data/Classif.tif</InputClassifFile>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones baties -->
+                <BuildingClassLabelList>
+                    <ClassLabel>11100</ClassLabel>
+                </BuildingClassLabelList>
+            </Task50_LCZ_HeightOfRoughnessElements>
+        </Task50_LCZ_HeightOfRoughnessElements_List>
 
         <!-- Terrain Roughness Class (LCZ) -->
         <!-- CALCUL DE L'INDICATEUR LCZ CLASSE DE RUGOSITE -->
@@ -2014,14 +2132,44 @@
         <!-- CALCUL D'INDICATEUR OCS, NON-COMPRIS DANS LA CLASSIFICATION LCZ DE BASE -->
         <Task80_LCZ_OcsIndicators_List>
             <Task80_LCZ_OcsIndicators>
-                <!-- Classification OCS en entrée (raster entrée) -->
-                <InputClassifFile>/home/scgsi/Bureau/LCZ/source_data/Classif.tif</InputClassifFile>
-                <!-- Modèle Numérique de Hauteur en entrée (raster entrée) -->
-                <InputMnhFile>/home/scgsi/Bureau/LCZ/source_data/MNH.tif</InputMnhFile>
                 <!-- Vecteur de maillage en entrée (vecteur entrée) -->
                 <InputGridVector>/home/scgsi/Bureau/LCZ/source_data/UrbanAtlas_cleaned.shp</InputGridVector>
                 <!-- Vecteur de maillage en sortie, avec l'indicateur occupation du sol/hauteur de vegetation (vecteur sortie) -->
                 <OutputGridVector>/home/scgsi/Bureau/LCZ/SoilOccupation.shp</OutputGridVector>
+                <!-- Classification OCS en entrée (entrée en format vecteur) et Nom du champs contenant l'information Classification dans le fichier (nécessaire si ce dernier est renseigné) -->
+                <InputClassifVector fieldClassifName="OCS"></InputClassifVector>
+                <!-- Soit Classification OCS (entrée en format raster) ou si InputClassifVector est renseigné correspond au raster de reférence  -->
+                <InputClassifFile>/home/scgsi/Bureau/LCZ/source_data/Classif.tif</InputClassifFile>
+                <!-- Modèle Numérique de Hauteur en entrée (raster entrée) -->
+                <InputMnhFile>/home/scgsi/Bureau/LCZ/source_data/MNH.tif</InputMnhFile>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones baties -->
+                <BuildingClassLabelList>
+                    <ClassLabel>11100</ClassLabel>
+                </BuildingClassLabelList>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones route (mineral) -->
+                <RoadClassLabelList>
+                    <ClassLabel>11200</ClassLabel>
+                </RoadClassLabelList>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones sol-nu -->
+                <BaresoilClassLabelList>
+                    <ClassLabel>13000</ClassLabel>
+                </BaresoilClassLabelList>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones en eau -->
+                <WaterClassLabelList>
+                    <ClassLabel>12200</ClassLabel>
+                </WaterClassLabelList>
+                 <!-- Liste des classes issus de la classification utilisée pour définir les zones de toute la végétation (haute + base) -->
+                <VegetationClassLabelList>
+                    <ClassLabel>20000</ClassLabel>
+                </VegetationClassLabelList>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones de végétation haute -->
+                <HightVegetationClassLabelList>
+                    <ClassLabel></ClassLabel>
+                </HightVegetationClassLabelList>
+                <!-- Liste des classes issus de la classification utilisée pour définir les zones de végétation basse  -->
+                <LowVegetationClassLabelList>
+                    <ClassLabel></ClassLabel>
+                </LowVegetationClassLabelList>
             </Task80_LCZ_OcsIndicators>
         </Task80_LCZ_OcsIndicators_List>
 
@@ -2064,7 +2212,7 @@
                     <IndiceFile indicator="BuildingSurfaceFraction" columnSrc="Bati" abbreviation="BSF">/home/scgsi/Bureau/LCZ/BuildingSurfaceFraction.shp</IndiceFile>
                     <IndiceFile indicator="ImperviousSurfaceFraction" columnSrc="Imperm" abbreviation="ISF">/home/scgsi/Bureau/LCZ/ImperviousSurfaceFraction.shp</IndiceFile>
                     <IndiceFile indicator="PerviousSurfaceFraction" columnSrc="Perm" abbreviation="PSF">/home/scgsi/Bureau/LCZ/PerviousSurfaceFraction.shp</IndiceFile>
-                    <IndiceFile indicator="SkyViewFactor" columnSrc="mean" abbreviation="SVF">/home/scgsi/Bureau/LCZ/SkyViewFactor.shp</IndiceFile>
+                    <IndiceFile indicator="SkyViewFactor" columnSrc="SkyView" abbreviation="SVF">/home/scgsi/Bureau/LCZ/SkyViewFactor.shp</IndiceFile>
                     <IndiceFile indicator="HeightOfRoughnessElements" columnSrc="MEAN_H" abbreviation="HRE">/home/scgsi/Bureau/LCZ/HeightOfRoughnessElements.shp</IndiceFile>
                     <IndiceFile indicator="TerrainRoughnessClass" columnSrc="CL_RUGO" abbreviation="TRC">/home/scgsi/Bureau/LCZ/TerrainRoughnessClass.shp</IndiceFile>
                     <IndiceFile indicator="AspectRatio" columnSrc="ASP_RATIO" abbreviation="ARa">/home/scgsi/Bureau/LCZ/AspectRatio.shp</IndiceFile>
@@ -2076,9 +2224,27 @@
                     <IndiceFile indicator="VegetationRate" columnSrc="Vegetation" abbreviation="VEr">/home/scgsi/Bureau/LCZ/SoilOccupation.shp</IndiceFile>
                     <IndiceFile indicator="AverageVegetationHeight" columnSrc="H_moy_Veg" abbreviation="VEa">/home/scgsi/Bureau/LCZ/SoilOccupation.shp</IndiceFile>
                     <IndiceFile indicator="MaxVegetationHeight" columnSrc="H_max_Veg" abbreviation="VEm">/home/scgsi/Bureau/LCZ/SoilOccupation.shp</IndiceFile>
+                    <IndiceFile indicator="HighVegetationRate" columnSrc="veg_h_rate" abbreviation="VHR">/home/scgsi/Bureau/LCZ/SoilOccupation.shp</IndiceFile>
                 </IndiceFilesList>
             </Task90_LCZ_ClassificationLCZ>
         </Task90_LCZ_ClassificationLCZ_List>
+
+        <!-- Classification LCZ (LCZ) -->
+        <!-- CLASSIFICATION LCZ EN MODE OPERATIONNEL -->
+        <Task95_LCZ_ClassificationLczOperational_List>
+            <Task95_LCZ_ClassificationLczOperational>
+                <!-- Fichier vecteur de découpage morphologique en entrée (vecteur entrée) -->
+                <InputDivisionFile>/mnt/RAM_disk/LCZ/segmentation_morphologique.shp</InputDivisionFile>
+                <!-- Fichier vecteur de l'indicateur HRE en entrée (vecteur entrée) -->
+                <InputHreFile>/mnt/RAM_disk/LCZ/indicateur_HRE.shp</InputHreFile>
+                <!-- Fichier vecteur des indicateurs OCS en entrée (vecteur entrée) -->
+                <InputOcsFile>/mnt/RAM_disk/LCZ/indicateurs_OCS.shp</InputOcsFile>
+                <!-- Fichier vecteur de découpage morphologique en sortie, avec la classification LCZ (vecteur sortie) -->
+                <OutputLczFile>/mnt/RAM_disk/LCZ/cartographie_LCZ.shp</OutputLczFile>
+                <!-- Nom de la colonne ID du fichier de découpage morphologique d'entrée -->
+                <ColumnNameId>ID</ColumnNameId>
+            </Task95_LCZ_ClassificationLczOperational>
+        </Task95_LCZ_ClassificationLczOperational_List>
 
         <!-- Water Height (Risque) -->
         <!-- CARTOGRAPHIE DES CLASSES DE HAUTEURS D'EAU -->
@@ -2176,24 +2342,61 @@
                 <OutputPlotVector>/mnt/RAM_disk/EvolutionOverTime/EvolutionOverTime.shp</OutputPlotVector>
                 <!-- Emprise (vecteur entrée) -->
                 <FootprintVector>/mnt/RAM_disk/EvolutionOverTime/zone_etude.shp</FootprintVector>
-                <!-- OCS à t0 (raster entrée) -->
-                <InputT0File>/mnt/RAM_disk/EvolutionOverTime/OCS_sat_t0.tif</InputT0File>
-                <!-- Liste OCS à t0+x (rasters entrée) -->
+                <!-- Liste OCS à tx (rasters entrée) -->
                 <InputTxFilesList>
+                    <InputTxFile>/mnt/RAM_disk/EvolutionOverTime/OCS_sat_t0.tif</InputTxFile>
                     <InputTxFile>/mnt/RAM_disk/EvolutionOverTime/OCS_sat_t1.tif</InputTxFile>
-                    <InputTxFile>/mnt/RAM_disk/EvolutionOverTime/OCS_sat_t2.tif</InputTxFile>
-                    <InputTxFile>/mnt/RAM_disk/EvolutionOverTime/OCS_sat_t3.tif</InputTxFile>
                 </InputTxFilesList>
-                <!-- Liste évolutions à quantifier (classe_label:taux_evolution:surf_evolution:combinaison_taux_surf ; 0 = pas de prise en compte taux/surface) -->
+                <!-- Liste évolutions à quantifier (premiere_date:seconde_date:classe_label:taux_evolution:surf_evolution:combinaison_taux_surf) -->
                 <EvolutionsList>
-                    <Evolution>11000:10:50:and</Evolution>
-                    <Evolution>12000:10:50:and</Evolution>
-                    <Evolution>21000:10:50:and</Evolution>
-                    <Evolution>22000:10:50:and</Evolution>
-                    <Evolution>23000:10:50:and</Evolution>
+                    <Evolution>0:1:11000:10:50:and</Evolution>
+                    <Evolution>0:1:12000:10:50:and</Evolution>
+                    <Evolution>0:1:21000:10:50:and</Evolution>
+                    <Evolution>0:1:22000:10:50:and</Evolution>
+                    <Evolution>0:1:23000:10:50:and</Evolution>
                 </EvolutionsList>
             </Task30_RSQ_EvolutionOverTime>
         </Task30_RSQ_EvolutionOverTime_List>
+
+        <!-- UHI Vulnerability (Risque) -->
+        <!-- CARTOGRAPHIE DES VULNERABLITES AUX ICU -->
+        <Task40_RSQ_UhiVulnerability_List>
+            <Task40_RSQ_UhiVulnerability>
+                <!-- Découpage morphologique (vecteur entrée) -->
+                <InputDivisionVector>/mnt/RAM_disk/UhiVulnerability/segmentation_morphologique.shp</InputDivisionVector>
+                <!-- Emprise d'étude (vecteur entrée) -->
+                <FootprintVector>/mnt/RAM_disk/UhiVulnerability/zone_etude.shp</FootprintVector>
+                <!-- Donnée de population (vecteur entrée) -->
+                <PopulationVector>/mnt/RAM_disk/UhiVulnerability/population.shp</PopulationVector>
+                <!-- Donnée du bâti (vecteur entrée) -->
+                <BuiltVector>/mnt/RAM_disk/UhiVulnerability/bati.shp</BuiltVector>
+                <!-- Vulnérabilité aux ICU (vecteur sortie) -->
+                <OutputVulnerabilityVector>/mnt/RAM_disk/UhiVulnerability/vulnerabilite_ICU.shp</OutputVulnerabilityVector>
+                <!-- Nom du champ ID du fichier de découpage morphologique -->
+                <IdDivisionField>id</IdDivisionField>
+                <!-- Nom du champ ID du fichier de donnée de population -->
+                <IdPopulationField>IdINSPIRE</IdPopulationField>
+                <!-- Nom du champ ID du fichier de donnée du bâti -->
+                <IdBuiltField>ID</IdBuiltField>
+                <!-- Nom du champ des enjeux du fichier de donnée de population -->
+                <StakeField>Ind</StakeField>
+                <!-- Liste des noms de champs de population sanitairement vulnérable du fichier de donnée de population -->
+                <HealthVulnFieldsList>
+                    <HealthVulnField>Ind_0_3</HealthVulnField>
+                    <HealthVulnField>Ind_4_5</HealthVulnField>
+                    <HealthVulnField>Ind_65_79</HealthVulnField>
+                    <HealthVulnField>Ind_80p</HealthVulnField>
+                </HealthVulnFieldsList>
+                <!-- Liste des noms de champs de population socialement vulnérable du fichier de donnée de population -->
+                <SocialVulnFieldsList>
+                    <SocialVulnField>Men_pauv</SocialVulnField>
+                </SocialVulnFieldsList>
+                <!-- Nom du champ de hauteur du fichier de donnée du bâti -->
+                <HeightField>HAUTEUR</HeightField>
+                <!-- Requête SQL de filtrage de la donnée du bâti -->
+                <BuiltSqlFilter>NATURE LIKE 'Indiff%renci%e' AND (USAGE1 LIKE 'Indiff%renci%e' OR USAGE1 LIKE 'R%sidentiel' OR USAGE2 LIKE 'R%sidentiel' OR USAGE2 IS NULL) AND HAUTEUR IS NOT NULL AND ST_Area(geom) >= 20</BuiltSqlFilter>
+            </Task40_RSQ_UhiVulnerability>
+        </Task40_RSQ_UhiVulnerability_List>
 
     </Tasks>
 </Settings>

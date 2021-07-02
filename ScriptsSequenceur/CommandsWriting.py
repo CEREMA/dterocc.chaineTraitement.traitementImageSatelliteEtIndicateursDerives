@@ -1000,6 +1000,50 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('125'): # Application d'une classification par reseu de neurone
+
+
+            # Commande
+            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+
+            command = call_python_action_to_make + "NeuralNetworkClassification -i " + settings_struct.tasks.task125_DeepLearningClassification[task_position].inputFile + " -sg " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].gridSize) + " -nc " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].numberClass) + " -nm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].networkType.lower() + " -nn.b " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_batch) + " -nn.ncf " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_numberConvFilter) + " -nn.ks " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_kernelSize) + " -nn.tiob " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_inOneBlock) + " -nn.vs " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_rateValidation) + " -nn.ne " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_numberEpoch) + " -nn.esm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingMonitor + " -nn.esp " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingPatience) + " -nn.esmd " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingMinDelta) + " -nn.rlrm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateMonitor + " -nn.rlrf " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateFactor) + " -nn.rlrp " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRatePatience) + " -nn.rlrmlr " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateMinLR) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -epsg " + str(settings_struct.general.image.epsg) +  " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].outputFile != "":
+                command += " -o " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].outputFile)
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].inputVector != "":
+                command += " -v " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].inputVector)
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].inputSample != "":
+                command += " -ti " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].inputSample)
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].outputModelFile != "":
+                command += " -mo " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].outputModelFile)
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].inputModelFile != "":
+                command += " -mi " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].inputModelFile)
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].overflowSize > 0:
+                command += " -deb " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].overflowSize)
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].increaseSample :
+                command += " -at "
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].computeMode.lower() == "gpu" :
+                command += " -ugc  -igpu " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].idGpuCard)
+
+            if settings_struct.tasks.task125_DeepLearningClassification[task_position].rand > 0:
+                command += " -rand " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].rand)
+
+            if settings_struct.general.processing.ram != 0:
+                command += " -ram " + str(settings_struct.general.processing.ram)
+
+            endCommandUpdate(settings_struct, command_doc, command, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Application d'une classification neuronale) à l'image %s" %(task_label, str(settings_struct.tasks.task125_DeepLearningClassification[task_position].inputFile)) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('130'): # Post traitements des micro-classes de la classification à partir de donnees raster deja traités par ailleurs
 
             # Preparation des parametres
@@ -1164,6 +1208,9 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             if settings_struct.tasks.task200_ClassificationVectorization[task_position].topologicalCorrectionSQL :
                 command += " -csql" + " -epsg " + str(settings_struct.general.image.epsg) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName
 
+            if settings_struct.general.processing.ram != 0:
+                command += " -ram " + str(settings_struct.general.processing.ram)
+
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Vectorisation à %s pixels de %s. Sortie : %s)" %(task_label, str(settings_struct.tasks.task200_ClassificationVectorization[task_position].umc), str(settings_struct.tasks.task200_ClassificationVectorization[task_position].inputFile), str(settings_struct.tasks.task200_ClassificationVectorization[task_position].outputFile)) + endC)
@@ -1174,7 +1221,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "CrossingVectorRaster -i " + settings_struct.tasks.task210_CrossingVectorRaster[task_position].inputFile + " -o " + settings_struct.tasks.task210_CrossingVectorRaster[task_position].outputVector + " -v " + settings_struct.tasks.task210_CrossingVectorRaster[task_position].inputVector + " -bn " + settings_struct.tasks.task210_CrossingVectorRaster[task_position].bandNumber + " -csp" + " -vef " + settings_struct.general.vector.formatVector
+            command = call_python_action_to_make + "CrossingVectorRaster -i " + settings_struct.tasks.task210_CrossingVectorRaster[task_position].inputFile + " -o " + settings_struct.tasks.task210_CrossingVectorRaster[task_position].outputVector + " -v " + settings_struct.tasks.task210_CrossingVectorRaster[task_position].inputVector + " -bn " + str(settings_struct.tasks.task210_CrossingVectorRaster[task_position].bandNumber) + " -csp" + " -vef " + settings_struct.general.vector.formatVector
 
             if settings_struct.tasks.task210_CrossingVectorRaster[task_position].statsAllCount :
                 command += " -stc "
@@ -1304,6 +1351,9 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             command = call_python_action_to_make + "otbcli_Rasterization -in " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].inputVector + " -out " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].outputFile + " " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].encodingOutput.lower() + " -im " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].inputFile + " -background " + str(settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].nodataOutput) + " -mode attribute -mode.attribute.field " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].label
 
+            if settings_struct.general.processing.ram != 0:
+                command += " -ram " + str(settings_struct.general.processing.ram)
+
             endCommandUpdate(settings_struct, command_doc, command, debug, False)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Rasterisation du vecteur de livraison %s" %(task_label, str(settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].inputVector)) + endC)
@@ -1345,6 +1395,44 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Classification vecteur de %s. Sortie : %s)" %(task_label, str(settings_struct.tasks.task270_ClassificationVector[task_position].inputVector), str(settings_struct.tasks.task270_ClassificationVector[task_position].outputVector)) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('280'): # OCS raster à partir d'une liste de vecteurs
+
+            # Initialisation de la commande
+            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+            command = call_python_action_to_make + "GenerateOcsWithVectors"
+            # Paramètres spécifiques à l'appli
+            command += " -in " + settings_struct.tasks.task280_GenerateOcsWithVectors[task_position].inputText + " -out " + settings_struct.tasks.task280_GenerateOcsWithVectors[task_position].outputRaster + " -fpt " + settings_struct.tasks.task280_GenerateOcsWithVectors[task_position].footprintVector + " -ref " + settings_struct.tasks.task280_GenerateOcsWithVectors[task_position].referenceRaster + " -cod " + settings_struct.tasks.task280_GenerateOcsWithVectors[task_position].codage
+            # Paramètres liés aux fichiers
+            command += " -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+            # Finalisation de la commande
+            endCommandUpdate(settings_struct, command_doc, command, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succès de la commande %s de production d'OCS raster à partir d'une liste de vecteurs." % (task_label) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('290'): # Calcul raster BandMathX (Utilisation de l'OTB)
+
+
+            # Préparation de la liste des rasteurs d'entrée
+            rasters_input_list_str = ""
+            for raster_file in settings_struct.tasks.task290_RasterBandMathX[task_position].inputFilesList :
+                rasters_input_list_str += raster_file + " "
+
+            # Commande
+            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
+
+            command = call_python_action_to_make + "otbcli_BandMathX -il " + rasters_input_list_str + " -out " + settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile + " " + settings_struct.tasks.task290_RasterBandMathX[task_position].encodingOutput.lower() + " -exp " + '"' + settings_struct.tasks.task290_RasterBandMathX[task_position].expression + '"'
+
+            if settings_struct.general.processing.ram != 0:
+                command += " -ram " + str(settings_struct.general.processing.ram)
+
+            endCommandUpdate(settings_struct, command_doc, command, debug, False)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Resultat du calcul raster %s" %(task_label, str(settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile)) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1470,6 +1558,8 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
                 command += " -at_v_contac " + str(settings_struct.tasks.task30_TDC_TDCSeuil[task_position].attributeValContac)
             if settings_struct.tasks.task30_TDC_TDCSeuil[task_position].attributeValType != "":
                 command += " -at_v_type " + str(settings_struct.tasks.task30_TDC_TDCSeuil[task_position].attributeValType)
+            if settings_struct.tasks.task30_TDC_TDCSeuil[task_position].attributeValReal != "":
+                command += " -at_v_real " + str(settings_struct.tasks.task30_TDC_TDCSeuil[task_position].attributeValReal)
 
             if settings_struct.tasks.task30_TDC_TDCSeuil[task_position].calcIndiceImage:
                 command += " -c"
@@ -1727,9 +1817,14 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('10_LCZ'): # Calcul de l'indicateur LCZ pourcentage de surface bâtie
 
+            # Préparation de la liste des classes baties
+            building_class_list_str = ""
+            for building_class in settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[task_position].buildingClassLabelList:
+                building_class_list_str += str(building_class) + ' '
+
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "BuildingSurfaceFraction -in " +  settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[task_position].inputGridFile + " -out " + settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[task_position].outputGridFile + " -cla " + settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[task_position].inputClassifFile + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster
+            command = call_python_action_to_make + "BuildingSurfaceFraction -in " +  settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[task_position].inputGridFile + " -out " + settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[task_position].outputGridFile + " -cla " + settings_struct.tasks.task10_LCZ_BuildingSurfaceFraction[task_position].inputClassifFile + " -cbl " + building_class_list_str + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster
 
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -1756,7 +1851,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('30_LCZ'): # Calcul de l'indicateur LCZ pourcentage de surface perméable
 
-            # Préparation de la liste des classes imperméables
+            # Préparation de la liste des classes perméable
             pervious_class_list_str = ""
             for pervious_class in settings_struct.tasks.task30_LCZ_PerviousSurfaceFraction[task_position].perviousClassLabelList:
                 pervious_class_list_str += str(pervious_class) + ' '
@@ -1773,9 +1868,14 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('40_LCZ'): # Calcul de l'indicateur LCZ facteur de vue du ciel
 
+            # Préparation de la liste des classes baties
+            building_class_list_str = ""
+            for building_class in settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].buildingClassLabelList:
+                building_class_list_str += str(building_class) + ' '
+
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "SkyViewFactor -in " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].inputGridFile + " -out " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].outputGridFile + " -dem " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].inputMnsFile + " -cla " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].inputClassifFile + " -dx " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].dimGridX) + " -dy " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].dimGridY) + " -rad " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].radius) + " -met " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].method) + " -sdl " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].dlevel) + " -snd " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].ndirs) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+            command = call_python_action_to_make + "SkyViewFactor -in " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].inputGridFile + " -out " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].outputGridFile + " -mns " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].inputMnsFile + " -cla " + settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].inputClassifFile + " -cbl " + building_class_list_str + " -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -dx " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].dimGridX) + " -dy " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].dimGridY) + " -rad " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].radius) + " -met " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].method) + " -sdl " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].dlevel) + " -snd " + str(settings_struct.tasks.task40_LCZ_SkyViewFactor[task_position].ndirs) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
 
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -1783,28 +1883,29 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('50_LCZ'): # Calcul de l'indicateur LCZ hauteur des éléments de rugosité
+        if case('50_LCZ'): # Calcul de l'indicateur LCZ hauteur des éléments de rugosité par base de données bati ou par données OCS et MNS (Méthode Internationalisation)
+
+            # Préparation de la liste des classes baties
+            building_class_list_str = ""
+            for building_class in settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].buildingClassLabelList:
+                building_class_list_str += str(building_class) + ' '
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "HeightOfRoughnessElements -in " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputGridFile + " -out " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].outputGridFile + " -bi " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputBuiltFile + " -epsg " + str(settings_struct.general.image.epsg) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName + " -vef " + settings_struct.general.vector.formatVector
+            command = call_python_action_to_make + "HeightOfRoughnessElements -in " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputGridFile + " -out " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].outputGridFile + " -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName
 
-            endCommandUpdate(settings_struct, command_doc, command, debug)
-
-            print(cyan + "writeCommands() : " + bold + green + "Création avec succès de la commande %s de l'indicateur LCZ hauteur des éléments de rugosité" % (task_label) + endC)
-            break
-
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('55_LCZ'): # Calcul de l'indicateur LCZ hauteur des éléments de rugosité Internationalisation par OCS et MNS
-
-            # Préparation du dictionnaire class_label_dico
-            class_label_dico_str = ""
-            for class_classification in settings_struct.general.classification.classList:
-                class_label_dico_str += str(class_classification.label) + ":" + class_classification.name + " "
-
-            # Commande
-            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "RoughnessByOcsAndMnh -i " + settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[task_position].inputClassifFile + " -mnh " + settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[task_position].inputMnhFile + " -v " + settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[task_position].inputGridVector + " -o " + settings_struct.tasks.task55_LCZ_RoughnessByOcsAndMnh[task_position].outputGridVector + " -cld " + class_label_dico_str + " -epsg " + str(settings_struct.general.image.epsg) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+            if settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputBuiltFile != "":
+                command += " -bi " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputBuiltFile
+            if settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].heightField != "":
+                command += " -hf " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].heightField
+            if settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].idField != "":
+                command += " -id " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].idField
+            if settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputMnhFile != "":
+                command += " -mnh " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputMnhFile
+            if settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputClassifFile != "":
+                command += " -ocs " + settings_struct.tasks.task50_LCZ_HeightOfRoughnessElements[task_position].inputClassifFile
+            if building_class_list_str != "":
+                command += " -cbl " + building_class_list_str
 
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -1838,14 +1939,56 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('80_LCZ'): # Calcul d'indicateurs OCS (non-compris dans la classification LCZ d'origine)
 
-            # Préparation du dictionnaire class_label_dico
-            class_label_dico_str = ""
-            for class_classification in settings_struct.general.classification.classList:
-                class_label_dico_str += str(class_classification.label) + ":" + class_classification.name + " "
+            # Préparation de la liste des classes baties
+            building_class_list_str = ""
+            for building_class in settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].buildingClassLabelList:
+                building_class_list_str += str(building_class) + ' '
+
+            # Préparation de la liste des classes route
+            road_class_list_str = ""
+            for road_class in settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].roadClassLabelList:
+                road_class_list_str += str(road_class) + ' '
+
+            # Préparation de la liste des classes sol-nu
+            baresoil_class_list_str = ""
+            for baresoil_class in settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].baresoilClassLabelList:
+                baresoil_class_list_str += str(baresoil_class) + ' '
+
+            # Préparation de la liste des classes eau
+            water_class_list_str = ""
+            for water_class in settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].waterClassLabelList:
+                water_class_list_str += str(water_class) + ' '
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "OcsIndicators -i " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputClassifFile + " -mnh " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputMnhFile + " -v " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputGridVector + " -o " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].outputGridVector + " -cld " + class_label_dico_str + " -epsg " + str(settings_struct.general.image.epsg) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+            command = call_python_action_to_make + "OcsIndicators -in " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputGridVector + " -out " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].outputGridVector + " -ocs " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputClassifFile + " -cbl " + building_class_list_str + " -crl " + road_class_list_str + " -csl " + baresoil_class_list_str + " -cwl " + water_class_list_str + " -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+
+            if settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputClassifVector != "":
+                command += " -cla " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputClassifVector + " -fcn " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].fieldClassifName
+
+            if settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputMnhFile != "":
+                command += " -mnh " + settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].inputMnhFile
+
+            if settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].vegetationClassLabelList != []:
+                # Préparation de la liste des classes vegetation
+                vegetation_class_list_str = ""
+                for vegetation_class in settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].vegetationClassLabelList:
+                    vegetation_class_list_str += str(vegetation_class) + ' '
+                command += " -cvl " + vegetation_class_list_str
+
+            if settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].hightVegetationClassLabelList != []:
+                # Préparation de la liste des classes vegetation haute
+                hight_vegetation_class_list_str = ""
+                for hight_vegetation_class in settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].hightVegetationClassLabelList:
+                    hight_vegetation_class_list_str += str(hight_vegetation_class) + ' '
+                command += " -chvl " + hight_vegetation_class_list_str
+
+            if settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].lowVegetationClassLabelList != []:
+                # Préparation de la liste des classes vegetation basse
+                low_vegetation_class_list_str = ""
+                for low_vegetation_class in settings_struct.tasks.task80_LCZ_OcsIndicators[task_position].lowVegetationClassLabelList:
+                    low_vegetation_class_list_str += str(low_vegetation_class) + ' '
+                command += " -clvl " + low_vegetation_class_list_str
 
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -1933,11 +2076,19 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
                                 indices_files_lst_str += ' -ocs ' + indice_file.indiceFile
                                 is_soil_occupation_include = True
                             break
+                        if case('HighVegetationRate'):
+                            if is_soil_occupation_include == False :
+                                indices_files_lst_str += ' -ocs ' + indice_file.indiceFile
+                                is_soil_occupation_include = True
+                            break
                         break
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "ClassificationLCZ -i " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].inputPythonFile + " -uai " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].inputFile + " -lcz " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].outputFile + indices_files_lst_str + " -ind_lst " + str(indicator_list_str) + "-col_lst " + str(column_list_str) + "-abb_lst " + str(abbreviation_list_str) + "-cid " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameId + " -cco " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameUaCode + " -chis " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameLczHisto + " -clcz " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameLcz + " -vef " + settings_struct.general.vector.formatVector
+            command = call_python_action_to_make + "ClassificationLCZ -i " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].inputPythonFile + " -uai " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].inputFile + " -lcz " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].outputFile + indices_files_lst_str + " -ind_lst " + str(indicator_list_str) + "-col_lst " + str(column_list_str) + "-abb_lst " + str(abbreviation_list_str) + "-cid " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameId + " -chis " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameLczHisto + " -clcz " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameLcz + " -vef " + settings_struct.general.vector.formatVector
+
+            if settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameUaCode != "":
+                command += " -cco " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameUaCode
 
             if settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].useClassifRf:
                 command += " -crf -nsrf " + str(settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].nbSampleRf) + " -mfrf " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].modelRfFile + " -clczrf " + settings_struct.tasks.task90_LCZ_ClassificationLCZ[task_position].columnNameLczRf
@@ -1953,6 +2104,23 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succès de la commande %s de classification LCZ" % (task_label) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('95_LCZ'): # Classification LCZ en mode opérationnel
+
+            # Initialisation de la commande
+            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+            # Paramètres spécifiques à l'appli
+            command = call_python_action_to_make + "ClassificationLczOperational -in " + settings_struct.tasks.task95_LCZ_ClassificationLczOperational[task_position].inputDivisionFile + " -hre " + settings_struct.tasks.task95_LCZ_ClassificationLczOperational[task_position].inputHreFile + " -ocs " + settings_struct.tasks.task95_LCZ_ClassificationLczOperational[task_position].inputOcsFile + " -out " + settings_struct.tasks.task95_LCZ_ClassificationLczOperational[task_position].outputLczFile + " -id " + settings_struct.tasks.task95_LCZ_ClassificationLczOperational[task_position].columnNameId
+            # Paramètres liés aux fichiers
+            command += " -epsg " + str(settings_struct.general.image.epsg) + " -vef " + settings_struct.general.vector.formatVector
+            # Paramètres liés à PostGIS
+            command += " -pgh " + settings_struct.general.postgis.serverName + " -pgp " + str(settings_struct.general.postgis.portNumber) + " -pgu " + settings_struct.general.postgis.userName + " -pgw " + settings_struct.general.postgis.password + " -pgd " + settings_struct.general.postgis.databaseName + " -pgs " + settings_struct.general.postgis.schemaName + " -pge " + settings_struct.general.postgis.encoding
+            # Finalisation de la commande
+            endCommandUpdate(settings_struct, command_doc, command, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succès de la commande %s de classification LCZ en mode opérationnel." % (task_label) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -2036,7 +2204,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             # Initialisation de la commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
             # Paramètres spécifiques à l'appli
-            command = call_python_action_to_make + "EvolutionOverTime -in " + settings_struct.tasks.task30_RSQ_EvolutionOverTime[task_position].inputPlotVector + " -out " + settings_struct.tasks.task30_RSQ_EvolutionOverTime[task_position].outputPlotVector + " -emp " + settings_struct.tasks.task30_RSQ_EvolutionOverTime[task_position].footprintVector + " -it0 " + settings_struct.tasks.task30_RSQ_EvolutionOverTime[task_position].inputT0File + " -itxl " + input_tx_files_list_str[:-1] + " -evol " + evolutions_list_str[:-1] + " -cld " + class_label_dico_str[:-1]
+            command = call_python_action_to_make + "EvolutionOverTime -in " + settings_struct.tasks.task30_RSQ_EvolutionOverTime[task_position].inputPlotVector + " -out " + settings_struct.tasks.task30_RSQ_EvolutionOverTime[task_position].outputPlotVector + " -emp " + settings_struct.tasks.task30_RSQ_EvolutionOverTime[task_position].footprintVector + " -itxl " + input_tx_files_list_str[:-1] + " -evol " + evolutions_list_str[:-1] + " -cld " + class_label_dico_str[:-1]
             # Paramètres liés aux fichiers
             command += " -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
             # Paramètres liés à PostGIS
@@ -2045,6 +2213,31 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succès de la commande %s de cartographie des évolutions d'OCS à la parcelle." % (task_label) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('40_RSQ'): # Cartographie des vulnérabilités aux ICU
+
+            # Gestion des paramètres liste
+            health_vuln_fields_list_str = ""
+            for health_vuln_field in settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].healthVulnFieldsList:
+                health_vuln_fields_list_str += health_vuln_field + ' '
+            social_vuln_fields_list_str = ""
+            for social_vuln_field in settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].socialVulnFieldsList:
+                social_vuln_fields_list_str += social_vuln_field + ' '
+
+            # Initialisation de la commande
+            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+            # Paramètres spécifiques à l'appli
+            command = call_python_action_to_make + "UhiVulnerability -div " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].inputDivisionVector + " -ftp " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].footprintVector + " -pop " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].populationVector + " -blt " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].builtVector + " -out " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].outputVulnerabilityVector + " -idd " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idDivisionField + " -idp " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idPopulationField + " -idb " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idBuiltField + " -sta " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].stakeField + " -hevl " + health_vuln_fields_list_str[:-1] + " -sovl " + social_vuln_fields_list_str[:-1] + " -hei " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].heightField + " -bsf " + '"' + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].builtSqlFilter + '"'
+            # Paramètres liés aux fichiers
+            command += " -epsg " + str(settings_struct.general.image.epsg) + " -vef " + settings_struct.general.vector.formatVector
+            # Paramètres liés à PostGIS
+            command += " -pgh " + settings_struct.general.postgis.serverName + " -pgp " + str(settings_struct.general.postgis.portNumber) + " -pgu " + settings_struct.general.postgis.userName + " -pgw " + settings_struct.general.postgis.password + " -pgd " + settings_struct.general.postgis.databaseName + " -pgs " + settings_struct.general.postgis.schemaName + " -pge " + settings_struct.general.postgis.encoding
+            # Finalisation de la commande
+            endCommandUpdate(settings_struct, command_doc, command, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succès de la commande %s de cartographie des vulnérabilités aux ICU." % (task_label) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
