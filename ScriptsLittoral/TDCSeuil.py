@@ -90,7 +90,7 @@ class StructAttribute:
 #    Eléments modifiés aucun
 #
 
-def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, no_data_value, path_time_log, channel_order=['Red','Green','Blue','NIR'], epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, attribute_val_real, no_data_value, path_time_log, channel_order=['Red','Green','Blue','NIR'], epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
 
     # Mise à jour du Log
     starting_event = "runTDCSeuil() : Select TDC Seuil starting : "
@@ -112,6 +112,7 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
         print(cyan + "runTDCSeuil() : " + endC + "attribute_val_precis : " + str(attribute_val_precis) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "attribute_val_contac : " + str(attribute_val_contac) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "attribute_val_type : " + str(attribute_val_type) + endC)
+        print(cyan + "runTDCSeuil() : " + endC + "attribute_val_real : " + str(attribute_val_real) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "channel_order: " + str(channel_order) + endC)
@@ -125,7 +126,7 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
 
     # Initialisation des constantes
     AUTO = "auto"
-    POS_NUMERO_DOSSIER = 2
+    POS_NUMERO_DOSSIER = 4
     REP_NDVI_TDC_SEUIL = "ndvi_TDCSeuil"
     REP_TEMP_BIN_MASK_V = "Temp_Binary_Mask_Vector_"
 
@@ -139,6 +140,7 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
     ATTR_NAME_PRECIS = "TdcPrecis"
     ATTR_NAME_CONTAC = "TdcContact"
     ATTR_NAME_TYPE = "Type"
+    ATTR_NAME_REAL = "Realisat"
 
     # Repertoire NDVI à conserver!!!
     repertory_ndvi = output_dir + os.sep + REP_NDVI_TDC_SEUIL
@@ -149,7 +151,7 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
         os.makedirs(output_dir)
 
     # Création du répertoire de sortie temporaire s'il n'existe pas déjà
-    if not os.path.exists(repertory_ndvi):
+    if not os.path.exists(repertory_ndvi) and is_calc_indice_image:
         os.makedirs(repertory_ndvi)
 
     # Exploitation du fichier emprise pour renseigner les informations des attribues
@@ -213,6 +215,8 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
             attribute_val_contac = " "
         if attribute_val_type == "" :
             attribute_val_type = " "
+        if attribute_val_real == "" :
+            attribute_val_real = " "
 
         # Cas ou un fichier d'emprise contenant des données des attributs est present et contient un champs "RefDossier"
         if ATTR_NAME_REFDOSSIER in res_values_dico :
@@ -230,7 +234,7 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
 
         # Initialisation de StructAttribute pour la création des champs
         attributes_list = [StructAttribute(ATTR_NAME_REFDOSSIER, ogr.OFTString, 20, attribute_val_refdossier), \
-                           StructAttribute(ATTR_NAME_NOMIMAGE, ogr.OFTString, 20, attribute_val_nomimage), \
+                           StructAttribute(ATTR_NAME_NOMIMAGE, ogr.OFTString, 50, attribute_val_nomimage), \
                            StructAttribute(ATTR_NAME_DATEACQUI, ogr.OFTDate, None,attribute_val_datecqui), \
                            StructAttribute(ATTR_NAME_HEUREACQUI, ogr.OFTString, 14, attribute_val_heureacqui), \
                            StructAttribute(ATTR_NAME_LIMITE, ogr.OFTString, 20, attribute_val_limite), \
@@ -238,7 +242,8 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
                            StructAttribute(ATTR_NAME_DATEPR, ogr.OFTString, 14, attribute_val_datepr), \
                            StructAttribute(ATTR_NAME_PRECIS, ogr.OFTString, 20, attribute_val_precis), \
                            StructAttribute(ATTR_NAME_CONTAC, ogr.OFTString, 20, attribute_val_contac), \
-                           StructAttribute(ATTR_NAME_TYPE, ogr.OFTString, 14, attribute_val_type)]
+                           StructAttribute(ATTR_NAME_TYPE, ogr.OFTString, 14, attribute_val_type), \
+                           StructAttribute(ATTR_NAME_REAL, ogr.OFTString, 14, attribute_val_real)]
 
         # Calcul de l'image NDVI si is_calc_indice_image est à True
         if is_calc_indice_image:
@@ -522,8 +527,9 @@ def main(gui=False):
     parser.add_argument('-at_v_proced','--attribute_val_proced', default="Numerisation semi-automatique", help="Attribute value of field TDC_proced.", type=str, required=False)
     parser.add_argument('-at_v_datepr','--attribute_val_datepr', default="", help="Attribute value of field TDC_Datepr.", type=str, required=False)
     parser.add_argument('-at_v_precis','--attribute_val_precis', default="Metrique", help="Attribute value of field TDC_precis.", type=str, required=False)
-    parser.add_argument('-at_v_contac','--attribute_val_contac', default="Cerema", help="Attribute value of field TDC_Contac.", type=str, required=False)
+    parser.add_argument('-at_v_contac','--attribute_val_contac', default="DREAL_Occ", help="Attribute value of field TDC_Contac.", type=str, required=False)
     parser.add_argument('-at_v_type','--attribute_val_type', default="Pleiades", help="Attribute value of satellite type.", type=str, required=False)
+    parser.add_argument('-at_v_real','--attribute_val_real', default="Cerema_Aceyte", help="Attribute value of satellite type.", type=str, required=False)
     parser.add_argument('-epsg','--epsg',default=2154,help="Option : Projection EPSG for the layers. By default : 2154", type=int, required=False)
     parser.add_argument('-ndv','--no_data_value', default=0, help="Option : Value of the pixel no data. By default : 0", type=int, required=False)
     parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image raster. By default : GTiff (GTiff, HFA...)", type=str, required=False)
@@ -581,6 +587,8 @@ def main(gui=False):
         attribute_val_contac = args.attribute_val_contac
     if args.attribute_val_type != None :
         attribute_val_type = args.attribute_val_type
+    if args.attribute_val_real != None :
+        attribute_val_real = args.attribute_val_real
 
     # Récupération de la projection
     if args.epsg != None:
@@ -639,6 +647,7 @@ def main(gui=False):
         print(cyan + "TDCSeuil : " + endC + "attribute_val_precis : " + str(attribute_val_precis) + endC)
         print(cyan + "TDCSeuil : " + endC + "attribute_val_contac : " + str(attribute_val_contac) + endC)
         print(cyan + "TDCSeuil : " + endC + "attribute_val_type : " + str(attribute_val_type) + endC)
+        print(cyan + "TDCSeuil : " + endC + "attribute_val_real : " + str(attribute_val_real) + endC)
         print(cyan + "TDCSeuil : " + endC + "epsg : " + str(epsg) + endC)
         print(cyan + "TDCSeuil : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "TDCSeuil : " + endC + "format_raster : " + str(format_raster) + endC)
@@ -651,7 +660,7 @@ def main(gui=False):
         print(cyan + "TDCSeuil : " + endC + "debug : " + str(debug) + endC)
 
     # Fonction générale
-    runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, no_data_value, path_time_log, channel_order, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+    runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, attribute_val_real,  no_data_value, path_time_log, channel_order, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
 # ================================================
 

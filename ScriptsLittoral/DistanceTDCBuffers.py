@@ -23,7 +23,7 @@ from __future__ import print_function
 import os, sys, ogr, osr, sys, argparse
 from Lib_display import bold, black, red, green, yellow, blue, magenta, cyan, endC, displayIHM
 from Lib_vector import bufferVector, differenceVector, fusionVectors
-from Lib_file import copyVectorFile
+from Lib_file import copyVectorFile, deleteDir
 from Lib_log import timeLine
 from EvolvingDirectionTDC import evolvingDirectionTDC
 debug = 3
@@ -175,6 +175,8 @@ def distanceTDCBuffers(tdc_reference, tdc_calcule, input_sea_points, output_dir,
     for i in range(0,intersection_sens_layer.GetFeatureCount()):
         feature = intersection_sens_layer.GetFeature(i)
         size_buff = feature.GetField("size_buff")
+        if size_buff is None:
+            size_buff = 0
         #evol_direction = feature.GetField("evolution")
         evol_direction = feature.GetField("num_side")
         feature.SetField("evolution", size_buff*evol_direction)
@@ -185,8 +187,8 @@ def distanceTDCBuffers(tdc_reference, tdc_calcule, input_sea_points, output_dir,
         print(cyan + "distanceTDCBuffers() : " + endC + bold + green + "La distance a été bien calculée dans le fichier " + intersection_sens_shp + " et l'évolution entre les deux traits de côte est indiquée dans le champ 'evolution'." + endC)
 
     # Suppression du repertoire temporaire
-    if not save_results_intermediate and os.path.exists(repertory_temp):
-        shutil.rmtree(repertory_temp)
+    if not save_results_intermediate:
+        deleteDir(repertory_temp)
 
     ending_event = "distanceTDCBuffers() : distance TDC buffers ending : "
     timeLine(path_time_log,ending_event)

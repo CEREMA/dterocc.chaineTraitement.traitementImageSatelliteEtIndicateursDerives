@@ -25,7 +25,7 @@ from osgeo import ogr
 from Lib_log import timeLine
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_vector import splitVector, getAttributeValues, getProjection
-from Lib_file import removeVectorFile
+from Lib_file import removeVectorFile, getSubRepRecursifList
 from ImagesAssembly import selectAssembyImagesByHold
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
@@ -102,7 +102,6 @@ def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_l
     ID_P = "id_p"
 
     SUFFIX_OPTI = "_opti"
-    SUFFIX_ASS = "_ass"
     SUFFIX_CUT = "_cut"
     SUFFIX_ERROR = "_error"
     SUFFIX_MERGE = "_merge"
@@ -148,44 +147,64 @@ def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_l
     # Assemblage des images dans les paysages optimisés
     # Si on choisit pas de recouvrement entre les images
     if no_cover:
-        sub_repertory_images_paysages_list = []
-        repertory_images_sources_list = []
-        repertory_input_image_dir = input_repertories_list[0] # ATTENTION !!!! GFT c'est louche comme methode de prendre uniquement le premier repertoire d'image????
 
-        # On cherche la colonne contenant le nom de l'image
+        # Récupération des noms de sortie
+        image_output_list = []
+        id_paysage_list = []
         for shape in paysages_list :
             attribute_name_dico = {}
             attribute_name_dico[id_name_sub_rep] = ogr.OFTString
+            attribute_name_dico[id_paysage] = ogr.OFTInteger
             res_values_dico = getAttributeValues(shape, None, None, attribute_name_dico, format_vector)
-            sub_repertory_images_paysage = res_values_dico[id_name_sub_rep][0]
-            sub_repertory_images_paysages_list.append(sub_repertory_images_paysage)
+            id_name_sub_rep_value = res_values_dico[id_name_sub_rep][0]
+            id_paysage_value = res_values_dico[id_paysage][0]
+            image_output_list.append(id_name_sub_rep_value)
+            id_paysage_list.append(id_paysage_value)
+        if debug >= 3:
+            print("image_output_list " + str(image_output_list))
 
-        # Si la colonne existe
-        if len(sub_repertory_images_paysages_list) != 0:
-            for sub_repertory_images_paysage in sub_repertory_images_paysages_list:
-                repertory_images_sources_list.append(repertory_input_image_dir + os.sep + sub_repertory_images_paysage)
-
-        # Sinon on demande d'entrer les noms des images
-        else:
-            print("Liste des paysages optimisés : " + str(paysages_list))
-            repertory_images_sources_list = input("Rentrez la liste des images associées à chaque paysage dans l'ordre sous forme de liste [..., ..., ...] \n")
-            while len(repertory_images_sources_list) != len(paysages_list):
-                print("Longueur de la liste images différente de celle des paysages \n")
-                repertory_images_sources_list = input("Rentrez la liste des images associées à chaque paysage dans l'ordre \n")
-        if debug >= 2:
+        # Récupération de tous les (sous-)répertoires
+        repertory_images_sources_list_temp = []
+        for input_dir in input_repertories_list:
+            sub_rep_list = getSubRepRecursifList(input_dir)
+            if sub_rep_list != []:
+                for sub_rep in sub_rep_list:
+                    repertory_images_sources_list_temp.append(sub_rep)
+            else:
+                repertory_images_sources_list_temp.append(input_dir)
+        # On réorganise pour avoir le même ordre dans les 2 listes 'repertory_images_sources_list' et 'image_output_list'
+        repertory_images_sources_list = []
+        for paysage in id_paysage_list:
+            for repertory_images_source in repertory_images_sources_list_temp:
+                if str(paysage) in repertory_images_source.split(os.sep)[-1]:
+                    repertory_images_sources_list.append(repertory_images_source)
+        if debug >= 3:
             print("repertory_images_sources_list " + str(repertory_images_sources_list))
+
+        if len(repertory_images_sources_list) != len(image_output_list):
+            raise Exception(bold + red + "Error: not same number of input repertories and output files." + endC)
 
         # Commande ImagesAssembly sur les éléments des 2 listes
         for i in range(len(paysages_list)):
-            image_output = output_dir_images + os.sep + os.path.splitext(os.path.basename(paysages_list[i]))[0] + SUFFIX_ASS + extension_raster
+            image_output = output_dir_images + os.sep + image_output_list[i]
+            if debug >= 3:
+                 print(cyan + "PrepareData() : " + endC + bold + green  + "image_output : " + endC + image_output)
+
             try:
-                selectAssembyImagesByHold(paysages_list[i], [repertory_images_sources_list[i]], image_output, False, True, epsg, False, False, False, False, 0, 0, 0, 0, separ_name, pos_date, nb_char_date, separ_date, path_time_log, SUFFIX_ERROR, SUFFIX_MERGE, SUFFIX_CLEAN, SUFFIX_STACK, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+                # ~ selectAssembyImagesByHold(paysages_list[i], [repertory_images_sources_list[i]], image_output, False, True, epsg, False, False, False, False, 0, 0, 0, 0, separ_name, pos_date, nb_char_date, separ_date, path_time_log, SUFFIX_ERROR, SUFFIX_MERGE, SUFFIX_CLEAN, SUFFIX_STACK, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+                selectAssembyImagesByHold(paysages_list[i], [repertory_images_sources_list[i]], image_output, False, zone_date, epsg, False, False, False, False, 0, 0, 0, 0, separ_name, pos_date, nb_char_date, separ_date, path_time_log, SUFFIX_ERROR, SUFFIX_MERGE, SUFFIX_CLEAN, SUFFIX_STACK, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
             except Exception:
                 pass
 
     else:
         for shape in paysages_list :
-            image_output = output_dir_images + os.sep + os.path.splitext(os.path.basename(shape))[0] + SUFFIX_ASS + extension_raster
+            # ~ filename = os.path.basename(shape)
+            # ~ info_name = filename.split(separ_name, 2)[POS]
+            # ~ name_shape = info_name[:NB_CHAR]
+            # ~ image_output = output_dir_images + os.sep + name_shape + SUFFIX_ASS + extension_raster
+
+        # ~ for shape in sub_repertory_images_paysages_list :
+            image_output = output_dir_images + os.sep + os.path.splitext(os.path.basename(shape)) + extension_raster
 
             if optimization_zone :
                 shape_cut = os.path.splitext(shape)[0] + SUFFIX_CUT + os.path.splitext(shape)[1]
@@ -201,6 +220,8 @@ def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_l
     ending_event = "prepareData() : Select prepare data ending : "
     timeLine(path_time_log,ending_event)
 
+    if debug >= 3:
+        print(cyan + "PrepareData() : " + endC + bold + green  + "Fin de traitement")
     return
 
 ###########################################################################################################################################
@@ -486,3 +507,4 @@ def main(gui=False):
 
 if __name__ == '__main__':
   main(gui=False)
+
