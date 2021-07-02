@@ -246,11 +246,12 @@ def convertDbf2Csv(dbf_file, csv_file):
 #      dbf_file : Nom du fichier DBF d'entrée
 #      csv_file : Nom du fichier CSV de sortie
 #      sep : caractere sparateur du fichier csv, par defaut : ","
+#      encoding : encodage du fichier DBF, par defaut : "cp1252"
 
-def convertDbf2CsvBis(dbf_file, csv_file, sep=","):
+def convertDbf2CsvBis(dbf_file, csv_file, sep=",", encoding="cp1252"):
 
     if os.path.exists(dbf_file):
-        dbf_data = Dbf5(dbf_file)
+        dbf_data = Dbf5(dbf_file, codec=encoding)
         dataframe_dbf = dbf_data.to_dataframe()
         dataframe_dbf.to_csv(csv_file)
 

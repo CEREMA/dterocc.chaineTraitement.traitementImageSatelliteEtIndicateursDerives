@@ -52,10 +52,10 @@ def createMNS(image_input, image_mnt_input, image_elevation, image_mns_output, c
         print(command)
         raise NameError(bold + red + "createMNS() : An error occured during otbcli_Superimpose command. See error message above." + endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(im1b1 + im2b1)\""
 
-    # bandmath pour ajouter les valeurs d'élévation au MNT
+    # Bandmath pour ajouter les valeurs d'élévation au MNT
     command = "otbcli_BandMath -il %s %s -out %s %s -exp %s" %(image_mnt_input_tmp,image_elevation, image_mns_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -84,11 +84,11 @@ def createMNS(image_input, image_mnt_input, image_elevation, image_mns_output, c
 
 def createNDVI(image_input, image_NDVI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du NDVI
+    # Selection des bandes pour le calcul du NDVI
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -98,10 +98,10 @@ def createNDVI(image_input, image_NDVI_output, channel_order, codage="float"):
     if (Red == "" or NIR == ""):
         raise NameError(cyan + "createNDVI() : " + bold + red + "NDVI needs Red and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + NIR + "==" + Red + ")?(" + Red + "== 0)?0:" + str(PRECISION) + ":" + "(" + NIR + "-" + Red + ")/(" + NIR + "+" + Red + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice NDVI
+    # Bandmath pour creer l'indice NDVI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_NDVI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -126,12 +126,12 @@ def createNDVI(image_input, image_NDVI_output, channel_order, codage="float"):
 
 def createNDVIMod(image_input, image_NDVIMod_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     NIR = ""
     RedEdge = ""
 
-    # selection des bandes pour le calcul du NDVIMod
+    # Selection des bandes pour le calcul du NDVIMod
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -144,10 +144,10 @@ def createNDVIMod(image_input, image_NDVIMod_output, channel_order, codage="floa
     if (Red == "" or NIR == "" or RedEdge == ""):
         raise NameError(cyan + "createNDVIMod() : " + bold + red + "NDVIMod needs Red, NIR and RE channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + NIR + "== 0) and (" + Red + "== 0) and (" + RedEdge  + "== 0)?0:(" + NIR + "-" + Red + "+" + RedEdge + ") == 0 and (" + NIR + "!= 0 or " + Red + "!= 0 or "+ RedEdge + "!= 0 )?" + str(PRECISION) + ":" + "(" + NIR + "-" + Red + "+" + RedEdge + ")/(" + NIR + "+" + Red + "+" + RedEdge + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice NDVIMod
+    # Bandmath pour creer l'indice NDVIMod
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_NDVIMod_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -172,11 +172,11 @@ def createNDVIMod(image_input, image_NDVIMod_output, channel_order, codage="floa
 
 def createTNDVI(image_input, image_TNDVI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du TNDVI
+    # Selection des bandes pour le calcul du TNDVI
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -186,10 +186,10 @@ def createTNDVI(image_input, image_TNDVI_output, channel_order, codage="float"):
     if (Red == "" or NIR == ""):
         raise NameError(cyan + "createTNDVI() : " + bold + red + "TNDVI needs Red and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" +  NIR + " == 0) and (" + Red + " == 0) ? 0 : " + "sqrt((" + NIR + "-" + Red + ")/(" + NIR + "+" + Red + "+" + str(PRECISION) + ")+0.5)\""
 
-    # bandmath pour creer l'indice TNDVI
+    # Bandmath pour creer l'indice TNDVI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_TNDVI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -214,13 +214,13 @@ def createTNDVI(image_input, image_TNDVI_output, channel_order, codage="float"):
 
 def createPNDVI(image_input, image_PNDVI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     NIR = ""
     Red = ""
     Green = ""
     Blue = ""
 
-    # selection des bandes pour le calcul du PNDVI
+    # Selection des bandes pour le calcul du PNDVI
     if "NIR" in channel_order:
         num_channel = channel_order.index("NIR")+1
         NIR = "im1b"+str(num_channel)
@@ -236,10 +236,10 @@ def createPNDVI(image_input, image_PNDVI_output, channel_order, codage="float"):
     if (NIR == "" or Red == "" or Green == "" or Blue == ""):
         raise NameError(cyan + "createPNDVI() : " + bold + red + "PNDVI needs NIR, Red, Green and Blue channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + NIR + "== 0) and (" + Green + "== 0) and (" + Red + "== 0) and (" + Blue  + "== 0)?0:(" + NIR + "-" + Green + "-" + Red + "-" + Blue + ") == 0 and (" + NIR + "!= 0 or " + Green + "!= 0 or "+ Red + "!= 0 or " + Blue + "!= 0 )?" + str(PRECISION) + ":" + "(" + NIR + "-" + Green + "-" + Red + "-" + Blue + ")/(" + NIR + "+" + Green + "+" + Red + "+" + Blue + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice PNDVI
+    # Bandmath pour creer l'indice PNDVI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_PNDVI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -265,11 +265,11 @@ def createPNDVI(image_input, image_PNDVI_output, channel_order, codage="float"):
 
 def createNDWI(image_input, image_NDWI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     NIR = ""
     MIR = ""
 
-    # selection des bandes pour le calcul du NDWI
+    # Selection des bandes pour le calcul du NDWI
     if "NIR" in channel_order:
         num_channel = channel_order.index("NIR")+1
         NIR = "im1b"+str(num_channel)
@@ -279,10 +279,10 @@ def createNDWI(image_input, image_NDWI_output, channel_order, codage="float"):
     if (NIR == "" or MIR == ""):
         raise NameError(cyan + "createNDWI() : " + bold + red + "NDWI needs NIR and MIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression =  "\"(" + NIR + "==" + MIR + ")?(" + NIR + "== 0)?0:" + str(PRECISION) + ":" + "(" + NIR + "-" + MIR + ")/(" + NIR + "+" + MIR + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice NDWI
+    # Bandmath pour creer l'indice NDWI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_NDWI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -308,11 +308,11 @@ def createNDWI(image_input, image_NDWI_output, channel_order, codage="float"):
 
 def createNDWI2(image_input, image_NDWI2_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Green = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du NDWI2
+    # Selection des bandes pour le calcul du NDWI2
     if "Green" in channel_order:
         num_channel = channel_order.index("Green")+1
         Green = "im1b"+str(num_channel)
@@ -322,10 +322,10 @@ def createNDWI2(image_input, image_NDWI2_output, channel_order, codage="float"):
     if (Green == "" or NIR == ""):
         raise NameError(cyan + "createNDWI2() : " + bold + red + "NDWI2 needs Green and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + NIR + "==" + Green + ")?(" + NIR + "== 0)?0:" + str(PRECISION) + ":" + "(" + Green + "-" + NIR + ")/(" + Green + "+" + NIR + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice NDWI2
+    # Bandmath pour creer l'indice NDWI2
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_NDWI2_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -350,12 +350,12 @@ def createNDWI2(image_input, image_NDWI2_output, channel_order, codage="float"):
 
 def createNDWI2Mod(image_input, image_NDWI2Mod_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Green = ""
     NIR = ""
     RedEdge = ""
 
-    # selection des bandes pour le calcul du NDWI2Mod
+    # Selection des bandes pour le calcul du NDWI2Mod
     if "Green" in channel_order:
         num_channel = channel_order.index("Green")+1
         Green = "im1b"+str(num_channel)
@@ -368,10 +368,10 @@ def createNDWI2Mod(image_input, image_NDWI2Mod_output, channel_order, codage="fl
     if (Green == "" or NIR == "" or RedEdge == ""):
         raise NameError(cyan + "createNDWI2Mod() : " + bold + red + "NDWI2Mod needs Green, NIR and RE channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + NIR + "== 0) and (" + Green + "== 0) and (" + RedEdge + "== 0)?0:(" + Green + "-" + NIR + "+" + RedEdge + ") == 0 and (" + Green + "!= 0 or " + NIR + "!= 0 or "+ RedEdge + "!= 0)?" + str(PRECISION) + ":" + "(" + Green + "-" + NIR + "+" + RedEdge + ")/(" + Green + "+" + NIR +  "+" + RedEdge + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice NDWI2Mod
+    # Bandmath pour creer l'indice NDWI2Mod
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_NDWI2Mod_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -396,11 +396,11 @@ def createNDWI2Mod(image_input, image_NDWI2Mod_output, channel_order, codage="fl
 
 def createMNDWI(image_input, image_MNDWI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Green = ""
     MIR = ""
 
-    # selection des bandes pour le calcul du MNDWI
+    # Selection des bandes pour le calcul du MNDWI
     if "Green" in channel_order:
         num_channel = channel_order.index("Green")+1
         Green = "im1b"+str(num_channel)
@@ -410,10 +410,10 @@ def createMNDWI(image_input, image_MNDWI_output, channel_order, codage="float"):
     if (Green == "" or MIR == ""):
         raise NameError(cyan + "createMNDWI() : " + bold + red + "MNDWI needs Green and MIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + MIR + "==" + Green + ")?(" + MIR + "== 0)?0:" + str(PRECISION) + ":" + "(" + Green + "-" + MIR + ")/(" + Green + "+" + MIR + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice MNDWI
+    # Bandmath pour creer l'indice MNDWI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_MNDWI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -438,11 +438,11 @@ def createMNDWI(image_input, image_MNDWI_output, channel_order, codage="float"):
 
 def createISU(image_input, image_ISU_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du ISU
+    # Selection des bandes pour le calcul du ISU
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -452,10 +452,10 @@ def createISU(image_input, image_ISU_output, channel_order, codage="float"):
     if (Red == "" or NIR == ""):
         raise NameError(cyan + "createISU() : " + bold + red + "ISU needs Red and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"" + Red + " == 0 ? 0 : " + "75*(" + Red + "/" + NIR + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice ISU
+    # Bandmath pour creer l'indice ISU
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_ISU_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -481,11 +481,11 @@ def createISU(image_input, image_ISU_output, channel_order, codage="float"):
 
 def createGEMI(image_input, image_GEMI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du GEMI
+    # Selection des bandes pour le calcul du GEMI
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -495,12 +495,12 @@ def createGEMI(image_input, image_GEMI_output, channel_order, codage="float"):
     if (Red == "" or NIR == ""):
         raise NameError(cyan + "createGEMI() : " + bold + red + "GEMI needs Red and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     # source : http://resources.arcgis.com/en/help/main/10.1/index.html#/Band_Arithmetic_function/009t000001z4000000/
     eta = "(2*((" + NIR + "*" + NIR + ")-(" + Red + "*" + Red + ")) + 1.5 *" + NIR + " + 0.5 *" + Red + ")/(" + NIR + "+" + Red + " + 0.5)"
     expression = "\"(" + NIR + " == 0) and (" + Red + " == 0) ? 0 : " + eta + "*(1-  0.25 *" + eta + ")-((" + Red + " - 0.125)/(1-" + Red + "))\""
 
-    # bandmath pour creer l'indice GEMI
+    # Bandmath pour creer l'indice GEMI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_GEMI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -525,11 +525,11 @@ def createGEMI(image_input, image_GEMI_output, channel_order, codage="float"):
 
 def createBSI(image_input, image_BSI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du BSI
+    # Selection des bandes pour le calcul du BSI
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -539,10 +539,10 @@ def createBSI(image_input, image_BSI_output, channel_order, codage="float"):
     if (Red == "" or NIR == ""):
         raise NameError(cyan + "createBSI() : " + bold + red + "BSI needs Red and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"" + NIR + " == 0 or " + Red + " == 0 ? 0 : " + "sqrt((" + Red + "*" + Red + ") + (" + NIR + "*" + NIR + "))\""
 
-    # bandmath pour creer l'indice BSI
+    # Bandmath pour creer l'indice BSI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_BSI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -567,11 +567,11 @@ def createBSI(image_input, image_BSI_output, channel_order, codage="float"):
 
 def createNDBI(image_input, image_NDBI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     MIR = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du NDBI
+    # Selection des bandes pour le calcul du NDBI
     if "MIR" in channel_order:
         num_channel = channel_order.index("MIR")+1
         MIR = "im1b"+str(num_channel)
@@ -581,10 +581,10 @@ def createNDBI(image_input, image_NDBI_output, channel_order, codage="float"):
     if (MIR == "" or NIR == ""):
         raise NameError(cyan + "createNDBI() : " + bold + red + "NDBI needs MIR and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + MIR + "==" + NIR + ")?(" + MIR + "== 0)?0:" + str(PRECISION) + ":" + "(" + MIR + "-" + NIR + ")/(" + MIR + "+" + NIR + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice NDBI
+    # Bandmath pour creer l'indice NDBI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_NDBI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -609,12 +609,12 @@ def createNDBI(image_input, image_NDBI_output, channel_order, codage="float"):
 
 def createNBI(image_input, image_NBI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     MIR = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du NBI
+    # Selection des bandes pour le calcul du NBI
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -627,10 +627,10 @@ def createNBI(image_input, image_NBI_output, channel_order, codage="float"):
     if (Red =="" or MIR == "" or NIR == ""):
         raise NameError(cyan + "createNBI() : " + bold + red + "NBI needs Red, MIR and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression =  "\"(" + MIR + "== 0) and (" + NIR + "== 0) and (" + Red + "== 0)?0:(" + Red + "!=" + MIR + " and (" + Red + "== 0 or " + MIR + "== 0))?" + str(PRECISION) + ":" + "(" + Red + "*" + MIR + ")/(" + NIR + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice NBI
+    # Bandmath pour creer l'indice NBI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_NBI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -655,12 +655,12 @@ def createNBI(image_input, image_NBI_output, channel_order, codage="float"):
 
 def createIR(image_input, image_IR_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     Green = ""
     Blue = ""
 
-    # selection des bandes pour le calcul du IR
+    # Selection des bandes pour le calcul du IR
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -673,10 +673,10 @@ def createIR(image_input, image_IR_output, channel_order, codage="float"):
     if (Red == "" or Green == "" or Blue == ""):
         raise NameError(cyan + "createIR() : " + bold + red + "IR needs Red, Green and Blue channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression =  "\"(" + Green + "== 0) and (" + Blue + "== 0) and (" + Red + "== 0)?0:(" + Red + " == 0)?" + str(PRECISION) + ":" + "(" + Red + "*" + Red + ")/(" + str(PRECISION) + " + (" + Blue + "+" + Green + "*" + Green + "*" + Green + "))\""
 
-    # bandmath pour creer l'indice IR
+    # Bandmath pour creer l'indice IR
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_IR_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -701,11 +701,11 @@ def createIR(image_input, image_IR_output, channel_order, codage="float"):
 
 def createCI(image_input, image_CI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     Green = ""
 
-    # selection des bandes pour le calcul du CI
+    # Selection des bandes pour le calcul du CI
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -715,10 +715,10 @@ def createCI(image_input, image_CI_output, channel_order, codage="float"):
     if (Red == "" or Green == ""):
         raise NameError(cyan + "createCI() : " + bold + red + "CI needs Red and Green channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"(" + Red + "==" + Green + ")?(" + Red + "== 0)?0:" + str(PRECISION) + ":" + "(" + Red + "-" + Green + ")/(" + Red + "+" + Green + "+" + str(PRECISION) + ")\""
 
-    # bandmath pour creer l'indice CI
+    # Bandmath pour creer l'indice CI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_CI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -744,11 +744,11 @@ def createCI(image_input, image_CI_output, channel_order, codage="float"):
 
 def createBI(image_input, image_BI_output, channel_order, codage="float"):
 
-    # variables
+    # Variables
     Red = ""
     NIR = ""
 
-    # selection des bandes pour le calcul du BI
+    # Selection des bandes pour le calcul du BI
     if "Red" in channel_order:
         num_channel = channel_order.index("Red")+1
         Red = "im1b"+str(num_channel)
@@ -758,10 +758,10 @@ def createBI(image_input, image_BI_output, channel_order, codage="float"):
     if (Red == "" or NIR == ""):
         raise NameError(cyan + "createBI() : " + bold + red + "BI needs Red and NIR channels to be computed"+ endC)
 
-    # creer l'expression
+    # Creer l'expression
     expression = "\"" + NIR + " == 0 or " + Red + " == 0 ? 0 : " + "sqrt("+NIR+"*"+NIR+")+("+Red+"*"+Red+")\""
 
-    # bandmath pour creer l'indice BI
+    # Bandmath pour creer l'indice BI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_BI_output,codage,expression)
     if debug >= 2:
         print(command)
@@ -774,4 +774,147 @@ def createBI(image_input, image_BI_output, channel_order, codage="float"):
 
     return
 
+#########################################################################
+# FONCTION createC3()                                                   #
+#########################################################################
+#   Rôle : Cette fonction permet de créer un fichier d'indice c3 (detection des ombres) à partir d'une image ortho RVB
+#   paramètres :
+#       image_input : fichier image d'entrée multi bandes
+#       image_c3_output : fichier C3 (Ombre) de sortie une bande
+#       channel_order : liste d'ordre des bandes de l'image (exemple ["Red","Green","Blue","NIR"]
+#       codage : type de codage du fichier de sortie
+# Source : source : https://tel.archives-ouvertes.fr/tel-01332681
+#       Shadow/Vegetation and building detection from single optical remote sensing image "Tran Thanh Ngo"
+
+def createC3(image_input, image_c3_output, channel_order, codage="float"):
+
+    # Variables
+    Red = ""
+    Green = ""
+    Blue = ""
+
+    # Selection des bandes pour le calcul du C3
+    if "Red" in channel_order:
+        num_channel = channel_order.index("Red")+1
+        Red = "im1b"+str(num_channel)
+    if "Green" in channel_order:
+        num_channel = channel_order.index("Green")+1
+        Green = "im1b"+str(num_channel)
+    if "Blue" in channel_order:
+        num_channel = channel_order.index("Blue")+1
+        Blue = "im1b"+str(num_channel)
+    if (Red == "" or Green == "" or Blue == ""):
+        raise NameError(cyan + "createC3() : " + bold + red + "c3 needs Red Green and Blue channels to be computed"+ endC)
+
+    # Creer l'expression
+    expression = "\"(" + Blue + "== 0)?0:" + "atan(" + Blue + "/(max(" + Red + "," + Green + ")+" + str(PRECISION) + "))\""
+
+    # Bandmath pour creer l'indice C3
+    command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_c3_output,codage,expression)
+    if debug >= 2:
+        print(command)
+    exitCode = os.system(command)
+    if exitCode != 0:
+        print(command)
+        raise NameError(bold + red + "createC3() : An error occured during otbcli_BandMath command. See error message above." + endC)
+
+    print(cyan + "createC3() : " + bold + green + "Create c3 file %s complete!" %(image_c3_output) + endC)
+
+    return
+
+#########################################################################
+# FONCTION createExG()                                                   #
+#########################################################################
+#   Rôle : Cette fonction permet de créer un fichier d'indice ExG (detection de la végétation) à partir d'une image ortho RVB
+#   paramètres :
+#       image_input : fichier image d'entrée multi bandes
+#       image_ExG_output : fichier ExG (vegetation) de sortie une bande
+#       channel_order : liste d'ordre des bandes de l'image (exemple ["Red","Green","Blue","NIR"]
+#       codage : type de codage du fichier de sortie
+# Source : source : https://tel.archives-ouvertes.fr/tel-01332681
+#       Shadow/Vegetation and building detection from single optical remote sensing image "Tran Thanh Ngo"
+
+def createExG(image_input, image_ExG_output, channel_order, codage="float"):
+
+    # Variables
+    Red = ""
+    Green = ""
+    Blue = ""
+
+    # Selection des bandes pour le calcul du ExG
+    if "Red" in channel_order:
+        num_channel = channel_order.index("Red")+1
+        Red = "im1b"+str(num_channel)
+    if "Green" in channel_order:
+        num_channel = channel_order.index("Green")+1
+        Green = "im1b"+str(num_channel)
+    if "Blue" in channel_order:
+        num_channel = channel_order.index("Blue")+1
+        Blue = "im1b"+str(num_channel)
+    if (Red == "" or Green == "" or Blue == ""):
+        raise NameError(cyan + "createExG() : " + bold + red + "ExG needs Red Green and Blue channels to be computed"+ endC)
+
+    # Creer l'expression
+    expression = "\"((" + Green + "-" + Red + "-" + Blue + ")==0)?0:" + "(2*(" + Green + "-" + Red + "-" + Blue + ")/(" + Red + "+" + Green + "+" + Blue + "+" + str(PRECISION) + "))\""
+
+    # Bandmath pour creer l'indice ExG
+    command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_ExG_output,codage,expression)
+    if debug >= 2:
+        print(command)
+    exitCode = os.system(command)
+    if exitCode != 0:
+        print(command)
+        raise NameError(bold + red + "createExG() : An error occured during otbcli_BandMath command. See error message above." + endC)
+
+    print(cyan + "createExG() : " + bold + green + "Create ExG file %s complete!" %(image_ExG_output) + endC)
+
+    return
+
+#########################################################################
+# FONCTION createL()                                                   #
+#########################################################################
+#   Rôle : Cette fonction permet de créer un fichier d'indice L (detection de la luminance) à partir d'une image ortho RVB
+#   paramètres :
+#       image_input : fichier image d'entrée multi bandes
+#       image_L_output : fichier L (Luminance) de sortie une bande
+#       channel_order : liste d'ordre des bandes de l'image (exemple ["Red","Green","Blue","NIR"]
+#       codage : type de codage du fichier de sortie
+# Source : source : https://tel.archives-ouvertes.fr/tel-01332681
+#       Shadow/Vegetation and building detection from single optical remote sensing image "Tran Thanh Ngo"
+
+def createL(image_input, image_L_output, channel_order, codage="float"):
+
+    # Variables
+    Red = ""
+    Green = ""
+    Blue = ""
+
+    # Selection des bandes pour le calcul du L
+    if "Red" in channel_order:
+        num_channel = channel_order.index("Red")+1
+        Red = "im1b"+str(num_channel)
+    if "Green" in channel_order:
+        num_channel = channel_order.index("Green")+1
+        Green = "im1b"+str(num_channel)
+    if "Blue" in channel_order:
+        num_channel = channel_order.index("Blue")+1
+        Blue = "im1b"+str(num_channel)
+    if (Red == "" or Green == "" or Blue == ""):
+        raise NameError(cyan + "createL() : " + bold + red + "L needs Red Green and Blue channels to be computed"+ endC)
+
+    # Creer l'expression
+    expression =  "\"((" + Red + "== 0) and (" + Green + "== 0) and (" + Blue + "== 0))?0:(" + Red + "+" + Green + "+" + Blue + ")/3\""
+
+    # Bandmath pour creer l'indice L
+    command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_L_output,codage,expression)
+    if debug >= 2:
+        print(command)
+    exitCode = os.system(command)
+    if exitCode != 0:
+        print(command)
+        raise NameError(bold + red + "createL() : An error occured during otbcli_BandMath command. See error message above." + endC)
+
+    print(cyan + "createL() : " + bold + green + "Create L file %s complete!" %(image_L_output) + endC)
+
+    return
 

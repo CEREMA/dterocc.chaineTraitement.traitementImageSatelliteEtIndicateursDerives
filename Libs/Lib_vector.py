@@ -620,6 +620,7 @@ def setAttributeIndexValuesList(vector_input, attribute_name_id, field_new_value
         # Pour tous les champs à mettre à jour
         for attr_name in attribute_name_dico :
             attr_value = attribute_name_dico[attr_name]
+
             # Ajouter la valeur au champ
             feature.SetField(attr_name, attr_value)
 
@@ -663,6 +664,7 @@ def setAttributeValuesList(vector_input, field_new_values_list, format_vector='E
 
     # Pour chaque élement
     for i in range(0, layer_input.GetFeatureCount()):
+
          # Get the input Feature
          feature_input = layer_input.GetFeature(i)
 
@@ -3199,7 +3201,7 @@ def cutVectorAll(vector_cut, vector_input, vector_output, overwrite=True, format
 #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
 #       format_vector : format du fichier vecteur
 #   Paramétre de retour :
-#       Return True si au moins un polygon du fichier vector_output à intersecter avec le fichier vector_cu, False sinon
+#       Return True si au moins un polygon du fichier vector_output à intersecter avec le fichier vector_cut, False sinon
 
 def cutVector(vector_cut, vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
 
@@ -3702,6 +3704,9 @@ def createGridVector(vector_input, vector_output, dim_grid_x, dim_grid_y, attrib
     attribute_dico["id"] = ogr.OFTInteger
     attribute_dico["x_origin"] = ogr.OFTReal
     attribute_dico["y_origin"] = ogr.OFTReal
+    attribute_dico["id_ligne"] = ogr.OFTInteger
+    attribute_dico["id_colonne"] = ogr.OFTInteger
+    attribute_dico["sub_name"] = ogr.OFTString
 
     # Calcul de la grille
     check = os.path.isfile(vector_output)
@@ -3747,15 +3752,19 @@ def createGridVector(vector_input, vector_output, dim_grid_x, dim_grid_y, attrib
         while y > (ymin + dim_grid_y): # On boucle tant que la valeur de y ne descend pas en-dessous du ymin du fichier raster en entrée
             y = y - dim_grid_y
             y_list.append(y) # Ajout de la nouvelle valeur de y dans la liste
-
         y_list.append(ymin) # Ajout du dernier inferieur au pas de la grille
         if debug >= 4:
             print(bold + "y_list : " + endC + str(y_list) + "\n")
 
         # Creation de la liste de coordonnées des polygones
         polygons_attr_coord_dico = {}
+        id_colonne = 0
         for i in range(len(x_list)-1):
+            id_colonne+=1
+            id_ligne = 0
             for j in range(len(y_list)-1):
+                id_ligne+=1
+                sub_name = "l" + str(id_ligne) + "c" + str(id_colonne)
                 x = x_list[i]
                 y = y_list[j]
                 x_next = x_list[i+1]
@@ -3770,12 +3779,12 @@ def createGridVector(vector_input, vector_output, dim_grid_x, dim_grid_y, attrib
                 y4 = y_next                                    # x4,y4          x3,y3
                 coord_list = [x1,y1,x2,y2,x3,y3,x4,y4]
                 poly_index = i + (j * (len(x_list)-1)) + 1
-                poly_attr_dico = {"id":poly_index,"x_origin":x1,"y_origin":y1}
+                poly_attr_dico = {"id":poly_index,"x_origin":x1,"y_origin":y1,"id_ligne":id_ligne,"id_colonne":id_colonne,"sub_name":sub_name}
                 poly_info_list = [coord_list, poly_attr_dico]
                 polygons_attr_coord_dico[str(poly_index)] = poly_info_list
 
         # Create file
-        createPolygonsFromCoordList(attribute_dico,  polygons_attr_coord_dico, vector_output)
+        createPolygonsFromCoordList(attribute_dico, polygons_attr_coord_dico, vector_output, projection=projection, format_vector=format_vector)
 
         if debug >=2:
             print(cyan + "createGridVector() : " + endC + "Le fichier grille vecteur " + vector_output  + " a ete creer sur la zone : " + vector_input)

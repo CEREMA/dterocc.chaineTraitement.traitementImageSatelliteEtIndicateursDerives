@@ -961,7 +961,7 @@ def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=Non
         print("\n")
 
     # Découpage grace à gdal
-    command = 'gdalwarp -t_srs EPSG:%s  -te %s %s %s %s -tap -multi -co "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(epsg_proj, opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, no_data_value, cut_shape_file, format_raster, input_image, output_image)
+    command = 'gdalwarp -t_srs EPSG:%s  -te %s %s %s %s -tap -multi -co "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), cut_shape_file, format_raster, input_image, output_image)
 
     if debug >= 4:
         print(command)
@@ -1533,7 +1533,7 @@ def bufferBinaryRaster(image_input, image_output, buffer_to_apply, codage="uint8
         else :
             command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter erode -filter.erode.foreval %d -filter.erode.backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
 
-        if debug >= 3:
+        if debug >= 2:
             print(command)
 
         exitCode = os.system(command)
@@ -1553,9 +1553,10 @@ def bufferBinaryRaster(image_input, image_output, buffer_to_apply, codage="uint8
 #   Paramètres en entrée :
 #       input_image : image raw source
 #       vector_mask : masque vecteur correspondant à l'image d'entrée
+#       no_data_value : la valeur des pixels nodata peut etre 0 si pas de valeur défini
 #       format_vector : format du fichier vecteur par defaut = 'ESRI Shapefile'
 
-def createVectorMask(input_image, vector_mask, format_vector='ESRI Shapefile'):
+def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='ESRI Shapefile'):
 
     if debug >=3:
         print(cyan + "createVectorMask() : " + endC + "Creation d'un masque de decoupage avec l'image : " + str(input_image))
@@ -1568,9 +1569,9 @@ def createVectorMask(input_image, vector_mask, format_vector='ESRI Shapefile'):
     # Formule de calcul
     cols, rows, bands = getGeometryImage(input_image)
     if bands < 3:
-        expression = "\"im1b1 == 0?0:1\""
+        expression = "\"im1b1 == %s?0:1\"" %(str(no_data_value))
     else :
-        expression = "\"im1b1+im1b2+im1b3 == 0?0:1\""
+        expression = "\"im1b1+im1b2+im1b3 == %s?0:1\""%(str(no_data_value))
 
     # Creation du masque d'image
 
@@ -1770,7 +1771,7 @@ def rasterizeBinaryVector(vector_input, image_ref, raster_output, label=1, codag
 #       image_ref : image de référence (projection reference system information)
 #       field : champ du fichier shape qui definira la valeur pour le raster
 
-def rasterizeVector(vector_input, raster_output, image_ref, field):
+def rasterizeVector(vector_input, raster_output, image_ref, field, codage="float"):
     if debug >=3:
         print(cyan + "rasterizeVector() : " + endC + "Le fichier vecteur à rasteriser : " + str(vector_input))
 
@@ -1790,7 +1791,7 @@ def rasterizeVector(vector_input, raster_output, image_ref, field):
     #~ except Exception:
         #~ raise NameError(cyan + "rasterizeVector() : " + bold + red + "An error occured during execution otb Rasterization command. See error message above." + endC)
 
-    command = "otbcli_Rasterization -in %s -out %s -im %s -background 0 -mode attribute -mode.attribute.field %s" %(vector_input,raster_output,image_ref,field)
+    command = "otbcli_Rasterization -in %s -out %s %s -im %s -background 0 -mode attribute -mode.attribute.field %s" %(vector_input,raster_output,codage,image_ref,field)
 
     if debug >=3:
         print(command)
