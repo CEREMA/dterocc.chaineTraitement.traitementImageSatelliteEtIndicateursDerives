@@ -48,7 +48,7 @@ from Lib_file import removeFile
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
 # debug = 2 : affichage supérieur de commentaires lors de l'execution du script etc...
-debug = 1
+debug = 3
 
 ###########################################################################################################################################
 # FONCTION computeQualityIndicator()                                                                                                      #
@@ -65,6 +65,7 @@ debug = 1
 #     matrix_output_file : fichier de sortie contenant la matrice de confusuion
 #     indicators_output_file : fichier de sortie contenant les indicateurs de qualité
 #     textures_list : info texture a ecrire en titre des indicateurs de qualités dans le fichier résultat
+#     no_data_value : Valeur de  pixel du no data
 #     path_time_log : le fichier de log de sortie
 #     overwrite : supprime ou non les fichiers existants ayant le meme nom
 #
@@ -75,7 +76,7 @@ debug = 1
 #        - echantillons de validation (exple : "nomImage_validation.shp")
 #    Eléments générés par la fonction : fichiers textes contenant les résultats de la matrice de confusion (exmple : "nomImage_confusion_matrix.txt")
 #
-def computeQualityIndicator(classif_image_file, validation_input_vector, validation_input_raster, matrix_output_file, indicators_output_file, validation_id_field, textures_list, path_time_log, overwrite=True):
+def computeQualityIndicator(classif_image_file, validation_input_vector, validation_input_raster, matrix_output_file, indicators_output_file, validation_id_field, textures_list, no_data_value, path_time_log, overwrite=True):
 
     # Mise à jour du Log
     starting_event = "computeQualityIndicator() : Compute quality indicator starting : "
@@ -94,11 +95,12 @@ def computeQualityIndicator(classif_image_file, validation_input_vector, validat
         print(cyan + "computeQualityIndicator() : " + endC + "indicators_output_file: ",indicators_output_file)
         print(cyan + "computeQualityIndicator() : " + endC + "validation_id_field: ",validation_id_field)
         print(cyan + "computeQualityIndicator() : " + endC + "textures_list: ",textures_list)
+        print(cyan + "computeQualityIndicator() : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "computeQualityIndicator() : " + endC + "path_time_log: ",path_time_log)
         print(cyan + "computeQualityIndicator() : " + endC + "overwrite: ",overwrite)
 
     # CALCUL DE LA MATRICE DE CONFUSION
-    computeConfusionMatrix(classif_image_file, validation_input_vector, validation_input_raster, validation_id_field, matrix_output_file, overwrite)
+    computeConfusionMatrix(classif_image_file, validation_input_vector, validation_input_raster, validation_id_field, matrix_output_file, no_data_value, overwrite)
 
     # LECTURE DE LA MATRICE DE CONFUSION
     matrix,class_ref_list,class_pro_list = readConfusionMatrix(matrix_output_file)
@@ -155,7 +157,7 @@ def computeQualityIndicator(classif_image_file, validation_input_vector, validat
 ###########################################################################################################################################
 # FONCTION computeConfusionMatrix()                                                                                                       #
 ###########################################################################################################################################
-def computeConfusionMatrix(classif_image_file, validation_input_vector, validation_input_raster, validation_id_field, output, overwrite) :
+def computeConfusionMatrix(classif_image_file, validation_input_vector, validation_input_raster, validation_id_field, output, no_data_value, overwrite) :
     # calcul de la matrice de confusion
     check = os.path.isfile(output)
     if check and not overwrite :
@@ -173,10 +175,10 @@ def computeConfusionMatrix(classif_image_file, validation_input_vector, validati
         # Test si on entre avec des echantillons de controles au format vecteur ou au format raster
         if validation_input_vector != None:
             # Cas d'echantillons vecteur
-            command = "otbcli_ComputeConfusionMatrix -in %s -ref vector -ref.vector.in %s -ref.vector.field %s -out %s" %(classif_image_file,validation_input_vector,validation_id_field,output)
+            command = "otbcli_ComputeConfusionMatrix -in %s -ref vector -ref.vector.in %s -ref.vector.field %s -no_data_value %s -ref.vector.nodata %s -out %s" %(classif_image_file, validation_input_vector, validation_id_field, str(no_data_value),  str(no_data_value), output)
         else :
             # Cas d'echantillons raster
-            command = "otbcli_ComputeConfusionMatrix -in %s -ref raster -ref.raster.in %s -out %s" %(classif_image_file,validation_input_raster,output)
+            command = "otbcli_ComputeConfusionMatrix -in %s -ref raster -ref.raster.in %s -no_data_value %s -ref.raster.nodata %s -out %s" %(classif_image_file, validation_input_raster, str(no_data_value), str(no_data_value), output)
         if debug >= 3 :
             print(command)
         exitCode = os.system(command)
@@ -541,6 +543,7 @@ def main(gui=False):
     parser.add_argument('-oqi','--quality_indic_output',default="",help="File output quality indicators file", type=str, required=True)
     parser.add_argument('-id','--validation_id',default="id",help="Label to identify the class", type=str, required=False)
     parser.add_argument('-text','--textures_list',nargs="+",default=None,help="List of textures to use or calculate, (format : texture,channel,radius), ex. HaralickCorrelation,PIR,2", type=str, required=False)
+    parser.add_argument('-ndv','--no_data_value', default=0, help="Option in option optimize_emprise_nodata  : Value of the pixel no data. By default : 0", type=int, required=False)
     parser.add_argument('-log','--path_time_log',default="",help="Name of log", type=str, required=False)
     parser.add_argument('-sav','--save_results_inter',action='store_true',default=False,help="Save or delete intermediate result after the process. By default, False", required=False)
     parser.add_argument('-now','--overwrite',action='store_false',default=True,help="Overwrite files with same names. By default, True", required=False)
@@ -596,6 +599,11 @@ def main(gui=False):
     else :
         textures_list = None
 
+
+    # Récupération du parametre no_data_value
+    if args.no_data_value!= None:
+        no_data_value = args.no_data_value
+
     # Récupération du nom du fichier log
     if args.path_time_log!= None:
         path_time_log = args.path_time_log
@@ -621,6 +629,7 @@ def main(gui=False):
         print(cyan + "QualityIndicatorComputation : " + endC + "quality_indic_output : " + str(quality_indic_output) + endC)
         print(cyan + "QualityIndicatorComputation : " + endC + "validation_id : " + str(validation_id_field) + endC)
         print(cyan + "QualityIndicatorComputation : " + endC + "textures_list : " + str(textures_list) + endC)
+        print(cyan + "QualityIndicatorComputation : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "QualityIndicatorComputation : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "QualityIndicatorComputation : " + endC + "save_results_inter : " + str(save_results_intermediate) + endC)
         print(cyan + "QualityIndicatorComputation : " + endC + "overwrite : " + str(overwrite) + endC)
@@ -637,7 +646,7 @@ def main(gui=False):
         os.makedirs(repertory_output)
 
     # Execution du calcul des indicateurs pour une image
-    computeQualityIndicator(image_input, vector_input, sample_input, conf_matrix_output, quality_indic_output, validation_id_field, textures_list, path_time_log, overwrite)
+    computeQualityIndicator(image_input, vector_input, sample_input, conf_matrix_output, quality_indic_output, validation_id_field, textures_list, no_data_value, path_time_log, overwrite)
 
 # ================================================
 

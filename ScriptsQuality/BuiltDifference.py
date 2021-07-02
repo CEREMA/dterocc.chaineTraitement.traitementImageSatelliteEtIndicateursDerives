@@ -91,6 +91,8 @@ def createDifference(image_ortho_input, image_mns_input, image_mnt_input, bd_vec
     timeLine(path_time_log,starting_event)
 
     # constantes
+    CODAGE = "float"
+
     FOLDER_MASK_TEMP = 'Mask_'
     FOLDER_CUTTING_TEMP = 'Cut_'
     FOLDER_BUFF_TEMP = 'Buff_'
@@ -264,7 +266,7 @@ def createDifference(image_ortho_input, image_mns_input, image_mnt_input, bd_vec
     # ETAPE 5 : RASTERISER LE FICHIER SHAPE DE ZONE BD
     print(cyan + "createDifference() : " + bold + green + "RASTERIZATION DE LA FUSION..." + endC)
     image_zone_raster = repertory_output_temp + os.sep + image_name + '_' + zone + extension_raster
-    rasterizeVector(image_zone_shape, image_zone_raster, image_ortho_input, fileld_bd_raster)
+    rasterizeVector(image_zone_shape, image_zone_raster, image_ortho_input, fileld_bd_raster, codage=CODAGE)
     print(cyan + "createDifference() : " + bold + green + "FIN DE LA RASTERIZATION" + endC)
 
     # ETAPE 6 : CREER UN NOUVEAU MMS ISSU DU MNT + DATA BD_TOPO

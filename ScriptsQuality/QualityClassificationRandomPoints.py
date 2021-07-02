@@ -125,9 +125,7 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
 
     # Mise à jour des noms de champs
     input_ref_col = ""
-    val_ref_col = "ValRef"
     val_ref = 0
-    val_class_col = "ValClass"
     if (column_name_vector != "") and (not column_name_vector is None):
         input_ref_col = column_name_vector
     if (column_name_ref != "") and (not column_name_ref is None):
@@ -272,14 +270,13 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
 
     # ETAPE 4 : CREATION ET DECOUPAGE DU FICHIER VECTEUR RESULTAT PAR LE SHAPE D'ETUDE
 
-    # Définir les attibuts du fichier résultat
-    attribute_dico = {"Ident":ogr.OFTInteger, val_ref_col:ogr.OFTInteger, val_class_col:ogr.OFTInteger}
-
     # Creer le fichier de points
-    if is_sample_file and os.path.exists(vector_output) :
+    if is_sample_file and os.path.exists(vector_sample_temp) :
+
+        attribute_dico = {val_class_col:ogr.OFTInteger}
         # Recopie du fichier
         removeVectorFile(vector_output_temp)
-        copyVectorFile(vector_output, vector_output_temp)
+        copyVectorFile(vector_sample_temp, vector_output_temp)
 
         # Ajout des champs au fichier de sortie
         for field_name in attribute_dico :
@@ -293,9 +290,12 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
             field_new_values_list.append(point_attr_dico)
 
         # Ajout des donnees
-        setAttributeValuesList(vector_output_temp,field_new_values_list, format_vector)
+        setAttributeValuesList(vector_output_temp, field_new_values_list, format_vector)
 
     else :
+        # Définir les attibuts du fichier résultat
+        attribute_dico = {"Ident":ogr.OFTInteger, val_ref_col:ogr.OFTInteger, val_class_col:ogr.OFTInteger}
+
         createPointsFromCoordList(attribute_dico, points_random_value_dico, vector_output_temp, epsg, format_vector)
 
     # Découpage du fichier de points d'echantillons
@@ -350,9 +350,9 @@ def main(gui=False):
     parser.add_argument('-o','--vector_output',default="",help="Vector output contain dots from the random draw, or from input sample vector, into study area.", type=str, required=True)
     parser.add_argument('-nb','--nb_dot',default=1000,help="Number of points drawn randomly.", type=int, required=False)
     parser.add_argument('-ndv','--no_data_value', default=0, help="Option: Value of the pixel no data. By default : 0", type=int, required=False)
-    parser.add_argument('-col','--column_name_vector', default="", help="Option: Column name in the input vector with the reference information.", type=str, required=False)
-    parser.add_argument('-colr','--column_name_ref', default="", help="Option: Output column name for the reference information (from the input sample vector, or to check after if no input sample vector).", type=str, required=False)
-    parser.add_argument('-colc','--column_name_class', default="", help="Option: Output column name for the classification information from the input raster.", type=str, required=False)
+    parser.add_argument('-col','--column_name_vector', default="ValRef", help="Option: Column name in the input vector with the reference information.", type=str, required=False)
+    parser.add_argument('-colr','--column_name_ref', default="ValRef", help="Option: Output column name for the reference information (from the input sample vector, or to check after if no input sample vector).", type=str, required=False)
+    parser.add_argument('-colc','--column_name_class', default="ValClass", help="Option: Output column name for the classification information from the input raster.", type=str, required=False)
     parser.add_argument('-epsg','--epsg', default=2154,help="Projection of the output file.", type=int, required=False)
     parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image, by default : GTiff (GTiff, HFA...)", type=str, required=False)
     parser.add_argument('-vef','--format_vector',default="ESRI Shapefile",help="Option : Vector format. By default : ESRI Shapefile", type=str, required=False)
@@ -474,7 +474,7 @@ def main(gui=False):
         os.makedirs(repertory_output)
 
     # execution de la fonction pour une image
-    estimateQualityClassification(image_input, vector_cut_input, vector_sample_input, vector_output, nb_dot, no_data_value, column_name_vector, column_name_ref, column_name_class, path_time_log, epsg, format_raster, extension_raster, extension_vector, save_results_intermediate, overwrite)
+    estimateQualityClassification(image_input, vector_cut_input, vector_sample_input, vector_output, nb_dot, no_data_value, column_name_vector, column_name_ref, column_name_class, path_time_log, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
 # ================================================
 
