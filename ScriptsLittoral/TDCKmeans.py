@@ -25,13 +25,27 @@ import os, argparse, sys, shutil
 from Lib_display import bold, black, red, green, yellow, blue, magenta, cyan, endC, displayIHM
 from Lib_log import timeLine
 from Lib_index import createNDVI, createNDWI2, createBI
-from Lib_raster import createBinaryMask, polygonizeRaster, cutImageByVector
+from Lib_raster import createBinaryMask, polygonizeRaster, cutImageByVector, classificationKmeans
 from PolygonMerToTDC import polygonMerToTDC
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
 # debug = 2 : affichage supérieur de commentaires lors de l'execution du script etc...
 debug = 3
+
+# Les parametres de la fonction OTB otbcli_KMeansClassification a changé à partir de la version 7.0 de l'OTB
+IS_VERSION_UPPER_OTB_7_0 = False
+pythonpath = os.environ["PYTHONPATH"]
+print ("Identifier la version d'OTB : ")
+pythonpath_list = pythonpath.split(os.sep)
+otb_info = ""
+for info in pythonpath_list :
+    if info.find("OTB") > -1:
+        otb_info = info.split("-")[1]
+        break
+print (otb_info)
+if int(otb_info.split(".")[0]) >= 7 :
+    IS_VERSION_UPPER_OTB_7_0 = True
 
 ###########################################################################################################################################
 # FONCTION runTDCKmeans                                                                                                                   #
@@ -142,14 +156,19 @@ def runTDCKmeans(input_images, output_dir, input_sea_points, input_cut_vector, n
             print(cyan + "runTDCKmeans() : " + endC + bold + green + "Create binary file %s complete!" %(im_concat) + endC)
 
         # K-Means sur l'image concaténée
-        command = "otbcli_KMeansClassification -in %s -nc %s -nodatalabel %s -rand %s -out %s" %(im_concat, str(nb_classes), str(no_data_value), str(1), im_kmeans)
-        if debug >= 3:
-            print(command)
-        exitCode = os.system(command)
-        if exitCode != 0:
-            raise NameError(cyan + "runTDCKmeans() : " + endC + bold + red + "An error occured during otbcli_ConcatenateImages command. See error message above." + endC)
-        else:
-            print(cyan + "runTDCKmeans() : " + endC + bold + green + "Create binary file %s complete!" %(im_kmeans) + endC)
+        if IS_VERSION_UPPER_OTB_7_0 :
+            classificationKmeans(im_concat, "", im_kmeans, nb_classes, 300, 1, no_data_value, format_raster)
+            if debug >= 2:
+                print(cyan + "runTDCKmeans() : " + endC + bold + green + "Create binary file %s complete!" %(im_kmeans) + endC)
+        else :
+            command = "otbcli_KMeansClassification -in %s -nc %s -nodatalabel %s -rand %s -out %s" %(im_concat, str(nb_classes), str(no_data_value), str(1), im_kmeans)
+            if debug >= 3:
+                print(command)
+            exitCode = os.system(command)
+            if exitCode != 0:
+                raise NameError(cyan + "runTDCKmeans() : " + endC + bold + red + "An error occured during otbcli_ConcatenateImages command. See error message above." + endC)
+            else:
+                print(cyan + "runTDCKmeans() : " + endC + bold + green + "Create binary file %s complete!" %(im_kmeans) + endC)
 
         # Découpe du raster image Kmeans
         cutImageByVector(input_cut_vector, im_kmeans, im_kmeans_decoup, None, None, no_data_value, epsg, format_raster, format_vector)
@@ -162,7 +181,8 @@ def runTDCKmeans(input_images, output_dir, input_sea_points, input_cut_vector, n
         if exitCode != 0:
             raise NameError(cyan + "runTDCKmeans() : " + endC + bold + red + "An error occured during otbcli_ClassificationMapRegularization command. See error message above." + endC)
         else:
-            print(cyan + "runTDCKmeans() : " + endC + bold + green + "Create binary file %s complete!" %(im_kmeans_decoup_filter) + endC)
+            if debug >= 2:
+                print(cyan + "runTDCKmeans() : " + endC + bold + green + "Create binary file %s complete!" %(im_kmeans_decoup_filter) + endC)
 
         # Vectorisation de l'image découpée
         polygonizeRaster(im_kmeans_decoup_filter, im_kmeans_vector, im_kmeans_vect_name, ID, format_vector)
