@@ -222,9 +222,11 @@ def selectSamples(image_input_list, sample_image_input, vector_output, table_sta
         cols, rows, bands = getGeometryImage(sample_image_input)
         xmin, xmax, ymin, ymax = getEmpriseImage(sample_image_input)
         pixel_width, pixel_height = getPixelWidthXYImage(sample_image_input)
-        projection_input = int(getProjectionImage(sample_image_input))
+        projection_input = getProjectionImage(sample_image_input)
         if projection_input == None or projection_input == 0 :
             projection_input = epsg
+        else :
+            projection_input = int(projection_input)
 
         pixel_width = abs(pixel_width)
         pixel_height = abs(pixel_height)

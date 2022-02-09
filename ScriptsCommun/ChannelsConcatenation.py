@@ -66,6 +66,7 @@ debug = 4
 #    images_input_list : liste de fichiers a stacker ensemble
 #    stack_image_output : le nom de l'empilement image de sortie
 #    path_time_log : le fichier de log de sortie
+#    code : encodage du fichier de sortie
 #    save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = False
 #    overwrite : boolen si vrai, ecrase les fichiers existants
 #
@@ -73,7 +74,7 @@ debug = 4
 #    le nom complet de l'image de sortie
 #    Elements generes : une image concatenee rangee
 #
-def concatenateChannels(images_input_list, stack_image_output, path_time_log, save_results_intermediate=False, overwrite=True):
+def concatenateChannels(images_input_list, stack_image_output, path_time_log, code="float", save_results_intermediate=False, overwrite=True):
 
     # Mise à jour du Log
     starting_event = "concatenateChannels() : Concatenate channels starting : "
@@ -83,13 +84,11 @@ def concatenateChannels(images_input_list, stack_image_output, path_time_log, sa
     print(bold + green + "## START : CHANNELS CONCATENATION" + endC)
     print(endC)
 
-    # Constantes
-    CODAGE = "float"
-
     if debug >= 3:
         print(bold + green + "Variables dans la fonction" + endC)
         print(cyan + "concatenateChannels() : " + endC + "images_input_list : " + str(images_input_list) + endC)
         print(cyan + "concatenateChannels() : " + endC + "stack_image_output : " + str(stack_image_output) + endC)
+        print(cyan + "concatenateChannels() : " + endC + "code : " + str(code) + endC)
         print(cyan + "concatenateChannels() : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "concatenateChannels() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
         print(cyan + "concatenateChannels() : " + endC + "overwrite : " + str(overwrite) + endC)
@@ -131,7 +130,7 @@ def concatenateChannels(images_input_list, stack_image_output, path_time_log, sa
             # Assemble la liste d'image en une liste globale de fichiers d'entree
             print(bold + green + "concatenateChannels() : Assembling channels %s ... "%(elements_to_stack_list_str) + endC)
 
-            command = "otbcli_ConcatenateImages -progress true -il %s -out %s %s" %(elements_to_stack_list_str,stack_image_output,CODAGE)
+            command = "otbcli_ConcatenateImages -progress true -il %s -out %s %s" %(elements_to_stack_list_str,stack_image_output,code)
             if debug >= 3:
                 print(command)
             exitCode = os.system(command)
@@ -457,6 +456,7 @@ def main(gui=False):
     # Paramètres
     parser.add_argument('-il','--images_input_list',default="",nargs="*",help="List images input to stack", type=str, required=True)
     parser.add_argument('-os','--image_stack_output',default="",help="Image output of stack image", type=str, required=False)
+    parser.add_argument('-code','--code',default="",help="Encoding image output of stack image", type=str, required=False)
     parser.add_argument('-on','--image_normalize_output',default="",help="Image output of normalize image", type=str, required=False)
     parser.add_argument('-oa','--image_acp_output',default="",help="Image output of reduce acp image", type=str, required=False)
     parser.add_argument('-redce.meth','--method_reduce',default="PCA",help="Parameter reduction, name methode to reduce concatened image (choice : [PCA/NAPCA/MAF/ICA]). By default : PCA", type=str, required=False)
@@ -483,6 +483,9 @@ def main(gui=False):
     # Récupération des images de sortie
     if args.image_stack_output != None:
         image_stack_output = args.image_stack_output
+
+    if args.code != None:
+        code = args.code
 
     if args.image_normalize_output != None:
         image_normalize_output = args.image_normalize_output
@@ -530,6 +533,7 @@ def main(gui=False):
         print(cyan + "ChannelsConcatenation : " + bold + green + "Variables dans le parser" + endC)
         print(cyan + "ChannelsConcatenation : " + endC + "images_input_list : " + str(images_input_list) + endC)
         print(cyan + "ChannelsConcatenation : " + endC + "image_stack_output : " + str(image_stack_output) + endC)
+        print(cyan + "ChannelsConcatenation : " + endC + "code : " + str(code) + endC)
         print(cyan + "ChannelsConcatenation : " + endC + "image_normalize_output : " + str(image_normalize_output) + endC)
         print(cyan + "ChannelsConcatenation : " + endC + "image_acp_output : " + str(image_acp_output) + endC)
         print(cyan + "ChannelsConcatenation : " + endC + "method_reduce : " + str(method_reduce) + endC)
@@ -569,7 +573,7 @@ def main(gui=False):
 
     # Exécution de la concatenation pour une image
     if concatenation :
-        concatenateChannels(images_input_list, image_stack_output, path_time_log, save_results_intermediate, overwrite)
+        concatenateChannels(images_input_list, image_stack_output, path_time_log, code, save_results_intermediate, overwrite)
     else :
         image_stack_output = images_input_list[0]
 

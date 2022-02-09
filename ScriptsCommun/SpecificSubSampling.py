@@ -61,6 +61,7 @@ debug = 3
 #     rand_otb : graine pour la partie randon de l'ago de KMeans
 #     ram_otb : memoire RAM disponible pour les applications OTB
 #     number_of_actives_pixels_threshold : Nombre minimum de pixels de formation pour le kmeans. Par défaut = 8000
+#     format_raster : Format de l'image de sortie, par défaut : GTiff
 #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
 #     save_results_intermediate : liste des sorties intermediaires nettoyees, par defaut = False
 #     overwrite : supprime ou non les fichiers existants ayant le meme nom
@@ -69,7 +70,7 @@ debug = 3
 #     aucun
 #     Eléments modifiés l'image de classification micro classes
 
-def classRasterSubSampling(satellite_image_input, classified_image_input, image_output, table_reallocation, sub_sampling_number, no_data_value, path_time_log, rand_otb=0, ram_otb=0, number_of_actives_pixels_threshold=8000, extension_raster=".tif", save_results_intermediate=False, overwrite=True) :
+def classRasterSubSampling(satellite_image_input, classified_image_input, image_output, table_reallocation, sub_sampling_number, no_data_value, path_time_log, rand_otb=0, ram_otb=0, number_of_actives_pixels_threshold=8000, format_raster='GTiff', extension_raster=".tif", save_results_intermediate=False, overwrite=True) :
 
     # Mise à jour du Log
     starting_event = "classRasterSubSampling() : Micro class subsampling on classification image starting : "
@@ -86,6 +87,7 @@ def classRasterSubSampling(satellite_image_input, classified_image_input, image_
        print(cyan + "classRasterSubSampling() : " + endC + "rand_otb : " + str(rand_otb) + endC)
        print(cyan + "classRasterSubSampling() : " + endC + "ram_otb : " + str(ram_otb) + endC)
        print(cyan + "classRasterSubSampling() : " + endC + "number_of_actives_pixels_threshold : " + str(number_of_actives_pixels_threshold) + endC)
+       print(cyan + "classRasterSubSampling() : " + endC + "format_raster : " + str(format_raster) + endC)
        print(cyan + "classRasterSubSampling() : " + endC + "extension_raster : " + str(extension_raster) + endC)
        print(cyan + "classRasterSubSampling() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
        print(cyan + "classRasterSubSampling() : " + endC + "overwrite : " + str(overwrite) + endC)
@@ -227,7 +229,7 @@ def classRasterSubSampling(satellite_image_input, classified_image_input, image_
                 macroclass_sampling_list.append(number_of_sub_samples)
                 macroclass_labels_list = []
                 macroclass_labels_list.append(subclass_label)
-                applyKmeansMasks(satellite_image_input, input_mask_list, "", "", output_masked_image_list, output_centroids_files_list, macroclass_sampling_list, macroclass_labels_list, no_data_value, path_time_log, 200, 1, -1, 0.0, rand_otb, ram_otb, number_of_actives_pixels_threshold, extension_raster, save_results_intermediate, overwrite)
+                applyKmeansMasks(satellite_image_input, input_mask_list, "", "", output_masked_image_list, output_centroids_files_list, macroclass_sampling_list, macroclass_labels_list, no_data_value, path_time_log, 200, 1, -1, 0.0, rand_otb, ram_otb, number_of_actives_pixels_threshold, format_raster, extension_raster, save_results_intermediate, overwrite)
 
                 if debug >=2:
                     print(cyan + "classRasterSubSampling() : " + bold + green + "CLASSE %s/%s - ETAPE 2/5 : Fin du sous echantillonage par classification non supervisee en %s classes, disponible ici %s : " %(idx_class+1, len(sub_sampling_class_list), number_of_sub_samples, class_subsampled_raster) + endC)
@@ -346,6 +348,7 @@ def main(gui=False):
     parser.add_argument('-rand','--rand_otb',default=0,help="User defined seed for random KMeans", type=int, required=False)
     parser.add_argument('-ram','--ram_otb',default=0,help="Ram available for processing otb applications (in MB)", type=int, required=False)
     parser.add_argument('-ndv','--no_data_value', default=0, help="Option in option optimize_emprise_nodata  : Value of the pixel no data. By default : 0", type=int, required=False)
+    parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image raster. By default : GTiff (GTiff, HFA...)", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-log','--path_time_log',default="",help="Name of log", type=str, required=False)
     parser.add_argument('-sav','--save_results_inter',action='store_true',default=False,help="Save or delete intermediate result after the process. By default, False", required=False)
@@ -398,6 +401,10 @@ def main(gui=False):
     if args.ram_otb != None:
         ram_otb = args.ram_otb
 
+    # Paramètre format des images de sortie
+    if args.format_raster != None:
+        format_raster = args.format_raster
+
     # Paramètre de l'extension des images rasters
     if args.extension_raster != None:
         extension_raster = args.extension_raster
@@ -429,6 +436,7 @@ def main(gui=False):
         print(cyan + "SpecificSubSampling : " + endC + "rand_otb : " + str(rand_otb) + endC)
         print(cyan + "SpecificSubSampling : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "SpecificSubSampling : " + endC + "no_data_value : " + str(no_data_value) + endC)
+        print(cyan + "SpecificSubSampling : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "SpecificSubSampling : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "SpecificSubSampling : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "SpecificSubSampling : " + endC + "save_results_inter : " + str(save_results_intermediate) + endC)
@@ -443,7 +451,7 @@ def main(gui=False):
             os.makedirs(repertory_output)
 
     # reallocation
-    classRasterSubSampling(satellite_image_input, classified_image_input, image_output, table_reallocation, sub_sampling_number, no_data_value, path_time_log, rand_otb, ram_otb, number_of_actives_pixels_threshold, extension_raster, save_results_intermediate, overwrite)
+    classRasterSubSampling(satellite_image_input, classified_image_input, image_output, table_reallocation, sub_sampling_number, no_data_value, path_time_log, rand_otb, ram_otb, number_of_actives_pixels_threshold, format_raster, extension_raster, save_results_intermediate, overwrite)
 
 # ================================================
 

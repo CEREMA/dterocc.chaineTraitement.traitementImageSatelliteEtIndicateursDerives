@@ -49,7 +49,7 @@ from Lib_text import appendTextFileCR
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
 # debug = 2 : affichage supérieur de commentaires lors de l'execution du script etc...
-debug = 1
+debug = 3
 
 ###########################################################################################################################################
 # STRUCTURE StructZoneDate                                                                                                                #

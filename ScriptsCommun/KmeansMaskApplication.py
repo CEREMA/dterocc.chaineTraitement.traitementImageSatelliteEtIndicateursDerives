@@ -39,7 +39,7 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displ
 from Lib_text import writeTextFile, appendTextFileCR
 from Lib_file import removeFile, removeDir
 from Lib_log import timeLine
-from Lib_raster import countPixelsOfValue, updateReferenceProjection, deletePixelsSuperpositionMasks, mergeListRaster, identifyPixelValues, updateReferenceProjection
+from Lib_raster import countPixelsOfValue, updateReferenceProjection, deletePixelsSuperpositionMasks, mergeListRaster, identifyPixelValues, updateReferenceProjection, classificationKmeans
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
@@ -87,6 +87,7 @@ if int(otb_info.split(".")[0]) >= 7 :
 #     rand_otb : graine pour la partie randon de l'ago de KMeans
 #     ram_otb : memoire RAM disponible pour les applications OTB
 #     number_of_actives_pixels_threshold : Nombre minimum de pixels de formation pour le kmeans. Par défaut = 7000
+#     format_raster : Format de l'image de sortie, par défaut : GTiff
 #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
 #     save_results_intermediate : liste des sorties intermediaires nettoyees, par defaut = False
 #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
@@ -94,7 +95,7 @@ if int(otb_info.split(".")[0]) >= 7 :
 # SORTIES DE LA FONCTION :
 #     Les images issues du kmeans sont dans path_output_kmeans
 #
-def applyKmeansMasks(image_input, mask_samples_macro_input_list, image_samples_merged_output, proposal_table_output, micro_samples_images_output_list, centroids_files_output_list, macroclass_sampling_list, macroclass_labels_list, no_data_value, path_time_log, kmeans_param_maximum_iterations=200, kmeans_param_training_set_size_weight=1, kmeans_param_minimum_training_set_size=-1, rate_clean_micro_class=0.0, rand_otb=0, ram_otb=0, number_of_actives_pixels_threshold=200, extension_raster=".tif", save_results_intermediate=False, overwrite=True):
+def applyKmeansMasks(image_input, mask_samples_macro_input_list, image_samples_merged_output, proposal_table_output, micro_samples_images_output_list, centroids_files_output_list, macroclass_sampling_list, macroclass_labels_list, no_data_value, path_time_log, kmeans_param_maximum_iterations=200, kmeans_param_training_set_size_weight=1, kmeans_param_minimum_training_set_size=-1, rate_clean_micro_class=0.0, rand_otb=0, ram_otb=0, number_of_actives_pixels_threshold=200, format_raster='GTiff', extension_raster=".tif", save_results_intermediate=False, overwrite=True):
 
     # Mise à jour du Log
     starting_event = "applyKmeansMasks() : Kmeans and mask starting : "
@@ -122,6 +123,7 @@ def applyKmeansMasks(image_input, mask_samples_macro_input_list, image_samples_m
         print(cyan + "applyKmeansMasks() : " + endC + "rand_otb : " + str(rand_otb) + endC)
         print(cyan + "applyKmeansMasks() : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "applyKmeansMasks() : " + endC + "number_of_actives_pixels_threshold : " + str(number_of_actives_pixels_threshold))
+        print(cyan + "applyKmeansMasks() : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "applyKmeansMasks() : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "applyKmeansMasks() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
         print(cyan + "applyKmeansMasks() : " + endC + "overwrite : " + str(overwrite) + endC)
@@ -219,7 +221,7 @@ def applyKmeansMasks(image_input, mask_samples_macro_input_list, image_samples_m
             label = macroclass_labels_list[macroclass_id]                 # Label de la macroclasse Ex : 11000
 
             # Gestion du multi threading pour l'appel du calcul du kmeans
-            thread = threading.Thread(target=computeKmeans, args=(image_input, mask_sample_input, image_tmp, micro_samples_image, centroids_file, label, number_of_classes, macroclass_id, number_of_actives_pixels_threshold, kmeans_param_minimum_training_set_size, kmeans_param_maximum_iterations, length_mask, no_data_value, rand_otb, int(ram_otb/length_mask), CODAGE_8B, CODAGE_16B, save_results_intermediate, overwrite))
+            thread = threading.Thread(target=computeKmeans, args=(image_input, mask_sample_input, image_tmp, micro_samples_image, centroids_file, label, number_of_classes, macroclass_id, number_of_actives_pixels_threshold, kmeans_param_minimum_training_set_size, kmeans_param_maximum_iterations, length_mask, no_data_value, rand_otb, int(ram_otb/length_mask), CODAGE_8B, CODAGE_16B, format_raster, save_results_intermediate, overwrite))
             thread.start()
             thread_list.append(thread)
 
@@ -361,13 +363,14 @@ def applyKmeansMasks(image_input, mask_samples_macro_input_list, image_samples_m
 #     ram_otb : memoire RAM disponible pour les applications OTB
 #     codage_8b : codage application otb sortie en 8bits
 #     codage_16b : codage application otb sortie en 16bits
+#     format_raster : Format de l'image de sortie, par défaut : GTiff
 #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
 #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
 
 # SORTIES DE LA FONCTION :
 #     Vecteur polygonisé
 #
-def computeKmeans(image_input, mask_sample_input, image_output, micro_samples_image_out, centroids_file_output, label, number_of_classes, macroclass_id, number_of_actives_pixels_threshold, kmeans_param_minimum_training_set_size, kmeans_param_maximum_iterations, length_mask, no_data_value, rand_otb, ram_otb, codage_8b, codage_16b, save_results_intermediate=False, overwrite=True):
+def computeKmeans(image_input, mask_sample_input, image_output, micro_samples_image_out, centroids_file_output, label, number_of_classes, macroclass_id, number_of_actives_pixels_threshold, kmeans_param_minimum_training_set_size, kmeans_param_maximum_iterations, length_mask, no_data_value, rand_otb, ram_otb, codage_8b, codage_16b, format_raster='GTiff', save_results_intermediate=False, overwrite=True):
 
     # ETAPE 0 : PREPARATION
 
@@ -387,6 +390,7 @@ def computeKmeans(image_input, mask_sample_input, image_output, micro_samples_im
         print(cyan + "computeKmeans() : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "computeKmeans() : " + endC + "rand_otb : " + str(rand_otb) + endC)
         print(cyan + "computeKmeans() : " + endC + "ram_otb : " + str(ram_otb) + endC)
+        print(cyan + "computeKmeans() : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "computeKmeans() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
         print(cyan + "computeKmeans() : " + endC + "overwrite : " + str(overwrite) + endC)
 
@@ -401,17 +405,27 @@ def computeKmeans(image_input, mask_sample_input, image_output, micro_samples_im
     # ETAPE 1 : CLASSIFICATION NON SUPERVISEE
 
     # Cas où il y a moins de pixels disponibles pour effectuer le kmeans que le seuil
-    if training_set_size < (number_of_classes * number_of_actives_pixels_threshold) :
+    if (number_of_classes == 1) or (training_set_size < (number_of_classes * number_of_actives_pixels_threshold)) :
 
-        print(cyan + "computeKmeans() : " + bold + yellow + "MACROCLASSE %s / %s (%s): Nombre insuffisant de pixels disponibles pour appliquer le kmeans : %s sur %s requis au minimum " %(macroclass_id, length_mask, label, training_set_size, number_of_classes * number_of_actives_pixels_threshold) + endC)
+        print(cyan + "computeKmeans() : " + bold + yellow + "Nombre insuffisant de pixels disponibles pour appliquer le kmeans : %s sur %s requis au minimum " %(training_set_size, number_of_classes * number_of_actives_pixels_threshold) + endC)
         if debug >= 2:
             print(cyan + "computeKmeans() : " + bold + yellow + "MACROCLASSE %s / %s : SOUS ECHANTILLONAGE NON APPLIQUE A LA CLASSE %s" %(macroclass_id + 1, length_mask, label) + endC)
             print(cyan + "computeKmeans() : " + bold + yellow + "MACROCLASSE %s / %s : COPIE DE %s A %s" %(macroclass_id + 1, length_mask, mask_sample_input, micro_samples_image_out) + endC + "\n")
 
+        # Pas d'increment du label si number_of_classes == 1
+        if (number_of_classes == 1) :
+            label += -1
         # Recopie de fichier d'entré mask
         shutil.copy2(mask_sample_input, image_output)
 
     else: # Cas où il y a suffisamment de pixels pour effectuer le kmeans
+
+        print(cyan + "computeKmeans() : " + bold + green + "Nombre suffisant de pixels disponibles  %s sur %s requis au minimum " %(training_set_size, number_of_classes * number_of_actives_pixels_threshold) + endC)
+        if debug >=2:
+            print(cyan + "computeKmeans() : " + bold + green + "MACROCLASSE %s / %s (%s): ETAPE 1 : Computing kmeans from %s with %s ; output image is %s" %(macroclass_id + 1, length_mask,label,image_input, mask_sample_input,micro_samples_image_out) + endC)
+
+        if IS_VERSION_UPPER_OTB_7_0 :
+            centroids_file_output = None
 
         if centroids_file_output != None: # Distinction des cas avec et sans coordonnees des centroides
 
@@ -428,39 +442,34 @@ def computeKmeans(image_input, mask_sample_input, image_output, micro_samples_im
                 command += " -rand %d" %(rand_otb)
             if ram_otb > 0:
                 command += " -ram %d" %(ram_otb)
-
             if debug >=3:
-                print(cyan + "computeKmeans() : " + bold + green + "MACROCLASSE %s / %s (%s): ETAPE 1 : Nombre suffisant de pixels disponibles  %s sur %s requis au minimum " %(macroclass_id + 1, length_mask, label, training_set_size, number_of_classes * number_of_actives_pixels_threshold) + endC)
-            if debug >=2:
-                print(cyan + "computeKmeans() : " + bold + green + "MACROCLASSE %s / %s (%s): ETAPE 1 : Computing kmeans from %s " %(macroclass_id + 1, length_mask, label, image_input) + endC)
-                print(cyan + "computeKmeans() : " + bold + green + "Mask : %s " %(mask_sample_input) + endC)
-                print(cyan + "computeKmeans() : " + bold + green + "Output image : %s" %(micro_samples_image_out) + endC)
                 print(command)
 
             exitCode = os.system(command)
-
             if exitCode != 0:
+                print(command)
                 raise NameError(cyan + "computeKmeans() : " + bold + red + "An error occured during otbcli_KMeansClassification command. See error message above." + endC)
 
         else :
+            if IS_VERSION_UPPER_OTB_7_0 :
+                classificationKmeans(image_input, mask_sample_input, image_output, number_of_classes, kmeans_param_maximum_iterations, rand_otb, no_data_value, format_raster)
 
-            command = "otbcli_KMeansClassification -in %s -out %s %s -vm %s -ts %s -nc %s -maxit %s" %(image_input, image_output, codage_8b, mask_sample_input, str(training_set_size), str(number_of_classes), str(kmeans_param_maximum_iterations))
+            else :
+                command = "otbcli_KMeansClassification -in %s -out %s %s -vm %s -ts %s -nc %s -maxit %s" %(image_input, image_output, codage_8b, mask_sample_input, str(training_set_size), str(number_of_classes), str(kmeans_param_maximum_iterations))
 
-            if no_data_value != 0:
-                command += " -nodatalabel %d" %(no_data_value)
-            if rand_otb > 0:
-                command += " -rand %d" %(rand_otb)
-            if ram_otb > 0:
-                command += " -ram %d" %(ram_otb)
+                if no_data_value != 0:
+                    command += " -nodatalabel %d" %(no_data_value)
+                if rand_otb > 0:
+                    command += " -rand %d" %(rand_otb)
+                if ram_otb > 0:
+                    command += " -ram %d" %(ram_otb)
+                if debug >=3:
+                    print(command)
 
-            if debug >=2:
-                print(cyan + "computeKmeans() : " + bold + green + "MACROCLASSE %s / %s (%s): ETAPE 1 : Computing kmeans from %s with %s ; output image is %s" %(macroclass_id + 1, length_mask,label,image_input, mask_sample_input,micro_samples_image_out) + endC)
-                print(command)
-
-            exitCode = os.system(command)
-
-            if exitCode != 0:
-                raise NameError(cyan + "computeKmeans() : " + bold + red + "An error occured during otbcli_KMeansClassification command. See error message above." + endC)
+                exitCode = os.system(command)
+                if exitCode != 0:
+                    print(command)
+                    raise NameError(cyan + "computeKmeans() : " + bold + red + "An error occured during otbcli_KMeansClassification command. See error message above." + endC)
 
     # ETAPE 2 : GESTION DU SYSTEME DE PROJECTION
     if debug >=2:
@@ -536,6 +545,7 @@ def main(gui=False):
     parser.add_argument('-rand','--rand_otb',default=0,help="User defined seed for random KMeans", type=int, required=False)
     parser.add_argument('-ram','--ram_otb',default=0,help="Ram available for processing otb applications (in MB)", type=int, required=False)
     parser.add_argument('-ndv','--no_data_value', default=0, help="Option in option optimize_emprise_nodata  : Value of the pixel no data. By default : 0", type=int, required=False)
+    parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image raster. By default : GTiff (GTiff, HFA...)", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-log','--path_time_log',default="",help="Name of log", type=str, required=False)
     parser.add_argument('-sav','--save_results_inter',action='store_true',default=False,help="Save or delete intermediate result after the process. By default, False", required=False)
@@ -608,6 +618,10 @@ def main(gui=False):
     if args.no_data_value!= None:
         no_data_value = args.no_data_value
 
+    # Paramètre format des images de sortie
+    if args.format_raster != None:
+        format_raster = args.format_raster
+
     # Paramètre de l'extension des images rasters
     if args.extension_raster != None:
         extension_raster = args.extension_raster
@@ -646,6 +660,7 @@ def main(gui=False):
         print(cyan + "KmeansMaskApplication : " + endC + "rand_otb : " + str(rand_otb) + endC)
         print(cyan + "KmeansMaskApplication : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "KmeansMaskApplication : " + endC + "no_data_value : " + str(no_data_value) + endC)
+        print(cyan + "KmeansMaskApplication : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "KmeansMaskApplication : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "KmeansMaskApplication : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "KmeansMaskApplication : " + endC + "save_results_inter : " + str(save_results_intermediate) + endC)
@@ -675,7 +690,7 @@ def main(gui=False):
             os.makedirs(repertory_output)
 
     # execution le kmean pour une image
-    applyKmeansMasks(image_input, mask_input_list, samples_merge_output, proposal_table_output, mask_micro_output_list, centroid_output_list,  macroclass_sampling_list, macroclass_labels_list, no_data_value, path_time_log, kmeans_parameter_iterations, kmeans_parameter_prop, kmeans_parameter_size, rate_clean_micro_class, rand_otb, ram_otb, number_of_actives_pixels_threshold, extension_raster, save_results_intermediate, overwrite)
+    applyKmeansMasks(image_input, mask_input_list, samples_merge_output, proposal_table_output, mask_micro_output_list, centroid_output_list,  macroclass_sampling_list, macroclass_labels_list, no_data_value, path_time_log, kmeans_parameter_iterations, kmeans_parameter_prop, kmeans_parameter_size, rate_clean_micro_class, rand_otb, ram_otb, number_of_actives_pixels_threshold, format_raster, extension_raster, save_results_intermediate, overwrite)
 
 # ================================================
 

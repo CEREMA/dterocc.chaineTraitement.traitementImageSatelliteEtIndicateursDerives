@@ -307,20 +307,21 @@ def polygonize_otb(images_input_list, vector_macro_output_list, path_time_log, n
     # Polygonisation pour toutes les fichiers macroclasse raster d'une image
     for macroclass_id in range(len(images_input_list)):
         image_input = images_input_list[macroclass_id]
-        vectour_output = vector_macro_output_list[macroclass_id]
+        vector_output = vector_macro_output_list[macroclass_id]
 
-        check = os.path.isfile(vectour_output)
+        check = os.path.isfile(vector_output)
         if check and not overwrite :          # Si les polygones existent deja et que overwrite n'est pas activé
-            print(bold + yellow + "polygonize_otb() : " + endC + vectour_output + " has already been vectorized and will not be vectorized again." + endC)
+            print(bold + yellow + "polygonize_otb() : " + endC + vector_output + " has already been vectorized and will not be vectorized again." + endC)
         else:
             if check :
                 try:
-                    removeFile(vectour_output) # Tentative de suppression du fichier
+                    removeFile(vector_output) # Tentative de suppression du fichier
                 except Exception:
                     pass                      # Si le fichier ne peut pas être supprimé, on suppose qu'il n'existe pas et on passe à la suite
 
             # Gestion du multi threading
-            thread = threading.Thread(target=vectorizeClassification, args=(image_input, vectour_output, name_column, [umc_value], tilesize, False, True, True, True, True, False, None, False, False, False, [], path_time_log, "", format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite))
+            thread = threading.Thread(target=vectorizeClassification, args=(image_input, vector_output, name_column, [umc_value], tilesize, False, True, True, True, True, False, None, False, True, False, [], path_time_log, "", 0, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite))
+
             thread.start()
             thread_list.append(thread)
 
@@ -346,12 +347,12 @@ def polygonize_otb(images_input_list, vector_macro_output_list, path_time_log, n
 # FONCTION updateVectorizedFile()                                                                                                         #
 ###########################################################################################################################################
 # ROLE:
-#     Nettoyage du vecteur creer, mauvais poygones et creation d'une colonne id
+#     Nettoyage du vecteur creer, mauvais poygones et creation d'une colonne class
 #
 # ENTREES DE LA FONCTION :
 #     image_input : image de microclasse d'entrée
 #     vector_output : vecteur de microclasse de sortie poylygonisés
-#     name_column : Nom de la colonne du fichier shape contenant l'inforaltion de classification
+#     name_column : Nom de la colonne du fichier shape contenant l'infomaltion de classification
 #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
 # SORTIES DE LA FONCTION :
 #     Vecteur nettoyé
@@ -414,7 +415,7 @@ def updateVectorizedFile(image_input, vector_output, name_column, format_vector)
 #     images_input_list : list d'image de microclasse d'entrée .tif à rasteriser
 #     vector_macro_output : fichier vecteur de polygones de microclasse de sortie poylygonisés
 #     path_time_log : le fichier de log de sortie
-#     name_column : Nom de la colonne du fichier shape contenant l'inforaltion de classification
+#     name_column : Nom de la colonne du fichier shape contenant l'information de classification
 #     umc_value : valeur de l'UMC voulue (en m²). Mettre un multiple de la surface du pixel
 #     tilesize : taille des carreaux minimal de traitement en x et y
 #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
@@ -470,7 +471,7 @@ def polygonize_otb2(images_input_list, vector_macro_output, path_time_log, name_
         mergeListRaster(images_input_list, image_merge_input, CODAGE)
 
         # Polygonisation le fichier raster des images macroclasse fusionnées
-        vectorizeClassification(image_merge_input, vector_macro_output, name_column, [umc_value], tilesize, False, True, True, True, True, False, None, False, False, False, [], path_time_log, "", format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+        vectorizeClassification(image_merge_input, vector_macro_output, name_column, [umc_value], tilesize, False, True, True, True, True, False, None, False, True, False, [], path_time_log, "", 0, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
         # Mise a jour du fichier polygonisé
         updateVectorizedFile(image_merge_input, vector_macro_output, name_column, format_vector)
@@ -776,7 +777,7 @@ def cleanMergeVectors_sql(polygon_macro_input_list, vector_cleaned_output, path_
 
     return
 ###########################################################################################################################################
-# FONCTION cleanMergeVectors_ogr()                                                                                                                   #
+# FONCTION cleanMergeVectors_ogr()                                                                                                        #
 ###########################################################################################################################################
 # ROLE:
 #     Filter les petits polygones, erode et simplifie la geometrie et nettoyer les fichiers vecteurs
@@ -792,7 +793,7 @@ def cleanMergeVectors_sql(polygon_macro_input_list, vector_cleaned_output, path_
 #     minimal_area_list : liste des surfaces minimales gardées pour les polygones
 #     simplification_tolerance_list : listes des parametres de simplification des polygones, par macroclasses
 #     rate_clean_micro_class : ratio pour le nettoyage des micro classes dont la somme total des surfaces est trop petites
-#     name_column : Nom de la colonne du fichier shape contenant l'inforaltion de classification
+#     name_column : Nom de la colonne du fichier shape contenant l'information de classification
 #     shared_geometry_field : champ décrivant la géométrie des polygones, par defaut = 'GEOMETRY'
 #     vector_geometry_type  : type de géométrie des couches utilisées, par defaut = 'POLYGON'
 #     project_encoding      : encodage des vecteurs de sortie, par defaut = 'UTF-8'
@@ -1012,7 +1013,7 @@ def cleanMergeVectors_ogr(polygon_macro_input_list, vector_cleaned_output, table
         #--------------------------------------
         starting_event = "cleanMergeVectors_ogr() : Start merge polygons : "
         timeLine(path_time_log,starting_event)
-        if len(polygon_macro_bufferized_cleaned_list) > 0:
+        if len(polygon_macro_bufferized_cleaned_list) > 1:
             fusionVectors(polygon_macro_bufferized_cleaned_list, vector_cleaned_output, format_vector)
         else :
             copyVectorFile(polygon_macro_bufferized_cleaned_list[0], vector_cleaned_output)
@@ -1113,7 +1114,7 @@ def main(gui=False):
     parser.add_argument("-vgt",'--vector_geometry_type',default='POLYGON',help="The geometry type of layers", type=str, required=False)
     parser.add_argument("-pe",'--project_encoding',default='UTF-8',help="The encoding of vectors", type=str, required=False)
     parser.add_argument("-epsg",'--epsg',default=2154,help="Projection parameter of data.", type=int, required=False)
-    parser.add_argument('-col','--name_col',default="id", help="Name of the column containing the shapefile classification of information", type=str, required=False)
+    parser.add_argument('-col','--name_col',default="class", help="Name of the column containing the shapefile classification of information", type=str, required=False)
     parser.add_argument("-vef",'--format_vector',default='ESRI Shapefile',help="The format of vectors", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-vee','--extension_vector',default=".shp",help="Option : Extension file for vector. By default : '.shp'", type=str, required=False)
@@ -1268,10 +1269,10 @@ def main(gui=False):
     if tilesize == 0:
         polygonize_gdal(images_erode_list, vector_macro_output_list, path_time_log, name_column, format_vector, save_results_intermediate, overwrite)
     else:
-        polygonize_otb(images_erode_list, vector_macro_output_list, path_time_log, name_column, umc_value, tilesize, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
-        #~ vector_temp_output = os.path.splitext(vector_output)[0] + "_temp" + os.path.splitext(vector_output)[1]
-        #~ polygonize_otb2(images_erode_list, vector_temp_output, path_time_log, name_column, umc_value, tilesize, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
-        #~ vector_macro_output_list = [vector_temp_output]
+        #~ polygonize_otb(images_erode_list, vector_macro_output_list, path_time_log, name_column, umc_value, tilesize, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+        vector_temp_output = os.path.splitext(vector_output)[0] + "_temp" + os.path.splitext(vector_output)[1]
+        polygonize_otb2(images_erode_list, vector_temp_output, path_time_log, name_column, umc_value, tilesize, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+        vector_macro_output_list = [vector_temp_output]
 
     # Execution du nettoyage des polygones
     if is_spatialite :

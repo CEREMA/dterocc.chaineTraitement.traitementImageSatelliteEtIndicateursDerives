@@ -61,14 +61,14 @@ debug = 3
 #               Conversion des UMC en pixels  umc_list[:]=[x/area_pixel for x in umc_list]
 #    tilesize : taille des carreaux minimal de traitement en x et y
 #    enable_reaffectation_raster : Activation de la réaffectation du raster
-#    enable_meanshift_filtering : Déactivation du filtre MeanShift
-#    enable_segmentation : Déactivation de la segmentation
-#    enable_small_region_merging : Déactivation du merge des petites régions.
-#    enable_vectorization : Déactivation de la vectorisation
-#    enable_boundaries : Déactivation du re-decoupage
+#    enable_meanshift_filtering : Activation du filtre MeanShift
+#    enable_segmentation : Activation de la segmentation
+#    enable_small_region_merging : Activation du merge des petites régions.
+#    enable_vectorization : Activation de la vectorisation
+#    enable_boundaries : Activation du re-decoupage
 #    boundaries_vector : Vecteur de découpe
-#    enable_dissolve : Déactivation de la fusion des polygones voisin
-#    enable_reaffectation_vector : Déactivation de la réaffectation du vecteur
+#    enable_dissolve : Activation de la fusion des polygones voisin
+#    enable_reaffectation_vector : Activation de la réaffectation du vecteur
 #    enable_cor_bord : Désactivation de la correction des pixels en bord de zone
 #    wrongval_list : Liste des valeurs de la colonne name_colonne à enlever
 #    path_time_log : le fichier de log de sortie
@@ -199,8 +199,9 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
     # ETAPE 2 : SEGMENTATION
     if enable_segmentation :
         command = "otbcli_LSMSSegmentation -in %s -inpos %s -out %s -ranger 1 -spatialr 1 -minsize 0 -tilesizex %s -tilesizey %s -cleanup 1" %(image_filtered_range,image_filtered_spat,image_segmented, tilesize, tilesize)
-        if ram_otb > 0:
-            command += " -ram %d" %(ram_otb)
+
+        #if ram_otb > 0:
+        #    command += " -ram %d" %(ram_otb)
 
         if debug >=2:
             print(cyan + "vectorizeClassification() : " + bold + green + "ETAPE 2/9 : Debut de la segmentation de l'image" + endC)
@@ -338,7 +339,7 @@ def vectorizeClassification(image_input, vector_output, name_column, umc_list, t
             print(cyan + "vectorizeClassification() : " + bold + yellow + "ETAPE 8/9 : Pas de fusion des polygones adjacents de meme label - Non demande" + endC)
             vector_segmented_merged_cuted_dissolved = vector_segmented_merged_cuted_cor
 
-        # ETAPE 8 : RENOMMAGE ET SUPPRESSION DES FICHIERS INTRMEDIAIRES UMC
+        # ETAPE 9 : RENOMMAGE ET SUPPRESSION DES FICHIERS INTRMEDIAIRES UMC
         print(cyan + "vectorizeClassification() : " + bold + green + "ETAPE 9/9 : Debut du renommage " + endC)
 
         # Renommage pour correspondre au nom de fichier de sortie demandé
@@ -749,17 +750,17 @@ def main(gui=False):
     parser.add_argument('-umc','--l_umc',default=[20],nargs="+",help="Option : List of appropriate UMC (in number of pixels). Put a multiple of the pixel. By default : 200 100 50 20 10.", type=int, required=False)
     parser.add_argument('-ts','--tilesize',default=2000,help="Option : Size of the working windows in x and y. By default : 2000.", type=int, required=False)
     parser.add_argument('-csql', '--correction_sql', action='store_true', default=False, help="Option : Topological SQL correction by postgres vector output input. By default : False", required=False)
-    parser.add_argument('-reafrast', '--enable_reaffectation_raster', action='store_true', default=False, help="Option : Enabling the reallocation of raster. By default : False", required=False)
-    parser.add_argument('-meashifi', '--disable_meanshift_filtering', action='store_false', default=True, help="Option : Deactivation MeanShift filter. By default : True", required=False)
-    parser.add_argument('-segmenta', '--disable_segmentation', action='store_false', default=True, help="Option : Deactivation segmentation. By default : True", required=False)
-    parser.add_argument('-smalreme', '--disable_small_region_merging', action='store_false', default=True, help="Option : Deactivation of the merge small regions. By default : True", required=False)
-    parser.add_argument('-vectoriz', '--disable_vectorization', action='store_false', default=True, help="Option : Deactivation vectorisation. By default : True", required=False)
-    parser.add_argument('-boundari', '--disable_boundaries', action='store_false', default=True, help="Option : Deactivation cut out boundaries. By default : True", required=False)
+    parser.add_argument('-reafrast', '--enable_reaffectation_raster', action='store_true', default=False, help="Option : Activation the reallocation of raster. By default : False", required=False)
+    parser.add_argument('-meashifi', '--enable_meanshift_filtering', action='store_false', default=True, help="Option : Activation MeanShift filter. By default : True", required=False)
+    parser.add_argument('-segmenta', '--enable_segmentation', action='store_false', default=True, help="Option : Activation segmentation. By default : True", required=False)
+    parser.add_argument('-smalreme', '--enable_small_region_merging', action='store_false', default=True, help="Option : Activation of the merge small regions. By default : True", required=False)
+    parser.add_argument('-vectoriz', '--enable_vectorization', action='store_false', default=True, help="Option : Activation vectorisation. By default : True", required=False)
+    parser.add_argument('-boundari', '--enable_boundaries', action='store_false', default=True, help="Option : Activation cut out boundaries. By default : True", required=False)
     parser.add_argument('-boundvect', '--boundaries_vector', default="", help="Boundaries for vector cutting after the vectorisation. If no arguments, no vector cutting, else, give the complete name of the cutting shape", required=False)
-    parser.add_argument('-reafvect', '--disable_reaffectation_vector', action='store_false', default=True, help="Option : Desactivation of the reallocation of vector. By default : True", required=False)
-    parser.add_argument('-corbord', '--enable_corbord', action='store_true', default=False, help="Option : Desactivation de la correction des bords. By default : False", required=False)
+    parser.add_argument('-reafvect', '--enable_reaffectation_vector', action='store_false', default=True, help="Option : Activation of the reallocation of vector. By default : True", required=False)
+    parser.add_argument('-corbord', '--enable_corbord', action='store_true', default=False, help="Option : Activation de la correction des bords. By default : False", required=False)
     parser.add_argument('-wrongval','--l_wrong_values',default=[0,65535],nargs="+",help="Option : List of wrong values to remove in the column name_col", type=int, required=False)
-    parser.add_argument('-dissolve', '--disable_dissolve', action='store_false', default=True, help="Option : Deactivation dissolve polygones. By default : True", required=False)
+    parser.add_argument('-dissolve', '--enable_dissolve', action='store_false', default=True, help="Option : Activation dissolve polygones. By default : True", required=False)
     parser.add_argument('-epsg','--epsg', default=2154,help="EPSG code projection.", type=int, required=False)
     parser.add_argument('-pe','--project_encoding', default="latin1",help="Project encoding.", type=str, required=False)
     parser.add_argument('-serv','--server_postgis', default="localhost",help="Postgis serveur name or ip.", type=str, required=False)
@@ -816,34 +817,34 @@ def main(gui=False):
     if args.enable_reaffectation_raster != None:
         enable_reaffectation_raster = args.enable_reaffectation_raster
 
-    if args.disable_meanshift_filtering!= None:
-        meanshift_filtering = args.disable_meanshift_filtering
+    if args.enable_meanshift_filtering!= None:
+        enable_meanshift_filtering = args.enable_meanshift_filtering
 
-    if args.disable_segmentation != None:
-        segmentation = args.disable_segmentation
+    if args.enable_segmentation != None:
+        enable_segmentation = args.enable_segmentation
 
-    if args.disable_small_region_merging != None:
-        small_region_merging = args.disable_small_region_merging
+    if args.enable_small_region_merging != None:
+        enable_small_region_merging = args.enable_small_region_merging
 
-    if args.disable_vectorization != None:
-        vectorization = args.disable_vectorization
+    if args.enable_vectorization != None:
+        enable_vectorization = args.enable_vectorization
 
-    if args.disable_boundaries != None:
-        boundaries = args.disable_boundaries
+    if args.enable_boundaries != None:
+        enable_boundaries = args.enable_boundaries
 
     if args.boundaries_vector != "":
         boundaries_vector = args.boundaries_vector
     else:
         boundaries_vector = ""  # No cutting of the vectors after the vectorisation
 
-    if args.disable_dissolve != None:
-        dissolve = args.disable_dissolve
+    if args.enable_dissolve != None:
+        enable_dissolve = args.enable_dissolve
 
-    if args.disable_reaffectation_vector != None:
-        reaffectation_vector = args.disable_reaffectation_vector
+    if args.enable_reaffectation_vector != None:
+        enable_reaffectation_vector = args.enable_reaffectation_vector
 
     if args.enable_corbord != None:
-        corbord = args.enable_corbord
+        enable_corbord = args.enable_corbord
 
     if args.l_wrong_values!= None:
         wrongval_list = args.l_wrong_values
@@ -924,15 +925,15 @@ def main(gui=False):
         print(cyan + "Vectorization : " + endC + "correction_sql : " + str(correction_sql) + endC)
         print(cyan + "Vectorization : " + endC + "vectorisation_grass : " + str(is_grass) + endC)
         print(cyan + "Vectorization : " + endC + "enable_reaffectation_raster : " + str(enable_reaffectation_raster) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_meanshift_filtering : " + str(meanshift_filtering) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_segmentation : " + str(segmentation) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_small_region_merging : " + str(small_region_merging) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_vectorization : " + str(vectorization) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_boundaries : " + str(boundaries) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_meanshift_filtering : " + str(enable_meanshift_filtering) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_segmentation : " + str(enable_segmentation) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_small_region_merging : " + str(enable_small_region_merging) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_vectorization : " + str(enable_vectorization) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_boundaries : " + str(enable_boundaries) + endC)
         print(cyan + "Vectorization : " + endC + "boundaries_vector : " + str(boundaries_vector) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_dissolve : " + str(dissolve) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_reaffectation_vector : " + str(reaffectation_vector) + endC)
-        print(cyan + "Vectorization : " + endC + "disable_cor_bord : " + str(corbord) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_dissolve : " + str(enable_dissolve) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_reaffectation_vector : " + str(enable_reaffectation_vector) + endC)
+        print(cyan + "Vectorization : " + endC + "enable_cor_bord : " + str(enable_corbord) + endC)
         print(cyan + "Vectorization : " + endC + "l_wrong_values : " + str(wrongval_list) + endC)
         print(cyan + "Vectorization : " + endC + "epsg : " + str(epsg) + endC)
         print(cyan + "Vectorization : " + endC + "project_encoding : " + str(project_encoding) + endC)
@@ -959,10 +960,10 @@ def main(gui=False):
     # EXECUTION DE LA FONCTION
     if is_grass :
         # Traitement image à vectoriser par outil GRASS
-        vectorizeGrassClassification(image_input, vector_output, name_column, umc_list, enable_reaffectation_raster, vectorization, boundaries, boundaries_vector, dissolve, path_time_log, expression, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+        vectorizeGrassClassification(image_input, vector_output, name_column, umc_list, enable_reaffectation_raster, enable_vectorization, enable_boundaries, boundaries_vector, enable_dissolve, path_time_log, expression, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
     else :
         # Traitement image à vectoriser par outil OTB
-        vectorizeClassification(image_input, vector_output, name_column, umc_list, tilesize, enable_reaffectation_raster, meanshift_filtering, segmentation, small_region_merging, vectorization, boundaries, boundaries_vector, dissolve, reaffectation_vector, corbord, wrongval_list, path_time_log, expression, ram_otb, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+        vectorizeClassification(image_input, vector_output, name_column, umc_list, tilesize, enable_reaffectation_raster, enable_meanshift_filtering, enable_segmentation, enable_small_region_merging, enable_vectorization, enable_boundaries, boundaries_vector, enable_dissolve, enable_reaffectation_vector, enable_corbord, wrongval_list, path_time_log, expression, ram_otb, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
     # POST TRAITEMENT TOPOLOGIQUE SQL
     if correction_sql :

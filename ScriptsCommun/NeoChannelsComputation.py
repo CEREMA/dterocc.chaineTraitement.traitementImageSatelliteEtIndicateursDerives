@@ -49,6 +49,20 @@ from Lib_index import createNDVI, createNDVIMod, createTNDVI, createPNDVI, creat
 debug = 3
 sys.dont_write_bytecode = True
 
+# Les sorties de la fonction OTB otbcli_HaralickTextureExtraction a changé à partir de la version 7.x??? de l'OTB
+IS_VERSION_UPPER_OTB_7_0 = False
+pythonpath = os.environ["PYTHONPATH"]
+print ("Identifier la version d'OTB : ")
+pythonpath_list = pythonpath.split(os.sep)
+otb_info = ""
+for info in pythonpath_list :
+    if info.find("OTB") > -1:
+        otb_info = info.split("-")[1]
+        break
+print (otb_info)
+if int(otb_info.split(".")[0]) >= 7 :
+    IS_VERSION_UPPER_OTB_7_0 = True
+
 ###########################################################################################################################################
 # FONCTION extractTexture()                                                                                                               #
 ###########################################################################################################################################
@@ -257,7 +271,12 @@ def extractTexture(image_input, repertory_neochannels_output, path_time_log, cha
                             break
 
                 if (texture == "higher") :
-                    files_name_texture_list = [''] * 11
+                    if IS_VERSION_UPPER_OTB_7_0 :
+                        files_name_texture_list = [''] * 10
+                    else :
+                        files_name_texture_list = [''] * 11
+                        files_name_texture_list[10] = output_textures_base_name + "_" + 'LongRunHighGreyLevelEmphasis' + extension_raster
+
                     files_name_texture_list[0] = output_textures_base_name + "_" + 'ShortRunEmphasis' + extension_raster
                     files_name_texture_list[1] = output_textures_base_name + "_" + 'LongRunEmphasis' + extension_raster
                     files_name_texture_list[2] = output_textures_base_name + "_" + 'GreyLevelNonUniformity' + extension_raster
@@ -268,7 +287,7 @@ def extractTexture(image_input, repertory_neochannels_output, path_time_log, cha
                     files_name_texture_list[7] = output_textures_base_name + "_" + 'ShortRunLowGreyLevelEmphasis' + extension_raster
                     files_name_texture_list[8] = output_textures_base_name + "_" + 'ShortRunHighGreyLevelEmphasis' + extension_raster
                     files_name_texture_list[9] = output_textures_base_name + "_" + 'LongRunLowGreyLevelEmphasis' + extension_raster
-                    files_name_texture_list[10] = output_textures_base_name + "_" + 'LongRunHighGreyLevelEmphasis' + extension_raster
+
                     files_exist = True
                     for file_texture in files_name_texture_list :
                         if not os.path.isfile(file_texture) :

@@ -212,7 +212,7 @@ def cutRasterImages(images_input_list, vector_cut, images_output_list, buffer_si
 
 
             # Commande de découpe raster
-            command = 'gdalwarp -t_srs EPSG:' + str(epsg_proj) + ' -te ' +  str(opt_xmin) + ' ' + str(opt_ymin)  + ' ' + str(opt_xmax) + ' ' + str(opt_ymax) + ' -tap -multi -co "NUM_THREADS=ALL_CPUS" -dstnodata ' + str(no_data_value)  + ' -tr ' + str(abs(pixel_size_x)) + ' ' + str(abs(pixel_size_y)) + ' -cutline ' + vector_cut_temp + ' -of ' + format_raster + ' ' + raster_input + ' ' + raster_output
+            command = 'gdalwarp -t_srs EPSG:' + str(epsg_proj) + ' -te ' +  str(opt_xmin) + ' ' + str(opt_ymin)  + ' ' + str(opt_xmax) + ' ' + str(opt_ymax) + ' -tap -multi -wo "NUM_THREADS=ALL_CPUS" -dstnodata ' + str(no_data_value)  + ' -tr ' + str(abs(pixel_size_x)) + ' ' + str(abs(pixel_size_y)) + ' -cutline ' + vector_cut_temp + ' -of ' + format_raster + ' ' + raster_input + ' ' + raster_output
 
             if resampling_methode != "" :
                 command += " -r " + resampling_methode
@@ -232,7 +232,7 @@ def cutRasterImages(images_input_list, vector_cut, images_output_list, buffer_si
 
             if z_compress:
                 # Commande de découpe raster et compression
-                command = 'gdalwarp -t_srs EPSG:' + str(epsg_proj) + ' -te ' +  str(opt_xmin) + ' ' + str(opt_ymin)  + ' ' + str(opt_xmax) + ' ' + str(opt_ymax) + ' -tap -multi -co "NUM_THREADS=ALL_CPUS" -dstnodata ' + str(no_data_value)  + ' -tr ' + str(abs(pixel_size_x)) + ' ' + str(abs(pixel_size_y)) + ' -co "COMPRESS=DEFLATE" -co "PREDICTOR=2" -co "ZLEVEL=9" -cutline ' + vector_cut_temp + ' -of ' + format_raster + ' ' + raster_input + ' ' + raster_output_compress
+                command = 'gdalwarp -t_srs EPSG:' + str(epsg_proj) + ' -te ' +  str(opt_xmin) + ' ' + str(opt_ymin)  + ' ' + str(opt_xmax) + ' ' + str(opt_ymax) + ' -tap -multi -wo "NUM_THREADS=ALL_CPUS" -dstnodata ' + str(no_data_value)  + ' -tr ' + str(abs(pixel_size_x)) + ' ' + str(abs(pixel_size_y)) + ' -co "COMPRESS=DEFLATE" -co "PREDICTOR=2" -co "ZLEVEL=9" -cutline ' + vector_cut_temp + ' -of ' + format_raster + ' ' + raster_input + ' ' + raster_output_compress
 
                 if resampling_methode != "" :
                     command += ' -r ' + resampling_methode
