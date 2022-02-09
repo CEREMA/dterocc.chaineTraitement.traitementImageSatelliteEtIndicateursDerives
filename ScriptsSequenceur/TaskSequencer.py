@@ -108,7 +108,7 @@ def commandsWritingManagement (name_setting, settings_struct_dico, correspondenc
         if debug >= 1:
             task_list = []
             for task in settings_struct_dico[name_setting].general.processing.taskList:
-                task_list.append(task.taskLabel)
+                task_list.append(str(task.taskLabel) +  "." + str(task.position))
             print(cyan + "TaskSequencer : " + endC + " Liste des tâches : " + str(task_list) + endC)
 
         if debug >= 2:
@@ -119,7 +119,7 @@ def commandsWritingManagement (name_setting, settings_struct_dico, correspondenc
         for task in settings_struct_dico[name_setting].general.processing.taskList :
             if debug >=1:
                 print(" ")
-                print(cyan + "TaskSequencer : " + bold + green + "Début de la conversion en commande de la tache %s" %(str(task.taskLabel)) + endC)
+                print(cyan + "TaskSequencer : " + bold + green + "Début de la conversion en commande de la tache %s" %(str(task.taskLabel) +  "." + str(task.position)) + endC)
 
             # Ecriture dans command_doc de la commande correspondant à la tache task_label appliqué à l'ensemble des images de préparation
             id_command_temp, index_remote_ip_temp, task.taskIdTaskCommandsList = writeCommands(settings_struct_dico, id_command, index_remote_ip, task.taskLabel, task.position, task.dependencyTaskList, task.typeExecution, task.errorManagement, name_setting, debug)

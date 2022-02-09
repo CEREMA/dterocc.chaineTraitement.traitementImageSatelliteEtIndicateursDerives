@@ -433,6 +433,7 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task40_ChannelsConcatenantion[pos].inputFilesList = getListNodeDataDom(task40_ChannelsConcatenantion_elem, 'InputFilesList', 'InputFile')
         settings_struct.tasks.task40_ChannelsConcatenantion[pos].concatenation.stackConcatenation = getValueNodeDataDom(task40_ChannelsConcatenantion_elem, 'StackConcatenation').lower() == 'true'
         settings_struct.tasks.task40_ChannelsConcatenantion[pos].concatenation.outputFile = getValueNodeDataDom(task40_ChannelsConcatenantion_elem, 'OutputFile', 'Concatenation')
+        settings_struct.tasks.task40_ChannelsConcatenantion[pos].encodingOutput = getValueNodeDataDom(task40_ChannelsConcatenantion_elem, 'EncodingOutput')
         settings_struct.tasks.task40_ChannelsConcatenantion[pos].normalization.stackNormalization = getValueNodeDataDom(task40_ChannelsConcatenantion_elem, 'StackNormalization').lower() == 'true'
         settings_struct.tasks.task40_ChannelsConcatenantion[pos].normalization.outputFile = getValueNodeDataDom(task40_ChannelsConcatenantion_elem, 'OutputFile', 'Normalization')
         settings_struct.tasks.task40_ChannelsConcatenantion[pos].reduction.stackReduction = getValueNodeDataDom(task40_ChannelsConcatenantion_elem, 'StackReduction').lower() == 'true'
@@ -768,7 +769,10 @@ def xmlSettingsParser(settings_file) :
         value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NumberClass')
         if value != "" and value is not None:
             settings_struct.tasks.task125_DeepLearningClassification[pos].numberClass = int(value)
-        settings_struct.tasks.task125_DeepLearningClassification[pos].networkType = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NetworkType')
+        settings_struct.tasks.task125_DeepLearningClassification[pos].networkType = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NetworkType')        
+        value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'PercentNoData')
+        if value != "" and value is not None:
+            settings_struct.tasks.task125_DeepLearningClassification[pos].percentNoData = int(value)
         settings_struct.tasks.task125_DeepLearningClassification[pos].computeMode = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'ComputeMode')
         value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'IdGpuCard')
         if value != "" and value is not None:
@@ -1024,6 +1028,16 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task220_VectorRasterCutting[pos].resamplingMethode = getValueNodeDataDom(task220_VectorRasterCutting_elem, 'ResamplingMethode')
         settings_struct.tasks.task220_VectorRasterCutting[pos].compression = getValueNodeDataDom(task220_VectorRasterCutting_elem, 'Compression').lower() == 'true'
 
+    # Task221_VectorRasterChangeEpsg
+    task221_VectorRasterChangeEpsg_elem_list = findAllElement(xmldoc, 'Task221_VectorRasterChangeEpsg','Tasks/Task221_VectorRasterChangeEpsg_List')
+    for pos in range (len(task221_VectorRasterChangeEpsg_elem_list)):
+        task221_VectorRasterChangeEpsg_elem = task221_VectorRasterChangeEpsg_elem_list[pos]
+        settings_struct.tasks.task221_VectorRasterChangeEpsg.append(StructTask221_VectorRasterChangeEpsg())
+        settings_struct.tasks.task221_VectorRasterChangeEpsg[pos].inputFilesList = getListNodeDataDom(task221_VectorRasterChangeEpsg_elem, 'InputFilesList', 'InputFile')
+        settings_struct.tasks.task221_VectorRasterChangeEpsg[pos].inputVectorsList = getListNodeDataDom(task221_VectorRasterChangeEpsg_elem, 'InputVectorsList', 'InputVector')
+        settings_struct.tasks.task221_VectorRasterChangeEpsg[pos].outputFilesList = getListNodeDataDom(task221_VectorRasterChangeEpsg_elem, 'OutputFilesList', 'OutputFile')
+        settings_struct.tasks.task221_VectorRasterChangeEpsg[pos].outputVectorsList = getListNodeDataDom(task221_VectorRasterChangeEpsg_elem, 'OutputVectorsList', 'OutputVector')
+
     # Task230_QualityIndicatorComputation
     task230_QualityIndicatorComputation_elem_list = findAllElement(xmldoc, 'Task230_QualityIndicatorComputation','Tasks/Task230_QualityIndicatorComputation_List')
     for pos in range (len(task230_QualityIndicatorComputation_elem_list)):
@@ -1127,6 +1141,18 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task290_RasterBandMathX[pos].outputFile = getValueNodeDataDom(task290_RasterBandMathX_elem, 'OutputFile')
         settings_struct.tasks.task290_RasterBandMathX[pos].expression = getValueNodeDataDom(task290_RasterBandMathX_elem, 'Expression')
         settings_struct.tasks.task290_RasterBandMathX[pos].encodingOutput = getValueNodeDataDom(task290_RasterBandMathX_elem, 'EncodingOutput')
+        settings_struct.tasks.task290_RasterBandMathX[pos].nodataValue = getValueNodeDataDom(task290_RasterBandMathX_elem, 'NodataValue')
+
+   # Task295_RasterSuperimpose
+    task295_RasterSuperimpose_elem_list = findAllElement(xmldoc, 'Task295_RasterSuperimpose','Tasks/Task295_RasterSuperimpose_List')
+    for pos in range (len(task295_RasterSuperimpose_elem_list)):
+        task295_RasterSuperimpose_elem = task295_RasterSuperimpose_elem_list[pos]
+        settings_struct.tasks.task295_RasterSuperimpose.append(StructTask295_RasterSuperimpose())
+        settings_struct.tasks.task295_RasterSuperimpose[pos].inputFileRef = getValueNodeDataDom(task295_RasterSuperimpose_elem, 'InputFileRef')
+        settings_struct.tasks.task295_RasterSuperimpose[pos].inputFilesList = getListNodeDataDom(task295_RasterSuperimpose_elem, 'InputFilesList', 'InputFile')
+        settings_struct.tasks.task295_RasterSuperimpose[pos].outputFilesList = getListNodeDataDom(task295_RasterSuperimpose_elem, 'OutputFilesList', 'OutputFile')
+        settings_struct.tasks.task295_RasterSuperimpose[pos].mode = getValueNodeDataDom(task295_RasterSuperimpose_elem, 'Mode')
+        settings_struct.tasks.task295_RasterSuperimpose[pos].encodingOutput = getValueNodeDataDom(task295_RasterSuperimpose_elem, 'EncodingOutput')
 
     # Task5_TDC_CreateEmprise
     task5_TDC_CreateEmprise_elem_list = findAllElement(xmldoc, 'Task5_TDC_CreateEmprise','Tasks/Task5_TDC_CreateEmprise_List')

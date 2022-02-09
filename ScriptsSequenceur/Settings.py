@@ -291,6 +291,7 @@ class StructChannelsConcatenantion_Concatenation:
     def __init__(self):
         self.stackConcatenation = False
         self.outputFile = ''
+        self.encodingOutput = ''
 
 class StructChannelsConcatenantion_Normalization:
     def __init__(self):
@@ -477,6 +478,7 @@ class StructTask125_DeepLearningClassification:
         self.increaseSample = False
         self.numberClass = 0
         self.networkType = ''
+        self.percentNoData = 0
         self.computeMode = ''
         self.idGpuCard = 0
         self.rand = 0
@@ -618,6 +620,14 @@ class StructTask220_VectorRasterCutting:
         self.resamplingMethode = ''
         self.compression = False
 
+# Task221_VectorRasterChangeEpsg
+class StructTask221_VectorRasterChangeEpsg:
+    def __init__(self):
+        self.inputFilesList = []
+        self.inputVectorsList = []
+        self.outputFilesList = []
+        self.outputVectorsList = []
+
 # Task230_QualityIndicatorComputation
 class StructTask230_QualityIndicatorComputation:
     def __init__(self):
@@ -686,6 +696,16 @@ class StructTask290_RasterBandMathX:
         self.inputFilesList = []
         self.outputFile = ''
         self.expression = ''
+        self.encodingOutput = ''
+        self.nodataValue = ""
+
+# Task295_RasterSuperimpose
+class StructTask295_RasterSuperimpose:
+    def __init__(self):
+        self.inputFileRef = ''
+        self.inputFilesList = []
+        self.outputFileList = []
+        self.mode = ''
         self.encodingOutput = ''
 
 # Task5_TDC_CreateEmprise
@@ -1119,6 +1139,7 @@ class StructTasks:
         self.task210_CrossingVectorRaster = []
         self.task210_RA_CrossingVectorRaster = []
         self.task220_VectorRasterCutting = []
+        self.task221_VectorRasterChangeEpsg = []
         self.task230_QualityIndicatorComputation = []
         self.task240_RA_ProductOcsVerificationCorrectionSQL = []
         self.task250_RA_ProductOcsRasterisation = []
@@ -1126,6 +1147,7 @@ class StructTasks:
         self.task270_ClassificationVector = []
         self.task280_GenerateOcsWithVectors = []
         self.task290_RasterBandMathX = []
+        self.task295_RasterSuperimpose = []
         self.task5_TDC_CreateEmprise = []
         self.task10_TDC_PolygonMerToTDC = []
         self.task20_TDC_PrepareData = []

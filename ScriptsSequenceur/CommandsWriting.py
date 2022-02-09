@@ -738,6 +738,10 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
             command = call_python_action_to_make + "ChannelsConcatenation -il " + image_for_concatenation_input_str
 
+
+            if settings_struct.tasks.task40_ChannelsConcatenantion[task_position].encodingOutput != "":
+                command += " -code " + settings_struct.tasks.task40_ChannelsConcatenantion[task_position].encodingOutput.lower()
+
             if settings_struct.tasks.task40_ChannelsConcatenantion[task_position].concatenation.stackConcatenation :
                 command += " -os " + settings_struct.tasks.task40_ChannelsConcatenantion[task_position].concatenation.outputFile
 
@@ -881,7 +885,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "KmeansMaskApplication -i " +  settings_struct.tasks.task90_KmeansMaskApplication[task_position].inputFile + " -o " + settings_struct.tasks.task90_KmeansMaskApplication[task_position].outputFile + " -t " + settings_struct.tasks.task90_KmeansMaskApplication[task_position].proposalTable + " -ml " + macro_classes_cleaned_mask_list_str + " -ol " + micro_classes_mask_list_str + " -cl " + centroids_list_str + " -msl " + macroclass_sampling_list_str + " -mll " + macroclass_labels_list_str + " -kmp.it " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].iterations) + " -kmp.pr " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].propPixels) + " -kmp.sz " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].sizeTraining) + " -npt " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].minNumberTrainingSize) + " -rcmc " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].rateCleanMicroclass) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -rae " + settings_struct.general.raster.extensionRaster
+            command = call_python_action_to_make + "KmeansMaskApplication -i " +  settings_struct.tasks.task90_KmeansMaskApplication[task_position].inputFile + " -o " + settings_struct.tasks.task90_KmeansMaskApplication[task_position].outputFile + " -t " + settings_struct.tasks.task90_KmeansMaskApplication[task_position].proposalTable + " -ml " + macro_classes_cleaned_mask_list_str + " -ol " + micro_classes_mask_list_str + " -cl " + centroids_list_str + " -msl " + macroclass_sampling_list_str + " -mll " + macroclass_labels_list_str + " -kmp.it " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].iterations) + " -kmp.pr " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].propPixels) + " -kmp.sz " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].sizeTraining) + " -npt " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].minNumberTrainingSize) + " -rcmc " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].rateCleanMicroclass) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -raf " + settings_struct.general.raster.formatRaster + " -rae " + settings_struct.general.raster.extensionRaster
 
             if settings_struct.tasks.task90_KmeansMaskApplication[task_position].rand > 0:
                 command += " -rand " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].rand)
@@ -1000,13 +1004,13 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('125'): # Application d'une classification par reseu de neurone
+        if case('125'): # Application d'une classification par reseau de neurone
 
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
 
-            command = call_python_action_to_make + "NeuralNetworkClassification -i " + settings_struct.tasks.task125_DeepLearningClassification[task_position].inputFile + " -sg " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].gridSize) + " -nc " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].numberClass) + " -nm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].networkType.lower() + " -nn.b " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_batch) + " -nn.ncf " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_numberConvFilter) + " -nn.ks " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_kernelSize) + " -nn.tiob " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_inOneBlock) + " -nn.vs " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_rateValidation) + " -nn.ne " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_numberEpoch) + " -nn.esm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingMonitor + " -nn.esp " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingPatience) + " -nn.esmd " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingMinDelta) + " -nn.rlrm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateMonitor + " -nn.rlrf " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateFactor) + " -nn.rlrp " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRatePatience) + " -nn.rlrmlr " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateMinLR) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -epsg " + str(settings_struct.general.image.epsg) +  " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+            command = call_python_action_to_make + "NeuralNetworkClassification -i " + settings_struct.tasks.task125_DeepLearningClassification[task_position].inputFile + " -sg " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].gridSize) + " -nc " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].numberClass) + " -nm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].networkType.lower() + " -pnd " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].percentNoData) + " -nn.b " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_batch) + " -nn.ncf " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_numberConvFilter) + " -nn.ks " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_kernelSize) + " -nn.tiob " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_inOneBlock) + " -nn.vs " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_rateValidation) + " -nn.ne " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_numberEpoch) + " -nn.esm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingMonitor + " -nn.esp " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingPatience) + " -nn.esmd " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_earlyStoppingMinDelta) + " -nn.rlrm " + settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateMonitor + " -nn.rlrf " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateFactor) + " -nn.rlrp " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRatePatience) + " -nn.rlrmlr " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].nn_reduceLearningRateMinLR) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -epsg " + str(settings_struct.general.image.epsg) +  " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
 
             if settings_struct.tasks.task125_DeepLearningClassification[task_position].outputFile != "":
                 command += " -o " + str(settings_struct.tasks.task125_DeepLearningClassification[task_position].outputFile)
@@ -1077,7 +1081,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "SpecificSubSampling -i " + settings_struct.tasks.task140_SpecificSubSampling[task_position].inputFile + " -c " + settings_struct.tasks.task140_SpecificSubSampling[task_position].inputClassifFile + " -o " + settings_struct.tasks.task140_SpecificSubSampling[task_position].outputFile  +  " -t " + settings_struct.tasks.task140_SpecificSubSampling[task_position].proposalTable + " -nss " + str(settings_struct.tasks.task140_SpecificSubSampling[task_position].subSamplingNumber) + " -npt " + str(settings_struct.tasks.task140_SpecificSubSampling[task_position].minNumberTrainingSize) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -rae " + settings_struct.general.raster.extensionRaster
+            command = call_python_action_to_make + "SpecificSubSampling -i " + settings_struct.tasks.task140_SpecificSubSampling[task_position].inputFile + " -c " + settings_struct.tasks.task140_SpecificSubSampling[task_position].inputClassifFile + " -o " + settings_struct.tasks.task140_SpecificSubSampling[task_position].outputFile  +  " -t " + settings_struct.tasks.task140_SpecificSubSampling[task_position].proposalTable + " -nss " + str(settings_struct.tasks.task140_SpecificSubSampling[task_position].subSamplingNumber) + " -npt " + str(settings_struct.tasks.task140_SpecificSubSampling[task_position].minNumberTrainingSize) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -raf " + settings_struct.general.raster.formatRaster + " -rae " + settings_struct.general.raster.extensionRaster
 
             if settings_struct.tasks.task140_SpecificSubSampling[task_position].rand > 0:
                 command += " -rand " + str(settings_struct.tasks.task140_SpecificSubSampling[task_position].rand)
@@ -1304,6 +1308,38 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('221'): # Changement de projection pour une liste de rasteur et/ou vecteur vers Epsg de l'etude
+
+            # Pour les rasters
+            for index in range(len(settings_struct.tasks.task221_VectorRasterChangeEpsg[task_position].inputFilesList)):
+                file_input = settings_struct.tasks.task221_VectorRasterChangeEpsg[task_position].inputFilesList[index]
+                file_output = settings_struct.tasks.task221_VectorRasterChangeEpsg[task_position].outputFilesList[index]
+
+                # Commande
+                call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
+                command = call_python_action_to_make + "gdalwarp -t_srs EPSG:" + str(settings_struct.general.image.epsg) + ' -multi -wo "NUM_THREADS=ALL_CPUS" -dstnodata ' + str(settings_struct.general.image.nodataValue)  + " -tr " + str(settings_struct.general.image.resolution) + ' ' + str(settings_struct.general.image.resolution) + " -of " + settings_struct.general.raster.formatRaster + " " + file_input + " " + file_output
+
+                if settings_struct.general.processing.overWriting:
+                    command += " -overwrite "
+
+                endCommandUpdate(settings_struct, command_doc, command, debug, False)
+
+            # Pour les vecteurs
+            for index in range(len(settings_struct.tasks.task221_VectorRasterChangeEpsg[task_position].inputVectorsList)):
+                vector_input = settings_struct.tasks.task221_VectorRasterChangeEpsg[task_position].inputVectorsList[index]
+                vector_output = settings_struct.tasks.task221_VectorRasterChangeEpsg[task_position].outputVectorsList[index]
+
+                # Commande
+                call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
+                command = call_python_action_to_make + "ogr2ogr -f " + settings_struct.general.vector.formatVector + " -t_srs EPSG:" + str(settings_struct.general.image.epsg) + " " + vector_output + " " +  vector_input
+
+                endCommandUpdate(settings_struct, command_doc, command, debug, False)
+
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Resultat du changement de projection vers l EPSG %s" %(task_label, str(settings_struct.general.image.epsg)) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('230'): # Calcul de la matrice de confusion et des indicateurs de qualité
 
             # Commande
@@ -1344,7 +1380,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('250_RA'): # Rasterisation des fichiers OCS vecteurisés avec UMC (Utilisation production RA)
+        if case('250_RA'): # Rasterisation OTB des fichiers OCS vecteurisés avec UMC (Utilisation production RA)
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
@@ -1416,7 +1452,6 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('290'): # Calcul raster BandMathX (Utilisation de l'OTB)
 
-
             # Préparation de la liste des rasteurs d'entrée
             rasters_input_list_str = ""
             for raster_file in settings_struct.tasks.task290_RasterBandMathX[task_position].inputFilesList :
@@ -1425,14 +1460,51 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
 
-            command = call_python_action_to_make + "otbcli_BandMathX -il " + rasters_input_list_str + " -out " + settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile + " " + settings_struct.tasks.task290_RasterBandMathX[task_position].encodingOutput.lower() + " -exp " + '"' + settings_struct.tasks.task290_RasterBandMathX[task_position].expression + '"'
+            if settings_struct.tasks.task290_RasterBandMathX[task_position].nodataValue == "" :
+                outputFile_temp =  settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile
+            else :
+                outputFile_temp = os.path.splitext(settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile)[0] + "_tmp" + os.path.splitext(settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile)[1]
+
+            command = call_python_action_to_make + "otbcli_BandMathX -il " + rasters_input_list_str + " -out " + outputFile_temp + " " + settings_struct.tasks.task290_RasterBandMathX[task_position].encodingOutput.lower() + " -exp " + '"' + settings_struct.tasks.task290_RasterBandMathX[task_position].expression + '"'
 
             if settings_struct.general.processing.ram != 0:
                 command += " -ram " + str(settings_struct.general.processing.ram)
 
             endCommandUpdate(settings_struct, command_doc, command, debug, False)
 
+            if settings_struct.tasks.task290_RasterBandMathX[task_position].nodataValue != "" :
+                if dependency_commands_list_string != "":
+                    dependency_commands_list_string += ","
+                dependency_commands_list_string += str(id_command-1)
+                call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip,  id_task_commands_list, False)
+                command = call_python_action_to_make + "gdal_translate -a_srs EPSG:" + str(settings_struct.general.image.epsg) + " -a_nodata " + str(settings_struct.tasks.task290_RasterBandMathX[task_position].nodataValue)  + " -of " + settings_struct.general.raster.formatRaster + " " + outputFile_temp + " " + settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile
+                endCommandUpdate(settings_struct, command_doc, command, debug, False)
+
+                dependency_commands_list_string = dependency_commands_list_string.replace(str(id_command-2), str(id_command-1))
+                call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
+                command = call_python_action_to_make + "rm " + outputFile_temp
+                endCommandUpdate(settings_struct, command_doc, command, debug, False)
+
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Resultat du calcul raster %s" %(task_label, str(settings_struct.tasks.task290_RasterBandMathX[task_position].outputFile)) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('295'): # Superimpose raster (Utilisation de l'OTB)
+
+            for index in range(len(settings_struct.tasks.task295_RasterSuperimpose[task_position].inputFilesList)):
+                file_input = settings_struct.tasks.task295_RasterSuperimpose[task_position].inputFilesList[index]
+                file_output = settings_struct.tasks.task295_RasterSuperimpose[task_position].outputFilesList[index]
+
+                # Commande
+                call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
+                command = call_python_action_to_make + "otbcli_Superimpose -inr " + settings_struct.tasks.task295_RasterSuperimpose[task_position].inputFileRef + " -inm " + file_input + " -out " + file_output + " " + settings_struct.tasks.task295_RasterSuperimpose[task_position].encodingOutput.lower() + " -mode " + '"' + settings_struct.tasks.task295_RasterSuperimpose[task_position].mode + '"' + " -fv " +  str(settings_struct.general.image.nodataValue)
+
+                if settings_struct.general.processing.ram != 0:
+                    command += " -ram " + str(settings_struct.general.processing.ram)
+
+                endCommandUpdate(settings_struct, command_doc, command, debug, False)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Resultat du superimpose reference raster %s" %(task_label, str(settings_struct.tasks.task295_RasterSuperimpose[task_position].inputFileRef)) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

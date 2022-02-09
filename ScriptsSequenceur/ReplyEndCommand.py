@@ -21,6 +21,7 @@ TAG_STATE_ERROR = "En_Erreur"
 INFO_WARNING = "warning"
 INFO_DEPRECATED = "deprecated"
 INFO_FALSE_ERROR = "Error MachineLearningModel Factory did not return an MachineLearningModel"
+INFO_PROJ_CREATE_ERROR = "proj_create_from_database"
 bold = "\033[1m"
 green = "\033[32m"
 cyan = "\033[36m"
@@ -79,7 +80,7 @@ if __name__ == '__main__':
         f.close()
         if lines_list != [] :
             for line in lines_list:
-                if line != "\n" and not INFO_WARNING in line.lower() and not INFO_DEPRECATED in line.lower() and not INFO_FALSE_ERROR in line and error_management:
+                if line != "\n" and not INFO_WARNING in line.lower() and not INFO_DEPRECATED in line.lower() and not INFO_PROJ_CREATE_ERROR in line.lower() and not INFO_FALSE_ERROR in line and error_management:
                     state = TAG_STATE_ERROR
     except:
         state = TAG_STATE_ERROR
@@ -92,7 +93,7 @@ if __name__ == '__main__':
 
     socket_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # connection en mode TCP
     socket_client.connect((ip_serveur, port))
-    socket_client.send(state + "="+ str(id_command))
+    socket_client.send((state + "="+ str(id_command)).encode())
     '''
     socket_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # en UDP
     socket_client.sendto(state + "="+ str(id_command),(ip_serveur, port))

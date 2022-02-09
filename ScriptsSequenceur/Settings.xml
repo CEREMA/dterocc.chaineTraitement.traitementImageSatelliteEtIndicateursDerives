@@ -6,7 +6,7 @@
 
     <!-- Donnees generales -->
     <General>
-        <Version>2.7.8</Version>
+        <Version>2.7.9</Version>
         <!-- Paramètres liés à l'execution du sequenceur -->
         <Processing>
             <!--
@@ -117,6 +117,7 @@
                     # 210 : Croisement Vecteur Raster generique pour statistique
                     # 210_RA : Croisement Vecteur Raster pour l'identifiant unique, le label de l'information d'origine et la date de l'information d'origine (etude RA)
                     # 220 : Decoupage des resultats au formats RASTER et VECTEUR "re-callés" sur des valeurs entiere (etude RA)
+                    # 221 : Changement de projection des  RASTER et VECTEUR vers la projecti Epsg definie dans le <Epsg> partie <Image>
                     # 230 : Calcul de la matrice de confusion et les indicateurs de qualité
                     # 240_RA : Verification et correction des resultats (correction topologique) en SQL pour livraison (etude RA)
                     # 250_RA : Rasterisation de l'OCS vecteurisé  (etude RA)
@@ -124,6 +125,7 @@
                     # 270 : Classification vecteur
                     # 280 : OCS raster à partir d'une liste de vecteurs
                     # 290 : Utilisation de l'outil BandMathX de l'OTB
+                    # 295 : Utilisation du Superimpose de l'OTB
                     #
                     # TDC : Extraction TDC (chaîne complète)
                     # 5_TDC : Création d'une emprise vecteur des images contenues dans une arboresence cette emprise peut etre optimiser en ne prenant pas les no-data
@@ -223,6 +225,7 @@
                 <Task dependency="210_RA">240_RA</Task>
                 <Task dependency="240_RA">250_RA</Task>
                 <Task dependency="250_RA">290</Task>
+                <Task dependency="290">295</Task>
 
                 <!-- Segmentation et classification vecteur -->
                 <Task>260</Task>
@@ -816,6 +819,8 @@
                     <!-- Active ou non le fait de stacker les différentes bandes. Utile par exemple pour appliquer seulement une réduction de dimension -->
                     <StackConcatenation>true</StackConcatenation>
                     <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Stack/imageTest_stack.tif</OutputFile>
+                    <!-- Paramètres du format du fichier de sortie -->
+                    <EncodingOutput>float</EncodingOutput>
                 </Concatenation>
                 <Normalization>
                     <!-- Active ou non le fait de centrer-reduire les differentes bandes du stack (pour rendre comparable des différentes bandes d'informations empilées) -->
@@ -1200,30 +1205,70 @@
                 <!-- Dimension des carreaux de la grille idem en X et en Y des carreaux du quadrillage, puissance de 2 (en pixels) -->
                 <GridSize>256</GridSize>
                 <!-- Debord dans la grille de la partie utile des données pour eviter les effets de bord, multiple de 2 (en pixels) -->
-                <OverflowSize>20</OverflowSize>
+                <!-- 
+                    Taille optimale lorsque KernelSize est à 3 : 6
+                    Si KernelSize est supérieur, il faut selon le cas augmenter OverflowSize :
+                    Débord = 6 pour KernelSize 3/5
+                    Débord = 12 pour KernelSize 7/9/11
+                    ...
+                    Privilègier une valeur minimale car le temps d'exécution augmente à mesure que la taille du débord augmente
+                --> 
+                <OverflowSize>6</OverflowSize>
                 <!-- Augmentation des donnees d'apprentissage -->
-                <IncreaseSample>false</IncreaseSample>
+                <!-- 
+                    Par défaut laisser à true
+                    Pour gagner un peu en temps d'exécution, mettre à false, mais risque d'avoir une classification moins bonne
+                --> 
+                <IncreaseSample>true</IncreaseSample>
                 <!-- Nombre de classe pour la classification de l'image si 1 reseau en mono classe (exemple identification du bati) -->
                 <NumberClass>5</NumberClass>
                 <!-- Type de reseau de neurone : "Unet" ou "ResUnet" -->
-                <NetworkType>Unet</NetworkType>
+                <!-- 
+                    ResUnet à utiliser car il s'entraîne plus facilement
+                --> 
+                <NetworkType>ResUnet</NetworkType>
+                <!-- Pourcentage de pixel no data autorisé dans les images d'entrainement -->
+                <PercentNoData>10</PercentNoData>
                 <!-- Choix du mode d'execution du reseau par processeur cpu ou par carte graphique : "cpu" ou "gpu" -->
                 <ComputeMode>gpu</ComputeMode>
                 <!-- Choix de la carte graphique si plusieurs cartes graphiques par defaut la première disponible -->
                 <IdGpuCard>0</IdGpuCard>
                 <!-- Valeur pour fixer la partie random de tirage des points aléatoires -->
+                <!-- 
+                    Nimporte quel nombre fonctionne pour ce paramètre
+                    Si le but est de fixer l'aléatoire dans l'application, il faut en plus que ComputeMode soit en cpu
+                --> 
                 <Rand>5</Rand>
 
                 <!-- Paramètres des reseaux de neurone -->
                 <NN>
                     <!-- Nombre d'échantillons par mise à jour du gradient -->
+                    <!-- 
+                        Faible impact sur le temps d'exécution.
+                        Valeurs admises sur serveur : 3/6/12/24/32/48/64
+                        Privilègier valeurs entre 3 et 32.
+                        Si NumberConvFilter est élevé, il faut prendre un Batch faible
+                    --> 
                     <Batch>32</Batch>
                     <!-- Nombre de filtres convolutifs dans une couche du réseau de neurone -->
+                    <!-- 
+                        Fort impact sur le temps d'exécution.
+                        Valeurs admises sur serveur : 8/16/24/32/40/48/56/64/72
+                        Privilègier valeurs entre 8 et 32.
+                        Si Batch est élevé, il faut prendre un NumberConvFilter faible
+                    --> 
                     <NumberConvFilter>8</NumberConvFilter>
                     <!-- Dimension des filtres convolutifs du reseau de neurone -->
+                    <!-- 
+                        Fort impact sur le temps d'exécution.
+                        Valeurs admises sur serveur : 3/5/7/9/11/13/15
+                        Privilègier la valeur 3.
+                        Si KernelSize est élevé, mettre un débord adéquat
+                    -->                     
                     <KernelSize>5</KernelSize>
+                    <!-- NE PAS MODIFIER LES PARAMETRES SUIVANTS -->
                     <!-- Lors de la prédiction des réseaux de neurones, prédire tous les masques dans un ou plusieurs  -->
-                    <InOneBlock>1</InOneBlock>
+                    <InOneBlock>0</InOneBlock>
                     <!-- Part de l'ensemble de données dédié à la validation -->
                     <RateValidation>0.2</RateValidation>
                     <!-- Nombre d'époques pour former le réseau de neurone  -->
@@ -1500,6 +1545,33 @@
             </Task220_VectorRasterCutting>
         </Task220_VectorRasterCutting_List>
 
+        <!-- Vector Raster Change to projection epsg -->
+        <!-- CHANGEMENT DE PROJECTION DES IMAGES ET VECTEURS  -->
+        <Task221_VectorRasterChangeEpsg_List>
+            <Task221_VectorRasterChangeEpsg>
+                <InputFilesList>
+                    <!-- Liste d'image a changer -->
+                    <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_200m2.tif</InputFile>
+                    <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_500m2.tif</InputFile>
+                </InputFilesList>
+                <OutputFilesList>
+                    <!-- Liste d'image reprojeter (sortie) -->
+                    <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Resultats/imageTest_classif_200m2_change.tif</OutputFile>
+                    <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Resultats/imageTest_classif_500m2_change.tif</OutputFile>
+                </OutputFilesList>
+                <InputVectorsList>
+                    <!-- Liste de vecteur a changer -->
+                    <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_200m2.shp</InputVector>
+                    <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_500m2.shp</InputVector>
+                </InputVectorsList>
+                <OutputVectorsList>
+                    <!-- Liste de vecteur reprojeter (sortie) -->
+                    <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Resultats/imageTest_classif_200m2_change.shp</OutputVector>
+                    <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Resultats/imageTest_classif_500m2_change.shp</OutputVector>
+                </OutputVectorsList>
+            </Task221_VectorRasterChangeEpsg>
+        </Task221_VectorRasterChangeEpsg_List>
+
         <!-- Quality Indicator Computation -->
         <!-- CALCUL DE LA MATRICE DE CONFUSION ET LES INDICATEURS DE QUALITE -->
         <Task230_QualityIndicatorComputation_List>
@@ -1635,7 +1707,7 @@
             </Task280_GenerateOcsWithVectors>
         </Task280_GenerateOcsWithVectors_List>
 
-        <!-- Utilisation du BandMathX de l'OTB en multi(bandes -->
+        <!-- Utilisation du BandMathX de l'OTB en multi-bandes -->
         <!-- BANDMATH DE COUCHES RASTER MULTI-BANDES  -->
         <Task290_RasterBandMathX_List>
             <Task290_RasterBandMathX>
@@ -1646,13 +1718,38 @@
                     <InputFile>/mnt/RAM_disk/Images/Pleiades2ToulouseMetropole_20180924_cut.tif</InputFile>
                 </InputFilesList>
                 <!-- Fichier raster résultat (sortie) -->
-                <OutputFile>/mnt/RAM_disk/Images/Pleiades12ToulouseMetropole_20180924_cut.tiff</OutputFile>
+                <OutputFile>/mnt/RAM_disk/Images/Pleiades12ToulouseMetropole_20180924_cut.tif</OutputFile>
                 <!-- L'expression permettant le calcul raster -->
                 <Expression>im1b1==1? im3:im2</Expression>
-                <!-- Paramètres du BandMathX -->
+                <!-- Paramètres du format du fichier de sortie -->
                 <EncodingOutput>uint16</EncodingOutput>
+                <!-- Paramètres de la valeur du nodata du fichier de sortie, si non vide -->
+                <NodataValue>none</NodataValue>
             </Task290_RasterBandMathX>
         </Task290_RasterBandMathX_List>
+
+        <!-- Utilisation du Superimpose de l'OTB -->
+        <!-- SUPERIMPOSE RASTER  -->
+        <Task295_RasterSuperimpose_List>
+            <Task295_RasterSuperimpose>
+                <!-- Fichier rasteur de référence d'entrée defini la résolution -->
+                <InputFileRef>/mnt/RAM_disk/Images/PleiadesRef.tif</InputFileRef>
+                <InputFilesList>
+                    <!-- Liste des rasteurs d'entrée à réechantilloner-->
+                    <InputFile>/mnt/RAM_disk/Images/Pleiades1ToulouseMetropole_20180924.tif</InputFile>
+                    <InputFile>/mnt/RAM_disk/Images/Pleiades2ToulouseMetropole_20180924.tif</InputFile>
+                </InputFilesList>
+                <OutputFilesList>
+                    <!-- Liste des rasteurs résultat (sortie) -->
+                    <OutputFile>/mnt/RAM_disk/Images/Pleiades1ToulouseMetropole_20180924_superimpose.tif</OutputFile>
+                    <OutputFile>/mnt/RAM_disk/Images/Pleiades2ToulouseMetropole_20180924_superimpose.tif</OutputFile>
+                </OutputFilesList>
+                <!-- Mode de super imposition Defaut ou Pleiades [default|phr]] -->
+                <Mode>default</Mode>
+                <!-- Paramètres du format des fichiers de sortie -->
+                <EncodingOutput>uint16</EncodingOutput>
+            </Task295_RasterSuperimpose>
+        </Task295_RasterSuperimpose_List>
 
         <!-- Polygon mer to TDC (Littoral) -->
         <!-- PASSAGE DE L'IMAGE VECTORISÉE AU TRAIT DE CÔTE  -->
