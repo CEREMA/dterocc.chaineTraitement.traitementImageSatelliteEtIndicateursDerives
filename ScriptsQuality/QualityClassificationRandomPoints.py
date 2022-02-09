@@ -205,6 +205,7 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
 
         # Lecture dans le fichier raster des valeurs
         values_list = getPixelsValueListImage(raster_cut, points_coordonnees_list)
+        print(values_list)
         for idx_point in range (len(drawn_dot_list)):
             val_class = values_list[idx_point]
             coordonnees_list = points_coordonnees_list[idx_point]
