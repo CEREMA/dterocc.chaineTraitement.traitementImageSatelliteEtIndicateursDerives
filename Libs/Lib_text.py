@@ -16,11 +16,17 @@ import sys, os, glob, datetime, re
 import six
 if six.PY2:
     from dbfpy import dbf
+    import pysal
 else:
     from dbfpy3 import dbf
+    try:
+        import libpysal
+        IS_libpysal = True
+    except Exception:
+        import pysal
+        IS_libpysal = False
 import csv
 import numpy
-import pysal
 import pandas
 from simpledbf import Dbf5
 
@@ -315,7 +321,10 @@ def saveDataFrame2Dbf(data_frame_input, dbf_file, sep=","):
     if six.PY2:
         db_desc = pysal.open(dbf_file, 'w')
     else :
-        db_desc = pysal.lib.io.fileio.FileIO.open(dbf_file, 'w')
+        if IS_libpysal :
+            db_desc = libpysal.io.fileio.FileIO.open(dbf_file, 'w')
+        else :
+            db_desc = pysal.lib.io.fileio.FileIO.open(dbf_file, 'w')
     db_desc.header = list(data_frame_input.columns)
     db_desc.field_spec = specs
     for i, row in data_frame_input.T.iteritems():

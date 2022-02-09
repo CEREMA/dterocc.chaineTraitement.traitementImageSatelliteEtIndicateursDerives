@@ -313,7 +313,16 @@ def getGeometryType(vector_input, format_vector='ESRI Shapefile'):
 
         # Get the input Feature
         if layer_input.GetFeatureCount() > 0 :
-            feature_input = layer_input.GetFeature(0)
+
+            try :
+                feature_input = layer_input.GetFeature(0)
+            except:
+                print(cyan + "getGeometryType() : " + endC + bold + yellow + "Could not open  feature : " + str(layer_input.GetFeature(0)) + "  du fichier %s : " %(vector_input) + endC)
+                geom_type_input = layer_input.GetGeomType()
+                geometry_type = ogr.GeometryTypeToName(geom_type_input).upper().split()[-1]
+                if debug >=2:
+                    print(cyan + "getGeometryType() : %s " %(str(geometry_type)) + bold + green + "Recuperation du type de géométrie du fichier %s : " %(vector_input) + endC)
+                return geometry_type
 
             # Get polygon geometry
             geometry = feature_input.GetGeometryRef()
@@ -1841,7 +1850,7 @@ def multigeometries2geometries(vector_input, vector_output, fields_list=[], inpu
     data_source_input = driver.Open(vector_input, 0) # 0 means read-only. 1 means writeable.
 
     if data_source_input is None:
-        print(cyan + "multigeometries2geometries() : " + bold + yellow  + "Fichier non traite! (ouverture impossible) : " + str(vector_input) + endC)
+        print(cyan + "multigeometries2geometries() : " + bold + red  + "Fichier non traite! (ouverture impossible) : " + str(vector_input) + endC)
         return
 
     # Récupération des cractéristiques du fichier en entrée (type de géométrie, projection...)
@@ -1861,12 +1870,17 @@ def multigeometries2geometries(vector_input, vector_output, fields_list=[], inpu
     output_srs = layer_input.GetSpatialRef ()
     geometry = feature_input.GetGeometryRef()
 
-    if input_geom_type == 'MULTIPOLYGON':
+    if input_geom_type == 'MULTIPOLYGON' or input_geom_type == 'POLYGON':
         output_geom_type = ogr.wkbPolygon
-    elif input_geom_type == 'MULTILINESTRING':
+    elif input_geom_type == 'MULTILINESTRING' or input_geom_type == 'LINESTRING':
         output_geom_type = ogr.wkbLineString
-    elif input_geom_type == 'MULTIPOINT':
+    elif input_geom_type == 'MULTIPOINT' or input_geom_type == 'POINT':
         output_geom_type = ogr.wkbPoint
+    else :
+        print(cyan + "multigeometries2geometries() : " + bold + yellow  + "Fichier non traite! geometry inconnue non multi : " + str(vector_input) + endC)
+        driver.CopyDataSource(data_source_input,vector_output)
+        data_source_input.Destroy()
+        return
 
     # Si le fichier vecteur de sortie existe on le supprime
     if os.path.exists(vector_output):
@@ -3275,37 +3289,45 @@ def cutVector(vector_cut, vector_input, vector_output, overwrite=True, format_ve
                 if geometry_input.Intersects(geometry_cut) == 1: # Variante possible avec Overlaps
                     # Il y a au moins un polygone qui intersects
                     ret = True
-                    # Découper geometry_input par geometry_cut
-                    geom_output = geometry_input.Intersection(geometry_cut)
+                    if geometry_input != 0 and geometry_input is not None and geometry_cut != 0 and geometry_cut is not None :
 
-                    if geom_output.GetGeometryName() == 'POLYGON' or geom_output.GetGeometryName() == 'MULTIPOLYGON' or geom_output.GetGeometryName() == 'GEOMETRYCOLLECTION':
+                        try: # si geometry invalide!!!
 
-                        # Si c'est une GEOMETRYCOLLECTION
-                        if geom_output.GetGeometryName() == 'GEOMETRYCOLLECTION' :
-                            # Nettoyage de la géometrie
-                            geom_wkt = geom_output.ExportToWkt()
-                            poly_wkt_out = geom_wkt[geom_wkt.find('POLYGON'):-1]
-                            geom_output = ogr.CreateGeometryFromWkt(poly_wkt_out)
+                            # Découper geometry_input par geometry_cut
+                            geom_output = geometry_input.Intersection(geometry_cut)
 
-                        # Création de l'élément (du polygone) de sortie selon le modèle
-                        feature_output = ogr.Feature(defn_layer_output)
+                            if geom_output.GetGeometryName() == 'POLYGON' or geom_output.GetGeometryName() == 'MULTIPOLYGON' or geom_output.GetGeometryName() == 'GEOMETRYCOLLECTION':
 
-                        # Assignation d'un numéro de FID à ce nouvel élément
-                        feature_output.SetFID(featureID)
-                        featureID += 1
+                                # Si c'est une GEOMETRYCOLLECTION
+                                print(geom_output.GetGeometryName())
+                                if geom_output.GetGeometryName() == 'GEOMETRYCOLLECTION' :
+                                    # Nettoyage de la géometrie
+                                    geom_wkt = geom_output.ExportToWkt()
+                                    poly_wkt_out = geom_wkt[geom_wkt.find('POLYGON'):-1]
+                                    geom_output = ogr.CreateGeometryFromWkt(poly_wkt_out)
 
-                        # Pour tous les Champs
-                        for j in range(0, nb_fields):
-                            field_label = feature_input.GetFieldAsString(j)
-                            feature_output.SetField(j, field_label)
+                                # Création de l'élément (du polygone) de sortie selon le modèle
+                                feature_output = ogr.Feature(defn_layer_output)
 
-                        # Assignation de la géométrie de découpage à l'élément de sortie
-                        feature_output.SetGeometry(geom_output)
+                                # Assignation d'un numéro de FID à ce nouvel élément
+                                feature_output.SetFID(featureID)
+                                featureID += 1
 
-                        # Création de ce nouvel élément
-                        layer_output.CreateFeature(feature_output)
-                        layer_output.SyncToDisk()
-                        feature_output.Destroy()
+                                # Pour tous les Champs
+                                for j in range(0, nb_fields):
+                                    field_label = feature_input.GetFieldAsString(j)
+                                    feature_output.SetField(j, field_label)
+
+                                # Assignation de la géométrie de découpage à l'élément de sortie
+                                feature_output.SetGeometry(geom_output)
+
+                                # Création de ce nouvel élément
+                                layer_output.CreateFeature(feature_output)
+                                layer_output.SyncToDisk()
+                                feature_output.Destroy()
+
+                        except:
+                            print(cyan + "cutVector() : " + endC + bold + yellow + "Géometry error : " + str(geometry_input) + " => " + str(geometry_input) + endC, file=sys.stderr)
 
                 feature_cut.Destroy()
                 feature_cut = layer_cut.GetNextFeature()

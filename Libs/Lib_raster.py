@@ -18,13 +18,16 @@
 # IMPORTS DIVERS
 from __future__ import print_function
 import os,glob,sys,shutil,time
-import gdal,osr,numpy, gdalnumeric
+from sklearn.cluster import KMeans
+import gdal, osr, numpy, gdalnumeric
 from gdalconst import *
+from osgeo import gdal_array
 from PIL import Image
 from pylab import *
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
+from Lib_operator import *
 from Lib_vector import getEmpriseFile
 from Lib_text import writeTextFile, appendTextFileCR
 from Lib_file import renameFile, removeFile
@@ -35,6 +38,11 @@ from Lib_xml import parseDom, getListNodeDataDom, getListValueAttributeDom
 # debug = 3 : affichage maximum de commentaires lors de l'execution du script. Intermédiaire : affichage intermédiaire
 
 debug = 2
+
+# Les parametres de la fonction OTB otbcli_BinaryMorphologicalOperation a changé à partir de la version 7.0 de l'OTB
+IS_VERSION_UPPER_OTB_7_0 = False
+pythonpath = os.environ["PYTHONPATH"]
+print ("Identifier la version d'OTB : ")
 
 #########################################################################
 # FONCTION computeHistogram ()                                          #
@@ -961,7 +969,7 @@ def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=Non
         print("\n")
 
     # Découpage grace à gdal
-    command = 'gdalwarp -t_srs EPSG:%s  -te %s %s %s %s -tap -multi -co "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), cut_shape_file, format_raster, input_image, output_image)
+    command = 'gdalwarp -t_srs EPSG:%s  -te %s %s %s %s -tap -multi -wo "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), cut_shape_file, format_raster, input_image, output_image)
 
     if debug >= 4:
         print(command)
@@ -1473,7 +1481,10 @@ def filterBinaryRaster(image_input, image_output, param_filter_0, param_filter_1
 
     if param_filter_0 > 0 :
         # otbcli_BinaryMorphologicalOperation pour faire un filtre morphologique de type "ouverture" sur valeur à 0
-        command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter opening -filter.opening.foreval 0 -filter.opening.backval 1 -out %s %s" %(image_input,param_filter_0,param_filter_1,image_filter_input_tmp,codage)
+        if IS_VERSION_UPPER_OTB_7_0 :
+            command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -xradius %d -yradius %d -filter opening -foreval 0 -backval 1 -out %s %s" %(image_input,param_filter_0,param_filter_1,image_filter_input_tmp,codage)
+        else :
+            command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter opening -filter.opening.foreval 0 -filter.opening.backval 1 -out %s %s" %(image_input,param_filter_0,param_filter_1,image_filter_input_tmp,codage)
 
         if debug >= 3:
             print(command)
@@ -1488,7 +1499,10 @@ def filterBinaryRaster(image_input, image_output, param_filter_0, param_filter_1
 
     if param_filter_1 > 0 :
         # otbcli_BinaryMorphologicalOperation pour faire un filtre morphologique de type "ouverture" sur valeur à 1
-        command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter opening -filter.opening.foreval 1 -filter.opening.backval 0 -out %s %s" %(image_filter_input_tmp,param_filter_1,param_filter_1,image_output,codage)
+        if IS_VERSION_UPPER_OTB_7_0 :
+            command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -xradius %d -yradius %d -filter opening -foreval 1 -backval 0 -out %s %s" %(image_filter_input_tmp,param_filter_1,param_filter_1,image_output,codage)
+        else :
+            command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter opening -filter.opening.foreval 1 -filter.opening.backval 0 -out %s %s" %(image_filter_input_tmp,param_filter_1,param_filter_1,image_output,codage)
 
         if debug >= 3:
             print(command)
@@ -1529,9 +1543,15 @@ def bufferBinaryRaster(image_input, image_output, buffer_to_apply, codage="uint8
     else :
 
         if buffer_to_apply > 0:
-            command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter dilate -filter.dilate.foreval %d -filter.dilate.backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
+            if IS_VERSION_UPPER_OTB_7_0 :
+                command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -xradius %d -yradius %d -filter dilate -foreval %d -backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
+            else :
+                command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter dilate -filter.dilate.foreval %d -filter.dilate.backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
         else :
-            command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter erode -filter.erode.foreval %d -filter.erode.backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
+            if IS_VERSION_UPPER_OTB_7_0 :
+                command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -xradius %d -yradius %d -filter erode -foreval %d -backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
+            else :
+                command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter erode -filter.erode.foreval %d -filter.erode.backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
 
         if debug >= 2:
             print(command)
@@ -1599,7 +1619,7 @@ def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='E
         raise NameError(bold + red + "An error occured during otbcli_BandMath command. See error message above." + endC)
 
     # Creer le shape file
-    command = "gdal_polygonize.py -mask \"%s\" \"%s\" -f \"%s\" \"%s\" \"%s\" id" %(raster_mask,raster_mask,format_vector,vector_mask,mask_layer)
+    command = "gdal_polygonize.py -8 \"%s\" -b 1 -f \"%s\" \"%s\" \"%s\" id" %(raster_mask,format_vector,vector_mask,mask_layer)
     if debug >=3:
         print(command)
     exit_code = os.system(command)
@@ -1873,3 +1893,125 @@ def rasterCalculator(raster_input_list, raster_output, expression, codage='float
 
     return
 
+
+#########################################################################
+# FONCTION classificationKmeans()                                       #
+#########################################################################
+#   Rôle : Cette fonction permet d'appliquer une classification non superviser de type Kmeans sur une images multi bande
+#   Codage : Utilisation de les lib "sklearn", ""Gdal"  et numpy"
+#   Paramètres :
+#       image_input : fichier image d'entrée
+#       image_mask_input : fichier masque ou sera fait la classification (peut etre vide "" ou à None dans ce cas toute l image sera classifée)
+#       image_output : fichier de sortie image classifié
+#       nb_class : nombre de class (custer) pour l image de sortie
+#       max_iteration : Nombre maximal d'itérations de l'algorithme des k-moyennes pour une seule exécution
+#       random_kmeans : valeur de la graine random pour l execution kmeans par defaut à None
+#       no_data_value : la valeur des pixels nodata peut etre 0 si pas de valeur défini
+#       format_raster : Format de l'image de sortie par défaut GTiff (GTiff, HFA...)
+#   Paramétres de retour :
+#       le fichier de sortie avec les pixels classifiés
+
+def classificationKmeans(image_input, image_mask_input, image_output, nb_class, max_iteration, random_kmeans=None, no_data_value=0, format_raster="GTiff"):
+
+    # Si le fichier de sortie existe deja on le supprime
+    if os.path.exists(image_output):
+        os.remove(image_output)
+
+
+    if (image_mask_input != "" and image_mask_input != None) :
+
+        # Creer un fichier temporaire de l imahge masqué
+        name_file = os.path.splitext(image_output)[0]
+        extension_file = os.path.splitext(image_output)[1]
+        image_masked_output = name_file + "_mask" + extension_file
+
+        # Ajuster l'encodage de Gdal à celui de l OTB
+        codage_gdal = getDataTypeImage(image_input)
+        codage = None
+        while switch(str(codage_gdal)):
+            if case("Byte"):
+                codage = "uint8"
+                break
+            if case("UInt16"):
+                codage = "uint16"
+                break
+            if case("Int16"):
+                codage = "int16"
+                break
+            if case("UInt32"):
+                codage = "uint32"
+                break
+            if case("Int32"):
+                codage = "int32"
+                break
+            if case("Float32"):
+                codage = "float"
+                break
+            if case("Float64"):
+                codage = "double"
+                break
+            if case("CInt16"):
+                codage = "cint16"
+                break
+            if case("CInt32"):
+                codage = "cint32"
+                break
+            if case("CFloat32"):
+                codage = "cfloat"
+                break
+            if case("CFloat64"):
+                codage = "cdouble"
+                break
+            break
+
+        applyMaskAnd(image_input, image_mask_input, image_masked_output, codage)
+
+    else :
+        image_masked_input = image_input
+
+    # Open the dataset
+    dataset = gdal.Open(image_masked_output, GA_ReadOnly)
+    cols = dataset.RasterXSize
+    rows = dataset.RasterYSize
+    nb_bands = dataset.RasterCount
+    band = dataset.GetRasterBand(1)
+    data_type = band.DataType
+
+    # Initialisation de toute l image avec des zeros
+    img = numpy.zeros((rows, cols, nb_bands), gdal_array.GDALTypeCodeToNumericTypeCode(data_type))
+
+    # For all bands
+    for num_band in range(nb_bands) :
+
+        # Read data array
+        img[:, :, num_band] = dataset.GetRasterBand(num_band + 1).ReadAsArray()
+
+    # Remodeler le tableau
+    new_shape = (img.shape[0] * img.shape[1], img.shape[2])
+    X = img[:, :, :nb_bands].reshape(new_shape)
+
+    # Application du Kmeans
+    k_means = KMeans(n_clusters=nb_class + 1, max_iter=max_iteration, random_state=random_kmeans).fit(X)
+    X_cluster = k_means.labels_
+    X_cluster = X_cluster.reshape(img[:, :, 0].shape)
+
+    # Sauvegarde de l'image de sortie
+    driver = gdal.GetDriverByName(format_raster)
+    dataset_out = driver.Create(image_output, cols, rows, 1, gdal.GDT_Byte)
+    dataset_out.SetGeoTransform(dataset.GetGeoTransform()) # sets same geotransform as input
+    dataset_out.SetProjection(dataset.GetProjection())     # sets same projection as input
+    dataset_out.GetRasterBand(1).WriteArray(X_cluster)
+    dataset_out.GetRasterBand(1).SetNoDataValue(no_data_value)
+    dataset_out.FlushCache()                               # remove from memory
+
+    # Close the datasets
+    del dataset_out                                        # delete the data (not the actual geotiff)
+
+
+    if (image_mask_input != "" and image_mask_input != None) :
+        removeFile(image_masked_output)
+
+    if debug >= 3:
+        print(cyan + "classificationKmeans() : " + bold + green + "Create file %s classification complete!" %(image_output) + endC)
+
+    return
