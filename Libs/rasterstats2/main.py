@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 from builtins import str
 import shapely
@@ -98,13 +99,13 @@ def raster_stats(vectors, raster, layer_num=0, band_num=1, nodata_value=None,
         # Point and MultiPoint don't play well with GDALRasterize
         # convert them into box polygons the size of a raster cell
         buff = rgt[1] / 2.0
-        if geom.type == "MultiPoint":
+        if geom.geom_type == "MultiPoint":
             geom = MultiPolygon([box(*(pt.buffer(buff).bounds))
                                 for pt in geom.geoms])
-        elif geom.type == 'Point':
+        elif geom.geom_type == 'Point':
             geom = box(*(geom.buffer(buff).bounds))
 
-        ogr_geom_type = shapely_to_ogr_type(geom.type)
+        ogr_geom_type = shapely_to_ogr_type(geom.geom_type)
 
         # "Clip" the geometry bounds to the overall raster bounding box
         # This should avoid any rasterIO errors for partially overlapping polys
@@ -180,13 +181,8 @@ def raster_stats(vectors, raster, layer_num=0, band_num=1, nodata_value=None,
                 #print("WARNING!!! src_array = "+ str(src_array) + ", nodata_value = " + str(nodata_value))
                 test_ok = False
             else :
-                masked = np.ma.MaskedArray(
-                    src_array,
-                    mask=np.logical_or(
-                        src_array is nodata_value,
-                        np.logical_not(rv_array)
-                    )
-                )
+                # Supprimer les NoData du NumPy array (nouvelle fonction issue de rasterstats v0.19) :
+                masked = np.ma.MaskedArray(src_array, mask=(src_array==nodata_value))
 
             if run_count:
                 if test_ok :
