@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
 import os, sys, argparse
 from Lib_log import timeLine
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
-from Lib_vector import getEmpriseFile
+from Lib_vector import getEmpriseVector
 from Lib_postgis import executeQuery, openConnection, closeConnection, createDatabase, dropDatabase, importVectorByOgr2ogr, exportVectorByOgr2ogr
 from Lib_file import removeVectorFile
 
@@ -20,31 +20,32 @@ debug = 3
 ####################################################################################################
 # FONCTION terrainRoughnessClass()                                                                 #
 ####################################################################################################
-# ROLE :
-#     Calcul de l'indicateur LCZ classe de rugosité
-#
-# ENTREES DE LA FONCTION :
-#     grid_input : fichier de maillage en entrée
-#     grid_output : fichier de maillage en sortie
-#     built_input : fichier de la BD TOPO bâti en entrée
-#     distance_lines : distance séparant 2 lignes N-S et 2 lignes W-E (en mètres)
-#     epsg : EPSG code de projection
-#     project_encoding : encodage des fichiers d'entrés
-#     server_postgis : nom du serveur postgis
-#     port_number : numéro du port pour le serveur postgis
-#     user_postgis : le nom de l'utilisateurs postgis
-#     password_postgis : le mot de passe de l'utilisateur posgis
-#     database_postgis : le nom de la base posgis à utiliser
-#     schema_postgis : le nom du schéma à utiliser
-#     path_time_log : fichier log de sortie
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A
-
 def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log, format_vector='ESRI Shapefile', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Calcul de l'indicateur LCZ classe de rugosité
+    #
+    # ENTREES DE LA FONCTION :
+    #     grid_input : fichier de maillage en entrée
+    #     grid_output : fichier de maillage en sortie
+    #     built_input : fichier de la BD TOPO bâti en entrée
+    #     distance_lines : distance séparant 2 lignes N-S et 2 lignes W-E (en mètres)
+    #     epsg : EPSG code de projection
+    #     project_encoding : encodage des fichiers d'entrés
+    #     server_postgis : nom du serveur postgis
+    #     port_number : numéro du port pour le serveur postgis
+    #     user_postgis : le nom de l'utilisateurs postgis
+    #     password_postgis : le mot de passe de l'utilisateur posgis
+    #     database_postgis : le nom de la base posgis à utiliser
+    #     schema_postgis : le nom du schéma à utiliser
+    #     path_time_log : fichier log de sortie
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A
+    """
 
     print(bold + yellow + "Début du calcul de l'indicateur Terrain Roughness Class." + endC + "\n")
     timeLine(path_time_log, "Début du calcul de l'indicateur Terrain Roughness Class : ")
@@ -90,7 +91,7 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         table_name_bati = importVectorByOgr2ogr(database_postgis, built_input, 'trc_bati', user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
 
         # Récupération de l'emprise de la zone d'étude, définie par le fichier maillage d'entrée
-        xmin,xmax,ymin,ymax = getEmpriseFile(grid_input, format_vector)
+        xmin,xmax,ymin,ymax = getEmpriseVector(grid_input, format_vector)
         if debug >= 1:
             print(bold + "Emprise du fichier '%s' :" % (grid_input) + endC)
             print("    xmin = " + str(xmin))
@@ -179,7 +180,9 @@ def terrainRoughnessClass(grid_input, grid_output, built_input, distance_lines, 
         CREATE TABLE trc_decoup AS
             SELECT b.ID as ID, b.HAUTEUR as hauteur, ST_Intersection(b.geom, m.geom) as geom
             FROM %s as b, %s as m
-            WHERE ST_Intersects(b.geom, m.geom);
+            WHERE ST_Intersects(b.geom, m.geom)
+                AND b.HAUTEUR IS NOT NULL
+                AND b.HAUTEUR > 0;
         CREATE INDEX IF NOT EXISTS decoup_geom_gist ON trc_decoup USING GIST (geom);
 
         DROP TABLE IF EXISTS trc_decoupNS;

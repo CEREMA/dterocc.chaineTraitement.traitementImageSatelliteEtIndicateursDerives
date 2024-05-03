@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
@@ -17,24 +17,26 @@ debug = 3
 ####################################################################################################
 # FONCTION perviousSurfaceFraction()                                                               #
 ####################################################################################################
-# ROLE :
-#     Calcul de l'indicateur LCZ pourcentage de surface perméable
-#
-# ENTREES DE LA FONCTION :
-#     grid_input : fichier de maillage en entrée
-#     grid_output : fichier de maillage en sortie
-#     classif_input : fichier raster de l'occupation du sol en entrée
-#     class_previous_list : liste des classes choisis pour definir la zone perméable
-#     path_time_log : fichier log de sortie
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A
-
-def perviousSurfaceFraction(grid_input, grid_output, classif_input, class_previous_list, path_time_log, format_vector='ESRI Shapefile', extension_raster=".tif", save_results_intermediate=False, overwrite=True):
+def perviousSurfaceFraction(grid_input, grid_output, classif_input, class_previous_list, path_time_log, no_data_value, format_vector='ESRI Shapefile', extension_raster=".tif", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Calcul de l'indicateur LCZ pourcentage de surface perméable
+    #
+    # ENTREES DE LA FONCTION :
+    #     grid_input : fichier de maillage en entrée
+    #     grid_output : fichier de maillage en sortie
+    #     classif_input : fichier raster de l'occupation du sol en entrée
+    #     class_previous_list : liste des classes choisis pour definir la zone perméable
+    #     path_time_log : fichier log de sortie
+    #     no_data_value : Valeur des pixels sans données pour les rasters
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A
+    """
 
     print(bold + yellow + "Début du calcul de l'indicateur Pervious Surface Fraction." + endC + "\n")
     timeLine(path_time_log, "Début du calcul de l'indicateur Pervious Surface Fraction : ")
@@ -46,6 +48,7 @@ def perviousSurfaceFraction(grid_input, grid_output, classif_input, class_previo
         print(cyan + "perviousSurfaceFraction() : " + endC + "classif_input : " + str(classif_input) + endC)
         print(cyan + "perviousSurfaceFraction() : " + endC + "class_previous_list : " + str(class_previous_list) + endC)
         print(cyan + "perviousSurfaceFraction() : " + endC + "path_time_log : " + str(path_time_log) + endC)
+        print(cyan + "perviousSurfaceFraction() : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "perviousSurfaceFraction() : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "perviousSurfaceFraction() : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "perviousSurfaceFraction() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
@@ -88,7 +91,7 @@ def perviousSurfaceFraction(grid_input, grid_output, classif_input, class_previo
 
         print(bold + cyan + "Récupération de Pervious Surface Fraction par maille :" + endC + "\n")
         timeLine(path_time_log, "    Récupération de Pervious Surface Fraction par maille : ")
-        statisticsVectorRaster(permeability_raster, grid_input, grid_output, 1, True, False, False, [], [], {99:'Imperm', 1:'Perm'}, path_time_log, True, format_vector, save_results_intermediate, overwrite)
+        statisticsVectorRaster(permeability_raster, grid_input, grid_output, 1, True, False, False, [], [], {99:'Imperm', 1:'Perm'}, True, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite)
 
         ##########################################
         ### Nettoyage des fichiers temporaires ###
@@ -123,6 +126,7 @@ def main(gui=False):
     parser.add_argument('-out', '--grid_output', default="", type=str, required=True, help="Fichier de maillage en sortie, avec la valeur moyenne de Pervious Surface Fraction par maille (vecteur).")
     parser.add_argument('-cla', '--classif_input', default="", type=str, required=True, help="Fichier raster de l'occupation du sol en entree (raster).")
     parser.add_argument('-cpl', '--class_previous_list', nargs="+", default=[12200,13000,13000], type=int, required=False, help="Liste des indices de classe de type permeable.")
+
     parser.add_argument('-vef','--format_vector',default="ESRI Shapefile",help="Option : Vector format. By default : ESRI Shapefile", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-log', '--path_time_log', default="", type=str, required=False, help="Name of log")
@@ -146,6 +150,10 @@ def main(gui=False):
     # Récupération de la liste des classes permeable
     if args.class_previous_list != None:
         class_previous_list = args.class_previous_list
+
+    # Parametres de valeur du nodata
+    if args.no_data_value!= None:
+        no_data_value = args.no_data_value
 
     # Récupération du nom du format des fichiers vecteur
     if args.format_vector != None:
@@ -178,6 +186,7 @@ def main(gui=False):
         print(cyan + "PerviousSurfaceFraction : " + endC + "grid_output : " + str(grid_output) + endC)
         print(cyan + "PerviousSurfaceFraction : " + endC + "classif_input : " + str(classif_input) + endC)
         print(cyan + "PerviousSurfaceFraction : " + endC + "class_previous_list : " + str(class_previous_list) + endC)
+        print(cyan + "PerviousSurfaceFraction : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "PerviousSurfaceFraction : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "PerviousSurfaceFraction : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "PerviousSurfaceFraction : " + endC + "path_time_log : " + str(path_time_log) + endC)
@@ -188,7 +197,7 @@ def main(gui=False):
     if not os.path.exists(os.path.dirname(grid_output)):
         os.makedirs(os.path.dirname(grid_output))
 
-    perviousSurfaceFraction(grid_input, grid_output, classif_input, class_previous_list, path_time_log, format_vector, extension_raster, save_results_intermediate, overwrite)
+    perviousSurfaceFraction(grid_input, grid_output, classif_input, class_previous_list, path_time_log, no_data_value, format_vector, extension_raster, save_results_intermediate, overwrite)
 
 if __name__ == '__main__':
     main(gui=False)

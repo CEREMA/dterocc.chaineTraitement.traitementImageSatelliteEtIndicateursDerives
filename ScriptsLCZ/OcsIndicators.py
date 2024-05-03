@@ -1,36 +1,35 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-########################################################################
-#                                                                      #
-#    Copyright (©) CEREMA/DTerSO/DALETT/SCGSI - All rights reserved    #
-#                                                                      #
-########################################################################
+#############################################################################################################################################
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
+#############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : OcsIndicators.py
 Description :
-    Objectif : générer des indicateurs LCZ liés à l'occupation du sol (taux de chaque classe)
-    Remarque : indicateurs LCZ supplémentaires, non compris à l'origine dans l'article de Stewart & Oke (2012)
+------------
+Objectif : générer des indicateurs LCZ liés à l'occupation du sol (taux de chaque classe)
+Remarque : indicateurs LCZ supplémentaires, non compris à l'origine dans l'article de Stewart & Oke (2012)
 
 -----------------
 Outils utilisés :
- -
 
 ------------------------------
 Historique des modifications :
- - 16/01/2017 : création (AdditionalIndicators)
- - 12/04/2019 : renommage (AdditionalIndicators --> OcsIndicators)
- - 30/09/2020 : internationalisation (usage avec/sans MNH, OCS vecteur/raster, avec/sans dinstinction végétation haute et basse)
+16/01/2017 : création (AdditionalIndicators)
+12/04/2019 : renommage (AdditionalIndicators --> OcsIndicators)
+30/09/2020 : internationalisation (usage avec/sans MNH, OCS vecteur/raster, avec/sans dinstinction végétation haute et basse)
 
 -----------------------
 A réfléchir / A faire :
- -
-'''
+
+"""
 
 # Import des bibliothèques Python
 from __future__ import print_function
-import os, sys, argparse, ogr
+import os, sys, argparse
+from osgeo import ogr
 from Lib_display import bold,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_file import cleanTempData, copyVectorFile, deleteDir, removeFile, removeVectorFile
 from Lib_log import timeLine
@@ -44,38 +43,39 @@ debug = 3
 ########################################################################
 # FONCTION occupationIndicator()                                       #
 ########################################################################
-# ROLE :
-#     calcul d'indicateurs liés au taux d'occupation de chaque classe OCS
-#
-# ENTREES DE LA FONCTION :
-#     input_grid : fichier maillage en entrée (vecteur)
-#     output_grid : fichier maillage en sortie, avec les indicateurs (vecteur)
-#     class_label_dico_out : dictionaire de correspondance entre label de classes et valeur pour le fichier output_grid de sortie
-#     input_vector_classif : fichier OCS (classif) en entrée au format vecteur
-#     field_classif_name : nom du champ contenant l'information de classif dans le fichier vecteur input_vector_classif
-#     input_soil_occupation : fichier OCS en entrée au format raster le fichier vecteur input_vector_classif est utilisé ce parametre sert de fichier de reference par rasteriser le veteur
-#     input_height_model : fichier MNH en entrée (raster)
-#     class_build_list : liste des classes 'bâti' de l'OCS
-#     class_road_list : liste des classes 'minéral' de l'OCS
-#     class_baresoil_list : liste des classes 'sol nu' de l'OCS
-#     class_water_list : liste des classes 'eau' de l'OCS
-#     class_vegetation_list : liste des classes 'végétation' de l'OCS
-#     class_high_vegetation_list : liste des classes 'végétation haute' de l'OCS
-#     class_low_vegetation_list : liste des classes 'végétation basse' de l'OCS
-#     epsg : code epsg du système de projection. Par défaut : 2154
-#     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
-#     format_raster : format des fichiers raster. Par défaut : 'GTiff'
-#     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster. Par défaut : '.tif'
-#     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
-#     path_time_log : fichier log de sortie, par défaut vide
-#     save_results_intermediate : fichiers temporaires conservés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def occupationIndicator(input_grid, output_grid, class_label_dico_out, input_vector_classif, field_classif_name, input_soil_occupation, input_height_model, class_build_list, class_road_list, class_baresoil_list, class_water_list, class_vegetation_list, class_high_vegetation_list, class_low_vegetation_list, epsg=2154, no_data_value=0, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster='.tif', extension_vector='.shp', path_time_log='', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     calcul d'indicateurs liés au taux d'occupation de chaque classe OCS
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_grid : fichier maillage en entrée (vecteur)
+    #     output_grid : fichier maillage en sortie, avec les indicateurs (vecteur)
+    #     class_label_dico_out : dictionaire de correspondance entre label de classes et valeur pour le fichier output_grid de sortie
+    #     input_vector_classif : fichier OCS (classif) en entrée au format vecteur
+    #     field_classif_name : nom du champ contenant l'information de classif dans le fichier vecteur input_vector_classif
+    #     input_soil_occupation : fichier OCS en entrée au format raster le fichier vecteur input_vector_classif est utilisé ce parametre sert de fichier de reference par rasteriser le veteur
+    #     input_height_model : fichier MNH en entrée (raster)
+    #     class_build_list : liste des classes 'bâti' de l'OCS
+    #     class_road_list : liste des classes 'minéral' de l'OCS
+    #     class_baresoil_list : liste des classes 'sol nu' de l'OCS
+    #     class_water_list : liste des classes 'eau' de l'OCS
+    #     class_vegetation_list : liste des classes 'végétation' de l'OCS
+    #     class_high_vegetation_list : liste des classes 'végétation haute' de l'OCS
+    #     class_low_vegetation_list : liste des classes 'végétation basse' de l'OCS
+    #     epsg : code epsg du système de projection. Par défaut : 2154
+    #     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
+    #     format_raster : format des fichiers raster. Par défaut : 'GTiff'
+    #     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster. Par défaut : '.tif'
+    #     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
+    #     path_time_log : fichier log de sortie, par défaut vide
+    #     save_results_intermediate : fichiers temporaires conservés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     if debug >= 3:
         print('\n' + bold + green + "Calcul d'indicateurs du taux de classes OCS - Variables dans la fonction :" + endC)
@@ -186,7 +186,9 @@ def occupationIndicator(input_grid, output_grid, class_label_dico_out, input_vec
     if class_high_vegetation_list != [] and class_low_vegetation_list != []:
         divide_vegetation_classes = True
 
-    col_to_delete_list = ["minority", PREFIX_S + NODATA_FIELD, PREFIX_S + BUILT_FIELD, PREFIX_S + MINERAL_FIELD, PREFIX_S + BARESOIL_FIELD, PREFIX_S + WATER_FIELD]
+    col_to_delete_list = ["minority", 'count', PREFIX_S + NODATA_FIELD, PREFIX_S + BUILT_FIELD, PREFIX_S + MINERAL_FIELD, PREFIX_S + BARESOIL_FIELD, PREFIX_S + WATER_FIELD]
+    if input_height_model == "":
+        col_to_delete_list.append('majority')
     class_label_dico = {int(no_data_value):NODATA_FIELD, int(BUILT_LABEL):BUILT_FIELD, int(MINERAL_LABEL):MINERAL_FIELD, int(BARESOIL_LABEL):BARESOIL_FIELD, int(WATER_LABEL):WATER_FIELD}
     if not divide_vegetation_classes:
         class_label_dico[int(VEGETATION_LABEL)] = VEGETATION_FIELD
@@ -264,7 +266,7 @@ def occupationIndicator(input_grid, output_grid, class_label_dico_out, input_vec
     if debug >= 3:
         print(cyan + "occupationIndicator() : " + endC + bold + "Calcul des indicateurs de taux de classes OCS." + endC + '\n')
 
-    statisticsVectorRaster(temp_soil_occupation, input_grid, temp_grid, 1, True, True, False, col_to_delete_list, [], class_label_dico, path_time_log, True, format_vector, save_results_intermediate, overwrite)
+    statisticsVectorRaster(temp_soil_occupation, input_grid, temp_grid, 1, True, True, False, col_to_delete_list, [], class_label_dico, True, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite)
 
     # Fusion des classes végétation dans le cas où haute et basse sont séparées (pour utilisation du taux de végétation dans le logigramme)
     if divide_vegetation_classes:
@@ -282,7 +284,11 @@ def occupationIndicator(input_grid, output_grid, class_label_dico_out, input_vec
 
     print(cyan + "occupationIndicator() : " + bold + green + "ETAPE 2/3 - Début du calcul de l'indicateur de \"hauteur de végétation\"." + endC + '\n')
 
-    computeVegetationHeight(temp_grid, output_grid, temp_soil_occupation, input_height_model, temp_height_vegetation, divide_vegetation_classes, VEGETATION_LABEL, HIGH_VEGETATION_LABEL, LOW_VEGETATION_LABEL, HIGH_VEGETATION_FIELD, LOW_VEGETATION_FIELD, VEG_MEAN_FIELD, VEG_MAX_FIELD, VEG_RATE_FIELD, CODAGE_FLOAT, SUFFIX_TEMP, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite)
+    if input_height_model != "" or divide_vegetation_classes:
+        computeVegetationHeight(temp_grid, output_grid, temp_soil_occupation, input_height_model, temp_height_vegetation, divide_vegetation_classes, VEGETATION_LABEL, HIGH_VEGETATION_LABEL, LOW_VEGETATION_LABEL, HIGH_VEGETATION_FIELD, LOW_VEGETATION_FIELD, VEG_MEAN_FIELD, VEG_MAX_FIELD, VEG_RATE_FIELD, CODAGE_FLOAT, SUFFIX_TEMP, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite)
+    else:
+        print(cyan + "occupationIndicator() : " + bold + yellow + "Pas de calcul de l'indicateur de \"hauteur de végétation\"." + endC + '\n')
+        copyVectorFile(temp_grid, output_grid, format_vector=format_vector)
 
     print(cyan + "occupationIndicator() : " + bold + green + "ETAPE 2/3 - Fin du calcul de l'indicateur de \"hauteur de végétation\"." + endC + '\n')
 
@@ -321,6 +327,8 @@ def occupationIndicator(input_grid, output_grid, class_label_dico_out, input_vec
 
 def computeVegetationHeight(input_grid, output_grid, soil_occupation, height_model, height_vegetation, divide_vegetation_classes, vegetation_label, high_vegetation_label, low_vegetation_label, high_vegetation_field, low_vegetation_field, veg_mean_field, veg_max_field, veg_rate_field, codage_float, suffix_temp, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite):
 
+    PRECISION = 0.0000001
+
     temp_grid = os.path.splitext(input_grid)[0] + suffix_temp + os.path.splitext(input_grid)[1]
 
     if height_model != "":
@@ -348,7 +356,7 @@ def computeVegetationHeight(input_grid, output_grid, soil_occupation, height_mod
             print(cyan + "computeVegetationHeight() : " + endC + bold + "Récupération de la hauteur moyenne de végétation." + endC + '\n')
 
         col_to_delete_list = ["min", "median", "sum", "std", "unique", "range"]
-        statisticsVectorRaster(height_vegetation, input_grid, temp_grid, 1, False, False, True, col_to_delete_list, [], {}, path_time_log, True, format_vector, save_results_intermediate, overwrite)
+        statisticsVectorRaster(height_vegetation, input_grid, temp_grid, 1, False, False, True, col_to_delete_list, [], {}, True, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite)
 
         renameFieldsVector(temp_grid, ['mean'], [veg_mean_field], format_vector=format_vector)
         renameFieldsVector(temp_grid, ['max'], [veg_max_field], format_vector=format_vector)
@@ -364,7 +372,7 @@ def computeVegetationHeight(input_grid, output_grid, soil_occupation, height_mod
         if debug >= 3:
             print(cyan + "computeVegetationHeight() : " + endC + bold + "Récupération du taux de végétation haute." + endC + '\n')
 
-        sql_statement = "SELECT *, ((%s/(%s+%s))*100) AS %s FROM %s" % (high_vegetation_field, high_vegetation_field, low_vegetation_field, veg_rate_field, os.path.splitext(os.path.basename(temp_grid))[0])
+        sql_statement = "SELECT *, ((%s/(%s+%s+%s))*100) AS %s FROM %s" % (high_vegetation_field, high_vegetation_field, low_vegetation_field, PRECISION, veg_rate_field, os.path.splitext(os.path.basename(temp_grid))[0])
 
         command = "ogr2ogr -sql '%s' -dialect SQLITE %s %s" % (sql_statement, output_grid, temp_grid)
         if debug >= 3:

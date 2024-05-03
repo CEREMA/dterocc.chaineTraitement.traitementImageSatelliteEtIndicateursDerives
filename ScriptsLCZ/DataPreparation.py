@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
-import os, sys, argparse, shutil, ogr
+import os, sys, argparse, shutil
+from osgeo import ogr
 from Lib_log import timeLine
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_raster import getPixelSizeImage
@@ -19,30 +20,31 @@ debug = 3
 ####################################################################################################
 # FONCTION vectorsPreparation()                                                                    #
 ####################################################################################################
-# ROLE :
-#     Préparation des fichiers vecteurs pour le calcul des indicateurs LCZ
-#
-# ENTREES DE LA FONCTION :
-#     emprise_file : fichier d'emprise de la zone d'étude
-#     classif_input : raster classification OCS en entrée
-#     grid_input : fichier Urban Atlas en entrée, d'origine
-#     built_input_list : liste des fichiers bâti de la BD TOPO en entrée, d'origine
-#     roads_input_list : liste des fichiers routes de la BD TOPO en entrée, d'origine
-#     grid_output : fichier Urban Atlas en sortie, traité et prêt pour le calcul des indicateurs
-#     grid_output_cleaned : fichier Urban Atlas en sortie, traité et prêt pour le calcul des indicateurs, nettoyé des polygones axes de communications et eau
-#     built_output : fichier bâti en sortie, traité et prêt pour le calcul des indicateurs
-#     roads_output : fichier routes en sortie, traité et prêt pour le calcul des indicateurs
-#     epsg : Type de projection (EPSG) de l'image de sortie
-#     path_time_log : fichier log de sortie
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A
-
 def vectorsPreparation(emprise_file, classif_input, grid_input, built_input_list, roads_input_list, grid_output, grid_output_cleaned, built_output, roads_output, col_code_ua, col_item_ua, epsg, path_time_log, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Préparation des fichiers vecteurs pour le calcul des indicateurs LCZ
+    #
+    # ENTREES DE LA FONCTION :
+    #     emprise_file : fichier d'emprise de la zone d'étude
+    #     classif_input : raster classification OCS en entrée
+    #     grid_input : fichier Urban Atlas en entrée, d'origine
+    #     built_input_list : liste des fichiers bâti de la BD TOPO en entrée, d'origine
+    #     roads_input_list : liste des fichiers routes de la BD TOPO en entrée, d'origine
+    #     grid_output : fichier Urban Atlas en sortie, traité et prêt pour le calcul des indicateurs
+    #     grid_output_cleaned : fichier Urban Atlas en sortie, traité et prêt pour le calcul des indicateurs, nettoyé des polygones axes de communications et eau
+    #     built_output : fichier bâti en sortie, traité et prêt pour le calcul des indicateurs
+    #     roads_output : fichier routes en sortie, traité et prêt pour le calcul des indicateurs
+    #     epsg : Type de projection (EPSG) de l'image de sortie
+    #     path_time_log : fichier log de sortie
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A
+    """
 
     print(bold + yellow + "Début de la préparation des fichiers vecteurs." + endC + "\n")
     timeLine(path_time_log, "Début de la préparation des fichiers vecteurs : ")
@@ -249,31 +251,32 @@ def vectorsPreparation(emprise_file, classif_input, grid_input, built_input_list
 ####################################################################################################
 # FONCTION rastersPreparation()                                                                    #
 ####################################################################################################
-# ROLE :
-#     Préparation des fichiers rasters pour le calcul des indicateurs LCZ
-#
-# ENTREES DE LA FONCTION :
-#     emprise_file : fichier d'emprise de la zone d'étude
-#     classif_input : raster classification OCS en entrée
-#     mns_input : raster modèle numérique de surface en entrée
-#     mnh_input : raster modèle numérique de hauteur en entrée
-#     classif_output : raster classification OCS en sortie, prêt pour le calcul des indicateurs
-#     mns_output : raster modèle numérique de surface en sortie, prêt pour le calcul des indicateurs
-#     mnh_output : raster modèle numérique de hauteur en sortie, prêt pour le calcul des indicateurs
-#     epsg : Type de projection (EPSG) de l'image de sortie
-#     no_data_value : Value pixel des no data
-#     path_time_log : fichier log de sortie
-#     format_raster : Format de l'image de sortie, par défaut : GTiff
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A
-
 def rastersPreparation(emprise_file, classif_input, mns_input, mnh_input, classif_output, mns_output, mnh_output, epsg, no_data_value, path_time_log, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Préparation des fichiers rasters pour le calcul des indicateurs LCZ
+    #
+    # ENTREES DE LA FONCTION :
+    #     emprise_file : fichier d'emprise de la zone d'étude
+    #     classif_input : raster classification OCS en entrée
+    #     mns_input : raster modèle numérique de surface en entrée
+    #     mnh_input : raster modèle numérique de hauteur en entrée
+    #     classif_output : raster classification OCS en sortie, prêt pour le calcul des indicateurs
+    #     mns_output : raster modèle numérique de surface en sortie, prêt pour le calcul des indicateurs
+    #     mnh_output : raster modèle numérique de hauteur en sortie, prêt pour le calcul des indicateurs
+    #     epsg : Type de projection (EPSG) de l'image de sortie
+    #     no_data_value : Value pixel des no data
+    #     path_time_log : fichier log de sortie
+    #     format_raster : Format de l'image de sortie, par défaut : GTiff
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A
+    """
 
     print(bold + yellow + "Début de la préparation des fichiers rasters.\n" + endC)
     timeLine(path_time_log, "Début de la préparation des fichiers rasters : ")

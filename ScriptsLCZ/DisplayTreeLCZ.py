@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,14 +11,15 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : DisplayTreeLCZ.py
 Description :
-    Objectif : Tester et afficher graphiquement l'arbre LCZ
+-------------
+Objectif : Tester et afficher graphiquement l'arbre LCZ
 
 Date de creation : 29/04/2019
 
-'''
+"""
 
 from __future__ import print_function
 import os, sys, shutil, argparse
@@ -34,21 +35,22 @@ debug = 3
 ####################################################################################################
 # FONCTION displayTree()                                                                           #
 ####################################################################################################
-# ROLE:
-#     Affiche de facon graphique l'arbre LCZ
-#
-# ENTREES DE LA FONCTION :
-#     origin_tree : l'arbre de décision à tracer
-#     origin_name : le nom du premier noeud
-#     name_file_graph : le nom et chemin du fichier resutat du graphe
-#     path_time_log : le fichier de log de sortie
-#     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
-#
-# SORTIES DE LA FONCTION :
-#      le fichier graphe
-
 def displayTree(origin_tree, origin_name, name_file_graph, path_time_log, save_results_intermediate, overwrite):
+    """
+    # ROLE:
+    #     Affiche de facon graphique l'arbre LCZ
+    #
+    # ENTREES DE LA FONCTION :
+    #     origin_tree : l'arbre de décision à tracer
+    #     origin_name : le nom du premier noeud
+    #     name_file_graph : le nom et chemin du fichier resutat du graphe
+    #     path_time_log : le fichier de log de sortie
+    #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #
+    # SORTIES DE LA FONCTION :
+    #      le fichier graphe
+    """
 
     # Constantes
     EXT_DOT = ".dot"
@@ -143,18 +145,19 @@ def displayTree(origin_tree, origin_name, name_file_graph, path_time_log, save_r
 ####################################################################################################
 # FONCTION createDisplayGraph()                                                                    #
 ####################################################################################################
-# ROLE:
-#     Creer une version graphiquement l'arbre de décision LCZ
-#
-# ENTREES DE LA FONCTION :
-#     tree : l'arbre de décision
-#     graph : graph pygraphviz à construire
-#     debug : niveau de trace log
-#
-# SORTIES DE LA FONCTION :
-#      le fichier graphe créé
-
 def createDisplayGraph(tree, id_node_parent, graph, debug):
+    """
+    # ROLE:
+    #     Creer une version graphiquement l'arbre de décision LCZ
+    #
+    # ENTREES DE LA FONCTION :
+    #     tree : l'arbre de décision
+    #     graph : graph pygraphviz à construire
+    #     debug : niveau de trace log
+    #
+    # SORTIES DE LA FONCTION :
+    #      le fichier graphe créé
+    """
 
     for i in range(len(tree)):
         item = tree[i]

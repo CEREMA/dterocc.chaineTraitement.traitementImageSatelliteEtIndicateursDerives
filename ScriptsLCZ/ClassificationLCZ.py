@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,10 +11,11 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : ClassificationLCZ.py
 Description :
-    Objectif : Etablir une classification LCZ (sous format vecteur) à partir de divers indicateurs (également sous format vecteurs)
+-------------
+bjectif : Etablir une classification LCZ (sous format vecteur) à partir de divers indicateurs (également sous format vecteurs)
 
 Date de creation : 03/11/2016
 ----------
@@ -30,7 +31,7 @@ Origine : Réécriture d'un ancien script qui faisait la même chose, mais sous 
 28/06/2021 : Création d'un script ClassificationLczOperational en parallèle, pour la méthode opérationnelle (via SQL), développée et validée lors du projet SCO SatLCZ
 ----------------------------------------------------------------------------------------------------
 
-'''
+"""
 
 from __future__ import print_function
 import os, sys, shutil, argparse
@@ -55,34 +56,35 @@ debug = 3
 ####################################################################################################
 # FONCTION stackShapeLCZ()                                                                         #
 ####################################################################################################
-# ROLE:
-#     Fusionner les données attributaires des indicateurs utilisées pour le calcul des LCZ
-#     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
-#
-# ENTREES DE LA FONCTION :
-#     urban_atlas_input : fichier de maillage Urban Atlas en entrée
-#     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
-#     building_surface_fraction_input : fichier Building Surface Fraction en entrée
-#     impervious_surface_fraction_input : fichier Impervious Surface Fraction en entrée
-#     pervious_surface_fraction_input : fichier Pervious Surface Fraction en entrée
-#     sky_view_factor_input : fichier Sky View Factor en entrée
-#     height_roughness_elements_input : fichier Height of Roughness Elements en entrée
-#     terrain_roughness_class_input : fichier terrain Roughness Class en entrée
-#     aspect_ratio_input : fichier Aspect Ratio en entrée
-#     soil_occupation_input : fichier occupation du sol en entrée
-#     indicator_list : liste des indicateurs utilisés pour l'attribution des LCZ
-#     column_list : liste des colonnes contenant chacun des indicateurs précédents
-#     abbreviation_list : liste des abréviations utilisées
-#     column_id_ua : nom de la colonne 'id' du fichier Urban Atlas en d'entree
-#     path_time_log : fichier log de sortie
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def stackShapeLCZ(urban_atlas_input, lcz_output, building_surface_fraction_input, impervious_surface_fraction_input, pervious_surface_fraction_input, sky_view_factor_input, height_roughness_elements_input, terrain_roughness_class_input, aspect_ratio_input, soil_occupation_input, indicator_list, column_list, abbreviation_list, column_id_ua, path_time_log, format_vector='ESRI Shapefile', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #     Fusionner les données attributaires des indicateurs utilisées pour le calcul des LCZ
+    #     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
+    #
+    # ENTREES DE LA FONCTION :
+    #     urban_atlas_input : fichier de maillage Urban Atlas en entrée
+    #     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
+    #     building_surface_fraction_input : fichier Building Surface Fraction en entrée
+    #     impervious_surface_fraction_input : fichier Impervious Surface Fraction en entrée
+    #     pervious_surface_fraction_input : fichier Pervious Surface Fraction en entrée
+    #     sky_view_factor_input : fichier Sky View Factor en entrée
+    #     height_roughness_elements_input : fichier Height of Roughness Elements en entrée
+    #     terrain_roughness_class_input : fichier terrain Roughness Class en entrée
+    #     aspect_ratio_input : fichier Aspect Ratio en entrée
+    #     soil_occupation_input : fichier occupation du sol en entrée
+    #     indicator_list : liste des indicateurs utilisés pour l'attribution des LCZ
+    #     column_list : liste des colonnes contenant chacun des indicateurs précédents
+    #     abbreviation_list : liste des abréviations utilisées
+    #     column_id_ua : nom de la colonne 'id' du fichier Urban Atlas en d'entree
+    #     path_time_log : fichier log de sortie
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     print(bold + green + "Début de la fusion des données attributaires des indicateurs." + endC + "\n")
     timeLine(path_time_log, "Début de la fusion des données attributaires des indicateurs : ")
@@ -291,28 +293,29 @@ def stackShapeLCZ(urban_atlas_input, lcz_output, building_surface_fraction_input
 ####################################################################################################
 # FONCTION computeLCZ()                                                                            #
 ####################################################################################################
-# ROLE:
-#     Calculer les LCZ à partir des valeurs des différents indicateurs
-#     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
-#
-# ENTREES DE LA FONCTION :
-#     import_tree : l'arbre de décision
-#     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
-#     abbreviation_list : liste des abréviations utilisées
-#     column_id_ua : nom de la colonne 'id' du fichier Urban Atlas en d'entree
-#     column_code_ua : nom de la colonne 'code' du fichier Urban Atlas en d'entree
-#     column_lcz_histo : nom de la colonne contenant la classe LCZ intermédiaire dans le fichier de sortie
-#     column_lcz : nom de la colonne contenant la classe LCZ dans le fichier de sortie
-#     correspondance_values_dico : dictionaire de correspondance variable et valeur
-#     path_time_log : fichier log de sortie
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def computeLCZ(import_tree, lcz_output, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, correspondance_values_dico, path_time_log, format_vector='ESRI Shapefile', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #     Calculer les LCZ à partir des valeurs des différents indicateurs
+    #     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
+    #
+    # ENTREES DE LA FONCTION :
+    #     import_tree : l'arbre de décision
+    #     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
+    #     abbreviation_list : liste des abréviations utilisées
+    #     column_id_ua : nom de la colonne 'id' du fichier Urban Atlas en d'entree
+    #     column_code_ua : nom de la colonne 'code' du fichier Urban Atlas en d'entree
+    #     column_lcz_histo : nom de la colonne contenant la classe LCZ intermédiaire dans le fichier de sortie
+    #     column_lcz : nom de la colonne contenant la classe LCZ dans le fichier de sortie
+    #     correspondance_values_dico : dictionaire de correspondance variable et valeur
+    #     path_time_log : fichier log de sortie
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     if debug >= 2:
         print(cyan + "computeLCZ() : " + bold + green + "Début du calcul des LCZ à partir des indicateurs." + endC + "\n")
@@ -406,19 +409,20 @@ def computeLCZ(import_tree, lcz_output, abbreviation_list, column_id_ua, column_
 ####################################################################################################
 # FONCTION selectTree()                                                                            #
 ####################################################################################################
-# ROLE:
-#     Selection de l'arbre de décision LCZ selon l'entree Urban Atlas
-#
-# ENTREES DE LA FONCTION :
-#     code_ua     : identifiant quartier Urban Atlas
-#     values_dico : les valeurs des indicateurs pour un polygone sous forme de dico
-#     import_tree : l'arbre de decision
-#     correspondance_values_dico : dictionaire de correspondance variable et valeur
-#
-# SORTIES DE LA FONCTION :
-#      la valeur LCZ finale
-
 def selectTree(code_ua, values_dico, import_tree, correspondance_values_dico={}):
+    """
+    # ROLE:
+    #     Selection de l'arbre de décision LCZ selon l'entree Urban Atlas
+    #
+    # ENTREES DE LA FONCTION :
+    #     code_ua     : identifiant quartier Urban Atlas
+    #     values_dico : les valeurs des indicateurs pour un polygone sous forme de dico
+    #     import_tree : l'arbre de decision
+    #     correspondance_values_dico : dictionaire de correspondance variable et valeur
+    #
+    # SORTIES DE LA FONCTION :
+    #      la valeur LCZ finale
+    """
 
     if code_ua is None:
         historic = runTree(values_dico, getattr(import_tree, 'tree_A'), correspondance_values_dico)
@@ -470,18 +474,19 @@ def selectTree(code_ua, values_dico, import_tree, correspondance_values_dico={})
 ####################################################################################################
 # FONCTION runTree()                                                                               #
 ####################################################################################################
-# ROLE:
-#     Parcours de l'arbre de décision LCZ
-#
-# ENTREES DE LA FONCTION :
-#     values_dico : les valeurs des indicateurs pour un polygone sous forme de dico
-#     tree : l'arbre de décision
-#     correspondance_values_dico : dictionaire de correspondance variable et valeur
-#
-# SORTIES DE LA FONCTION :
-#      la valeur LCZ brute (historic)
-
 def runTree(values_dico, tree, correspondance_values_dico):
+    """
+    # ROLE:
+    #     Parcours de l'arbre de décision LCZ
+    #
+    # ENTREES DE LA FONCTION :
+    #     values_dico : les valeurs des indicateurs pour un polygone sous forme de dico
+    #     tree : l'arbre de décision
+    #     correspondance_values_dico : dictionaire de correspondance variable et valeur
+    #
+    # SORTIES DE LA FONCTION :
+    #      la valeur LCZ brute (historic)
+    """
 
     historic = None
 
@@ -542,16 +547,18 @@ def runTree(values_dico, tree, correspondance_values_dico):
 ####################################################################################################
 # FONCTION convertToLCZ()                                                                          #
 ####################################################################################################
-# ROLE:
-#     Convertie la valeur LCZ brute en valeur LCZ exploitable
-#
-# ENTREES DE LA FONCTION :
-#     historic : la valeur LCZ calculé brute
-#
-# SORTIES DE LA FONCTION :
-#      la valeur LCZ finale (lcz)
-
 def convertToLCZ(historic):
+    """
+    # ROLE:
+    #     Convertie la valeur LCZ brute en valeur LCZ exploitable
+    #
+    # ENTREES DE LA FONCTION :
+    #     historic : la valeur LCZ calculé brute
+    #
+    # SORTIES DE LA FONCTION :
+    #      la valeur LCZ finale (lcz)
+    """
+
     lcz = 'None'
     if historic is not None and historic[:3] == "LCZ":
         pos = historic.find('_')
@@ -563,21 +570,22 @@ def convertToLCZ(historic):
 ####################################################################################################
 # FONCTION computeTreeRFmodel()                                                                    #
 ####################################################################################################
-# ROLE:
-#     Fabrique le modele Random Forest destiné à supplanter l'arbre en cas d'indecision
-#
-# ENTREES DE LA FONCTION :
-#     import_tree : l'arbre de décision
-#     nb_sample_rf : nombre d'echantillons pour le Randon Forest
-#     model_file_rf : nom du fichier contenant le model du Randon Forest
-#     types_lcz_list : liste des type de classification LCZ
-#     categories_ua_list : liste de categories de classification Urban Atlas
-#     correspondance_values_dico : dictionaire de correspondance variable et valeur
-#
-# SORTIES DE LA FONCTION :
-#     le modele RF
-
 def computeTreeRFmodel(import_tree, nb_sample_rf, model_file_rf, types_lcz_list, categories_ua_list, correspondance_values_dico):
+     """
+     # ROLE:
+     #     Fabrique le modele Random Forest destiné à supplanter l'arbre en cas d'indecision
+     #
+     # ENTREES DE LA FONCTION :
+     #     import_tree : l'arbre de décision
+     #     nb_sample_rf : nombre d'echantillons pour le Randon Forest
+     #     model_file_rf : nom du fichier contenant le model du Randon Forest
+     #     types_lcz_list : liste des type de classification LCZ
+     #     categories_ua_list : liste de categories de classification Urban Atlas
+     #     correspondance_values_dico : dictionaire de correspondance variable et valeur
+     #
+     # SORTIES DE LA FONCTION :
+     #     le modele RF
+     """
 
      if debug >= 3:
         print(bold + green + "computeTreeRFmodel() : Variables dans la fonction" + endC)
@@ -653,30 +661,31 @@ def computeTreeRFmodel(import_tree, nb_sample_rf, model_file_rf, types_lcz_list,
 ####################################################################################################
 # FONCTION computeLCZbyRF()                                                                        #
 ####################################################################################################
-# ROLE:
-#     Calculer les LCZ par classification Randon Forest
-#     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
-#
-# ENTREES DE LA FONCTION :
-#     import_tree : l'arbre de décision
-#     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
-#     nb_sample_rf : nombre d'echantillons pour le Randon Forest
-#     model_file_rf : nom du fichier contenant le model du Randon Forest
-#     abbreviation_list : liste des abréviations utilisées
-#     column_id_ua : nom de la colonne 'id' du fichier Urban Atlas en d'entree
-#     column_code_ua : nom de la colonne 'code' du fichier Urban Atlas en d'entree
-#     column_lcz_histo : nom de la colonne contenant la classe LCZ intermédiaire dans le fichier de sortie
-#     column_lcz : nom de la colonne contenant la classe LCZ dans le fichier de sortie
-#     column_lcz_rf : nom de la colonne contenant la classe LCZ par RandonForest dans le fichier de sortie
-#     correspondance_values_dico : dictionaire de correspondance variable et valeur
-#     path_time_log : fichier log de sortie
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def computeLCZbyRF(import_tree, lcz_output, nb_sample_rf, model_file_rf, abbreviation_list, column_id_ua, column_code_ua, column_lcz_histo, column_lcz, column_lcz_rf, correspondance_values_dico, path_time_log, save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #     Calculer les LCZ par classification Randon Forest
+    #     et sauvegarder ces données dans le fichier vecteur de maillage Urban Atlas de sortie
+    #
+    # ENTREES DE LA FONCTION :
+    #     import_tree : l'arbre de décision
+    #     lcz_output : fichier de maillage Urban Atlas en sortie, avec la valeur LCZ par maille
+    #     nb_sample_rf : nombre d'echantillons pour le Randon Forest
+    #     model_file_rf : nom du fichier contenant le model du Randon Forest
+    #     abbreviation_list : liste des abréviations utilisées
+    #     column_id_ua : nom de la colonne 'id' du fichier Urban Atlas en d'entree
+    #     column_code_ua : nom de la colonne 'code' du fichier Urban Atlas en d'entree
+    #     column_lcz_histo : nom de la colonne contenant la classe LCZ intermédiaire dans le fichier de sortie
+    #     column_lcz : nom de la colonne contenant la classe LCZ dans le fichier de sortie
+    #     column_lcz_rf : nom de la colonne contenant la classe LCZ par RandonForest dans le fichier de sortie
+    #     correspondance_values_dico : dictionaire de correspondance variable et valeur
+    #     path_time_log : fichier log de sortie
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     if debug >= 2:
         print(cyan + "computeLCZbyRF() : " + bold + green + "Début du calcul des LCZ par Randon Forest." + endC + "\n")

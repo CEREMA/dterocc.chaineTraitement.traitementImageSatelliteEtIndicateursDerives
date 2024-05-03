@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
 import os, sys, argparse, shutil, math
 from Lib_log import timeLine
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
-from Lib_vector import getEmpriseFile
+from Lib_vector import getEmpriseVector
 from Lib_postgis import executeQuery, openConnection, closeConnection, createDatabase, dropDatabase, importVectorByOgr2ogr, exportVectorByOgr2ogr
 from Lib_file import removeVectorFile
 from Lib_grass import initializeGrass, connectionGrass, cleanGrass, splitGrass
@@ -22,35 +22,36 @@ debug = 3
 ####################################################################################################
 # FONCTION aspectRatio()                                                                           #
 ####################################################################################################
-# ROLE :
-#     Calcul de l'indicateur LCZ rapport d'aspect
-#
-# ENTREES DE LA FONCTION :
-#     grid_input : fichier de maillage en entrée
-#     grid_output : fichier de maillage en sortie
-#     roads_input : fichier de la BD TOPO route en entrée
-#     built_input : fichier de la BD TOPO bâti en entrée
-#     seg_dist : distance entre les segments perpendiculaires aux segments route (en mètres)
-#     seg_length : longueur des segments perpendiculaires aux segments route (en mètres)
-#     buffer_size : taille du buffer appliqué sur les polygones mailles (en mètres)
-#     epsg : EPSG code de projection
-#     project_encoding : encodage des fichiers d'entrés
-#     server_postgis : nom du serveur postgis
-#     port_number : numéro du port pour le serveur postgis
-#     user_postgis : le nom de l'utilisateurs postgis
-#     password_postgis : le mot de passe de l'utilisateur posgis
-#     database_postgis : le nom de la base posgis à utiliser
-#     schema_postgis : le nom du schéma à utiliser
-#     path_time_log : fichier log de sortie
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A
-
 def aspectRatio(grid_input, grid_output, roads_input, built_input, seg_dist, seg_length, buffer_size, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Calcul de l'indicateur LCZ rapport d'aspect
+    #
+    # ENTREES DE LA FONCTION :
+    #     grid_input : fichier de maillage en entrée
+    #     grid_output : fichier de maillage en sortie
+    #     roads_input : fichier de la BD TOPO route en entrée
+    #     built_input : fichier de la BD TOPO bâti en entrée
+    #     seg_dist : distance entre les segments perpendiculaires aux segments route (en mètres)
+    #     seg_length : longueur des segments perpendiculaires aux segments route (en mètres)
+    #     buffer_size : taille du buffer appliqué sur les polygones mailles (en mètres)
+    #     epsg : EPSG code de projection
+    #     project_encoding : encodage des fichiers d'entrés
+    #     server_postgis : nom du serveur postgis
+    #     port_number : numéro du port pour le serveur postgis
+    #     user_postgis : le nom de l'utilisateurs postgis
+    #     password_postgis : le mot de passe de l'utilisateur posgis
+    #     database_postgis : le nom de la base posgis à utiliser
+    #     schema_postgis : le nom du schéma à utiliser
+    #     path_time_log : fichier log de sortie
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A
+    """
 
     print(bold + yellow + "Début du calcul de l'indicateur Aspect Ratio." + endC + "\n")
     timeLine(path_time_log, "Début du calcul de l'indicateur Aspect Ratio : ")
@@ -104,7 +105,7 @@ def aspectRatio(grid_input, grid_output, roads_input, built_input, seg_dist, seg
         gisdb = "GRASS_database"
 
         # Variables liées à GRASS permettant la construction de 'LOCATION' et 'MAPSET'
-        xmin, xmax, ymin, ymax = getEmpriseFile(roads_input, format_vector)
+        xmin, xmax, ymin, ymax = getEmpriseVector(roads_input, format_vector)
         pixel_size_x, pixel_size_y = 1, 1
 
         #####################################
@@ -303,7 +304,9 @@ def aspectRatio(grid_input, grid_output, roads_input, built_input, seg_dist, seg
         CREATE TABLE ara_intersect_bati AS
             SELECT r.id_seg as id_seg, r.id_perp as id_perp, r.xR as xR, r.yR as yR, b.HAUTEUR as haut_bati, ST_Intersection(r.geom, b.geom) as geom
             FROM ara_seg_perp as r, %s as b
-            WHERE ST_Intersects(r.geom, b.geom);
+            WHERE ST_Intersects(r.geom, b.geom)
+                AND b.HAUTEUR IS NOT NULL
+                AND b.HAUTEUR > 0;
         ALTER TABLE ara_intersect_bati ADD COLUMN id_intersect serial;
         CREATE INDEX IF NOT EXISTS intersect_bati_geom_gist ON ara_intersect_bati USING GIST (geom);
         """ % table_name_bati

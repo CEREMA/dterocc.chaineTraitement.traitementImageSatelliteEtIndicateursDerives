@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
@@ -21,35 +21,36 @@ debug = 3
 ####################################################################################################
 # FONCTION skyViewFactor()                                                                         #
 ####################################################################################################
-# ROLE :
-#     Calcul de l'indicateur LCZ facteur de vue du ciel
-#
-# ENTREES DE LA FONCTION :
-#     grid_input : fichier Urban Atlas en entrée
-#     grid_output : fichier Urban Atlas en sortie
-#     mns_input : modèle numérique de surface en entrée
-#     classif_input : classification de l'occupation du sol en entrée
-#     class_build_list : liste des classes choisis pour definir les zones baties
-#     dim_grid_x : largeur des carreaux du quadrillage (en mètres)
-#     dim_grid_y : hauteur des carreaux du quadrillage (en mètres)
-#     svf_radius : paramètre 'radius' du Sky View Factor sous SAGA (en mètres)
-#     svf_method : paramètre 'method' du Sky View Factor sous SAGA
-#     svf_dlevel : paramètre 'dlevel' du Sky View Factor sous SAGA
-#     svf_ndirs :  paramètre 'ndirs' du Sky View Factor sous SAGA
-#     epsg : EPSG code de projection
-#     no_data_value : Valeur des pixels sans données pour les rasters
-#     path_time_log : fichier log de sortie
-#     format_raster : Format de l'image de sortie, par défaut : GTiff
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A
-
 def skyViewFactor(grid_input, grid_output, mns_input, classif_input, class_build_list, dim_grid_x, dim_grid_y, svf_radius, svf_method, svf_dlevel, svf_ndirs, epsg, no_data_value, path_time_log, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Calcul de l'indicateur LCZ facteur de vue du ciel
+    #
+    # ENTREES DE LA FONCTION :
+    #     grid_input : fichier Urban Atlas en entrée
+    #     grid_output : fichier Urban Atlas en sortie
+    #     mns_input : modèle numérique de surface en entrée
+    #     classif_input : classification de l'occupation du sol en entrée
+    #     class_build_list : liste des classes choisis pour definir les zones baties
+    #     dim_grid_x : largeur des carreaux du quadrillage (en mètres)
+    #     dim_grid_y : hauteur des carreaux du quadrillage (en mètres)
+    #     svf_radius : paramètre 'radius' du Sky View Factor sous SAGA (en mètres)
+    #     svf_method : paramètre 'method' du Sky View Factor sous SAGA
+    #     svf_dlevel : paramètre 'dlevel' du Sky View Factor sous SAGA
+    #     svf_ndirs :  paramètre 'ndirs' du Sky View Factor sous SAGA
+    #     epsg : EPSG code de projection
+    #     no_data_value : Valeur des pixels sans données pour les rasters
+    #     path_time_log : fichier log de sortie
+    #     format_raster : Format de l'image de sortie, par défaut : GTiff
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermédiaires nettoyés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A
+    """
 
     print(bold + yellow + "Début du calcul de l'indicateur Sky View Factor." + endC + "\n")
     timeLine(path_time_log, "Début du calcul de l'indicateur Sky View Factor : ")
@@ -178,7 +179,7 @@ def skyViewFactor(grid_input, grid_output, mns_input, classif_input, class_build
             dem_tif_file = temp_path + os.sep + FOLDER_TIF + os.sep + SUB_FOLDER_DEM + os.sep + BASE_FILE_TILE + str(i) + extension_raster
 
             if os.path.exists(split_tile_buff_vector):
-                cutImageByVector(split_tile_buff_vector, mns_input, dem_tif_file, pixel_size_x, pixel_size_y, no_data_value, epsg, format_raster, format_vector)
+                cutImageByVector(split_tile_buff_vector, mns_input, dem_tif_file, pixel_size_x, pixel_size_y, False, no_data_value, epsg, format_raster, format_vector)
 
         ##################################################
         ### Calcul du SVF pour chaque dalle du MNS/MNH ###
@@ -217,7 +218,7 @@ def skyViewFactor(grid_input, grid_output, mns_input, classif_input, class_build
             base_name = os.path.splitext(os.path.basename(svf_buf_tif_file))[0]
             svf_tif_file = folder_output_svf + os.sep + base_name + extension_raster
             if os.path.exists(svf_buf_tif_file):
-                cutImageByVector(split_tile_vector, svf_buf_tif_file, svf_tif_file, pixel_size_x, pixel_size_y, no_data_value, epsg, format_raster, format_vector)
+                cutImageByVector(split_tile_vector, svf_buf_tif_file, svf_tif_file, pixel_size_x, pixel_size_y, False, no_data_value, epsg, format_raster, format_vector)
 
         ####################################################################
         ### Assemblage des tuiles du SVF et calcul de l'indicateur final ###
@@ -229,20 +230,19 @@ def skyViewFactor(grid_input, grid_output, mns_input, classif_input, class_build
         classif_input_temp = temp_path + os.sep + FOLDER_TIF + os.sep + "classif_input" + SUFFIX_VECTOR_TEMP + extension_raster
         sky_view_factor_temp = temp_path + os.sep + FOLDER_TIF + os.sep + "sky_view_factor" + SUFFIX_VECTOR_TEMP + extension_raster # Issu de l'assemblage des dalles
         sky_view_factor_temp_temp = temp_path + os.sep + FOLDER_TIF + os.sep + "sky_view_factor" + SUFFIX_VECTOR_TEMP + SUFFIX_VECTOR_TEMP + extension_raster # Issu du redécoupage pour entrer correctement dans le BandMath
-        sky_view_factor_temp_temp_temp = temp_path + os.sep + FOLDER_TIF + os.sep + "sky_view_factor" + SUFFIX_VECTOR_TEMP + SUFFIX_VECTOR_TEMP + SUFFIX_VECTOR_TEMP + extension_raster # Issu de la suppression des pixels bâti
 
         # Assemblage des tuiles du SVF créées précédemment pour ne former qu'un seul raster SVF
         selectAssembyImagesByHold(emprise_file, [folder_output_svf], sky_view_factor_temp, False, False, epsg, False, False, False, False, 1.0, pixel_size_x, pixel_size_y, no_data_value, "_", 2, 8, "", path_time_log, "_error", "_merge", "_clean", "_stack", format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
-        # Suppression des valeurs de SVF pour les bâtiments
-        cutImageByVector(emprise_file, classif_input, classif_input_temp, pixel_size_x, pixel_size_y, no_data_value, epsg, format_raster, format_vector)
-        cutImageByVector(emprise_file, sky_view_factor_temp, sky_view_factor_temp_temp, pixel_size_x, pixel_size_y, no_data_value, epsg, format_raster, format_vector)
+        # Redécoupage de l'OCS et du SVF pour la superposition nécessaire au BandMath
+        cutImageByVector(emprise_file, classif_input, classif_input_temp, pixel_size_x, pixel_size_y, True, no_data_value, epsg, format_raster, format_vector)
+        cutImageByVector(emprise_file, sky_view_factor_temp, sky_view_factor_temp_temp, pixel_size_x, pixel_size_y, True, no_data_value, epsg, format_raster, format_vector)
 
+        # Suppression des valeurs de SVF pour les classes OCS non-pertinentes (bâtiments + arbres, voire surfaces en eau)
         expression = ""
         for id_class in class_build_list :
             expression += "im1b1==%s or " %(str(id_class))
-        expression = expression[:-4]
-        command = "otbcli_BandMath -il %s %s -out %s float -exp '%s ? -1 : im2b1'" % (classif_input_temp, sky_view_factor_temp_temp, sky_view_factor_temp_temp_temp, expression)
+        command = "otbcli_BandMath -il %s %s -out \"%s?&nodata=-1\" float -exp '%s ? -1 : (im2b1<=0 ? -1 : im2b1)'" % (classif_input_temp, sky_view_factor_temp_temp, sky_view_factor_raster, expression[:-4])
         if debug >= 3 :
             print(command)
         exit_code = os.system(command)
@@ -251,18 +251,9 @@ def skyViewFactor(grid_input, grid_output, mns_input, classif_input, class_build
             print(cyan + "skyViewFactor() : " + bold + red + "!!! Une erreur c'est produite au cours de la commande otbcli_BandMath : " + command + ". Voir message d'erreur." + endC, file=sys.stderr)
             raise
 
-        command = "gdal_translate -a_srs EPSG:%s -a_nodata %s -of %s %s %s" % (str(epsg), str(no_data_value), format_raster, sky_view_factor_temp_temp_temp, sky_view_factor_raster)
-        if debug >= 3 :
-            print(command)
-        exit_code = os.system(command)
-        if exit_code != 0:
-            print(command)
-            print(cyan + "skyViewFactor() : " + bold + red + "!!! Une erreur c'est produite au cours de la commande gdal_translate : " + command + ". Voir message d'erreur." + endC, file=sys.stderr)
-            raise
-
         # Croisement vecteur-raster pour récupérer la moyenne de SVF par polygone du fichier maillage d'entrée
         col_to_delete_list = ["min", "max", "median", "sum", "std", "unique", "range"]
-        statisticsVectorRaster(sky_view_factor_raster, grid_input, grid_output, 1, False, False, True, col_to_delete_list, [], {}, path_time_log, True, format_vector, save_results_intermediate, overwrite) ## Erreur NaN pour polygones entièrement bâtis (soucis pour la suite ?)
+        statisticsVectorRaster(sky_view_factor_raster, grid_input, grid_output, 1, False, False, True, col_to_delete_list, [], {}, True, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite)
 
         renameFieldsVector(grid_output, ['mean'], [SKY_VIEW_FIELD], format_vector)
 

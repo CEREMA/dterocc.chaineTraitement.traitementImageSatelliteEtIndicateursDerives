@@ -1,30 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-########################################################################
-#                                                                      #
-#      Copyright (©) Cerema/DTerSO/AT/OSECC - All rights reserved      #
-#                                                                      #
-########################################################################
+#############################################################################################################################################
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
+#############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : ClassificationLczOperational.py
 Description :
-    Objectif : établir une classification LCZ (sous format vecteur) à partir de divers indicateurs (également sous format vecteurs)
-    Remarque : version opérationnelle de l'application ClassificationLCZ, avec utilisation du SQL pour établir la classification LCZ
+-------------
+Objectif : établir une classification LCZ (sous format vecteur) à partir de divers indicateurs (également sous format vecteurs)
+Remarque : version opérationnelle de l'application ClassificationLCZ, avec utilisation du SQL pour établir la classification LCZ
 
 -----------------
 Outils utilisés :
- -
 
 ------------------------------
 Historique des modifications :
- - 15/04/2021 : création
+15/04/2021 : création
 
 -----------------------
 A réfléchir / A faire :
- -
-'''
+
+"""
 
 # Import des bibliothèques Python
 from __future__ import print_function
@@ -40,32 +38,33 @@ debug = 3
 ########################################################################
 # FONCTION classificationLczSql()                                      #
 ########################################################################
-# ROLE :
-#     établie une classification LCZ via SQL, en utilisant la méthode dite opérationnelle
-#
-# ENTREES DE LA FONCTION :
-#     input_division : fichier de découpage morphologique (entrée vecteur)
-#     input_hre : fichier de l'indicateur HRE (entrée vecteur)
-#     input_ocs : fichier des indicateurs OCS (entrée vecteur)
-#     output_lczlcz : fichier de cartographie LCZ (sortie vecteur)
-#     id_field : champ ID du fichier de découpage morphologique. Par défaut : 'id'
-#     epsg : code epsg du système de projection. Par défaut : 2154
-#     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
-#     postgis_ip_host : nom du serveur PostGIS. Par défaut : 'localhost'
-#     postgis_num_port : numéro de port du serveur PostGIS. Par défaut : 5432
-#     postgis_user_name : nom d'utilisateur PostGIS. Par défaut : 'postgres'
-#     postgis_password : mot de passe de l'utilisateur PostGIS. Par défaut : 'postgres'
-#     postgis_database_name : nom de la base PostGIS. Par défaut : 'lcz_db'
-#     postgis_schema_name : nom du schéma dans la base PostGIS. Par défaut : 'public'
-#     postgis_encoding : l'encodage des fichiers pour l'import de vecteurs dans PostGIS. Par défaut : 'UTF-8'
-#     path_time_log : fichier log de sortie, par défaut vide
-#     save_results_intermediate : fichiers temporaires conservés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def classificationLczSql(input_division, input_hre, input_ocs, output_lcz, id_field='id', epsg=2154, format_vector='ESRI Shapefile', postgis_ip_host='localhost', postgis_num_port=5432, postgis_user_name='postgres', postgis_password='postgres', postgis_database_name='lcz_db', postgis_schema_name='public', postgis_encoding='UTF-8', path_time_log='', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     établie une classification LCZ via SQL, en utilisant la méthode dite opérationnelle
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_division : fichier de découpage morphologique (entrée vecteur)
+    #     input_hre : fichier de l'indicateur HRE (entrée vecteur)
+    #     input_ocs : fichier des indicateurs OCS (entrée vecteur)
+    #     output_lcz : fichier de cartographie LCZ (sortie vecteur)
+    #     id_field : champ ID du fichier de découpage morphologique. Par défaut : 'id'
+    #     epsg : code epsg du système de projection. Par défaut : 2154
+    #     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
+    #     postgis_ip_host : nom du serveur PostGIS. Par défaut : 'localhost'
+    #     postgis_num_port : numéro de port du serveur PostGIS. Par défaut : 5432
+    #     postgis_user_name : nom d'utilisateur PostGIS. Par défaut : 'postgres'
+    #     postgis_password : mot de passe de l'utilisateur PostGIS. Par défaut : 'postgres'
+    #     postgis_database_name : nom de la base PostGIS. Par défaut : 'lcz_db'
+    #     postgis_schema_name : nom du schéma dans la base PostGIS. Par défaut : 'public'
+    #     postgis_encoding : l'encodage des fichiers pour l'import de vecteurs dans PostGIS. Par défaut : 'UTF-8'
+    #     path_time_log : fichier log de sortie, par défaut vide
+    #     save_results_intermediate : fichiers temporaires conservés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     if debug >= 3:
         print('\n' + bold + green + "Classification LCZ via SQL - Variables dans la fonction :" + endC)
@@ -98,6 +97,7 @@ def classificationLczSql(input_division, input_hre, input_ocs, output_lcz, id_fi
 
     # Définition des variables
     hre_field = 'mean_h'
+    are_field = 'mean_a'
     bur_field = 'built'
     ror_field = 'mineral'
     bsr_field = 'baresoil'
@@ -105,6 +105,7 @@ def classificationLczSql(input_division, input_hre, input_ocs, output_lcz, id_fi
     ver_field = 'veget'
     vhr_field = 'veg_h_rate'
     lcz_field = 'lcz'
+    lcz_int_field = 'lcz_int'
     div_table = 'i_div'
     hre_table = 'i_hre'
     ocs_table = 'i_ocs'
@@ -132,35 +133,37 @@ def classificationLczSql(input_division, input_hre, input_ocs, output_lcz, id_fi
 
     query = "DROP TABLE IF EXISTS %s;\n" % lcz_table
     query += "CREATE TABLE %s AS\n" % lcz_table
-    query += "    SELECT d.%s AS %s, h.%s AS hre, o.%s AS bur, o.%s AS ror, o.%s AS bsr, o.%s AS war, o.%s AS ver, o.%s AS vhr, d.geom AS geom\n" % (id_field, id_field, hre_field, bur_field, ror_field, bsr_field, war_field, ver_field, vhr_field)
+    query += "    SELECT d.%s AS %s, h.%s AS hre, h.%s AS are, o.%s AS bur, o.%s AS ror, o.%s AS bsr, o.%s AS war, o.%s AS ver, o.%s AS vhr, d.geom AS geom\n" % (id_field, id_field, hre_field, are_field, bur_field, ror_field, bsr_field, war_field, ver_field, vhr_field)
     query += "    FROM %s AS d, %s AS h, %s AS o\n" % (div_table, hre_table, ocs_table)
     query += "    WHERE d.%s = h.%s AND d.%s = o.%s;\n" % (id_field, id_field, id_field, id_field)
 
     query += "ALTER TABLE %s ADD COLUMN %s VARCHAR(8);\n" % (lcz_table, lcz_field)
+    query += "ALTER TABLE %s ADD COLUMN %s SMALLINT;\n" % (lcz_table, lcz_int_field)
     query += "UPDATE %s SET %s = 'urban' WHERE bur > 5;\n" % (lcz_table, lcz_field)
     query += "UPDATE %s SET %s = 'natural' WHERE bur <= 5;\n" % (lcz_table, lcz_field)
     query += "UPDATE %s SET %s = 'low_ocs' WHERE %s = 'natural' AND (bur + ror + bsr + war + ver) <= 60;\n" % (lcz_table, lcz_field, lcz_field)
 
-    query += "UPDATE %s SET %s = '1' WHERE %s = 'urban' AND (hre > 25)               AND (bur > 40);\n"                                     % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '4' WHERE %s = 'urban' AND (hre > 25)               AND (bur <= 40);\n"                                    % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '2' WHERE %s = 'urban' AND (hre > 10 AND hre <= 25) AND (bur > 40);\n"                                     % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '5' WHERE %s = 'urban' AND (hre > 10 AND hre <= 25) AND (bur <= 40);\n"                                    % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '7' WHERE %s = 'urban' AND (hre <= 10)              AND (bur > 70);\n"                                     % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '3' WHERE %s = 'urban' AND (hre <= 10)              AND (bur > 40 AND bur <= 70);\n"                       % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '6' WHERE %s = 'urban' AND (hre <= 10)              AND (bur > 20 AND bur <= 40)       AND (ver > 10);\n"  % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '8' WHERE %s = 'urban' AND (hre <= 10)              AND (bur > 20 AND bur <= 40)       AND (ver <= 10);\n" % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = '9' WHERE %s = 'urban' AND (hre <= 10)              AND (bur <= 20);\n"                                    % (lcz_table, lcz_field, lcz_field)
+    query += "UPDATE %s SET %s = '1', %s = 1 WHERE %s = 'urban' AND (hre > 30);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '2', %s = 2 WHERE %s = 'urban' AND (hre > 9 AND hre <= 30);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '3', %s = 3 WHERE %s = 'urban' AND (hre <= 9);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '4', %s = 4 WHERE %s = '1' AND ((bur <= 40) OR (bur + ror <= 50) OR (bsr + war + ver > 60));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '5', %s = 5 WHERE %s = '2' AND ((bur <= 40) OR (bur + ror <= 50) OR (bsr + war + ver > 60));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '6', %s = 6 WHERE %s = '3' AND ((bur <= 40) OR (bur + ror <= 50) OR (bsr + war + ver > 60));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '7', %s = 7 WHERE %s IN ('3', '6') AND (bur > 60) AND (bsr > ror + war + ver);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '8', %s = 8 WHERE %s IN ('2', '3', '5', '6') AND (hre <= 20) AND (bur + ror > 30) AND (are > 1000);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = '9', %s = 9 WHERE %s = '6' AND ((bur <= 20) OR (bur + ror <= 30) OR (bsr + war + ver > 80));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
 
-    query += "UPDATE %s SET %s = 'A' WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr > 50);\n" % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = 'B' WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr > 25 AND vhr <= 50);\n" % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = 'C' WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr > 10 AND vhr <= 25);\n" % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = 'D' WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr <= 10);\n" % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = 'E' WHERE %s = 'natural' AND ((ror >= bsr) AND (ror >= war) AND (ror >= ver));\n" % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = 'F' WHERE %s = 'natural' AND ((bsr >= ror) AND (bsr >= war) AND (bsr >= ver));\n" % (lcz_table, lcz_field, lcz_field)
-    query += "UPDATE %s SET %s = 'G' WHERE %s = 'natural' AND ((war >= ror) AND (war >= bsr) AND (war >= ver));\n" % (lcz_table, lcz_field, lcz_field)
+    query += "UPDATE %s SET %s = 'A', %s = 11 WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr > 50);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = 'B', %s = 12 WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr > 25 AND vhr <= 50);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = 'C', %s = 13 WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr > 10 AND vhr <= 25);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = 'D', %s = 14 WHERE %s = 'natural' AND ((ver >= ror) AND (ver >= bsr) AND (ver >= war)) AND (vhr <= 10);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = 'E', %s = 15 WHERE %s = 'natural' AND ((ror >= bsr) AND (ror >= war) AND (ror >= ver));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = 'F', %s = 16 WHERE %s = 'natural' AND ((bsr >= ror) AND (bsr >= war) AND (bsr >= ver));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
+    query += "UPDATE %s SET %s = 'G', %s = 17 WHERE %s = 'natural' AND ((war >= ror) AND (war >= bsr) AND (war >= ver));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
 
-    query += "ALTER TABLE %s ALTER COLUMN %s TYPE INTEGER;\n" % (lcz_table, id_field)
-    query += "ALTER TABLE %s ALTER COLUMN hre TYPE NUMERIC(6,2);\n" % lcz_table
+    #query += "ALTER TABLE %s ALTER COLUMN %s TYPE INTEGER;\n" % (lcz_table, id_field)
+    query += "ALTER TABLE %s ALTER COLUMN hre TYPE NUMERIC(12,2);\n" % lcz_table
+    query += "ALTER TABLE %s ALTER COLUMN are TYPE NUMERIC(12,2);\n" % lcz_table
     query += "ALTER TABLE %s ALTER COLUMN bur TYPE NUMERIC(6,2);\n" % lcz_table
     query += "ALTER TABLE %s ALTER COLUMN ror TYPE NUMERIC(6,2);\n" % lcz_table
     query += "ALTER TABLE %s ALTER COLUMN bsr TYPE NUMERIC(6,2);\n" % lcz_table
