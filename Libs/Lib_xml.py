@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,10 +10,10 @@
 # FONCTIONS DE BASE PARSE DE XML (fichier .xml)                             #
 #                                                                           #
 #############################################################################
-'''
-# Ce module contient un certain nombre de fonctions de bases pour réaliser des récupération d'informations dans un fichier de format XML,
-#  quelques fonctions basés sut la lib lxml, mais majoritairement les fonctions de cette librairie sont basées sur dom
-'''
+"""
+  Ce module contient un certain nombre de fonctions de bases pour réaliser des récupération d'informations dans un fichier de format XML,
+  quelques fonctions basés sut la lib lxml, mais majoritairement les fonctions de cette librairie sont basées sur dom.
+"""
 
 # IMPORTS DIVERS
 import sys,os
@@ -29,13 +29,15 @@ debug = 3
 #########################################################################
 # FONCTION parseLxml()                                                  #
 #########################################################################
-#   Role : Fonction qui retourne le contenu d'un fichier xml (parser méthode lxml)
-#   Paramètres en entrée :
-#       xml_file : nom du fichier xml d'entrée
-#   Paramétre de retour :
-#        tree : le contenu du fichier xml
-
 def parseLxml(xml_file):
+    """
+    # Role : Fonction qui retourne le contenu d'un fichier xml (parser méthode lxml)
+    #   Paramètres en entrée :
+    #       xml_file : nom du fichier xml d'entrée
+    #   Paramétre de retour :
+    #        tree : le contenu du fichier xml
+    """
+
     # Lecture du fichier xml
     tree = None
     try:
@@ -49,14 +51,15 @@ def parseLxml(xml_file):
 #########################################################################
 # FONCTION getValueNodeDataLxml()                                       #
 #########################################################################
-#   Role : Fonction qui retourne le valeur d'un noeud
-#   Paramètres en entrée :
-#       tree : le contenu xml au format lxml
-#       path_element : le chemin + nom du noeud recherché
-#   Paramétre de retour :
-#        la valeur
-
 def getValueNodeDataLxml(tree, path_element):
+    """
+    #   Role : Fonction qui retourne le valeur d'un noeud
+    #   Paramètres en entrée :
+    #       tree : le contenu xml au format lxml
+    #       path_element : le chemin + nom du noeud recherché
+    #   Paramétre de retour :
+    #        la valeur
+    """
     element_list = tree.xpath(path_element)
     value = str(element_list[0].text)
     return value
@@ -64,30 +67,33 @@ def getValueNodeDataLxml(tree, path_element):
 #########################################################################
 # FONCTION getValueAttributeLxml()                                      #
 #########################################################################
-#   Role : Fonction qui retourne le valeur d'un attibut d'un noeud
-#   Paramètres en entrée :
-#       tree : le contenu xml au format lxml
-#       path_element : le chemin + nom du noeud recherché
-#       attribute_name : le nom de l'attribut rechercher pour le noeud
-#   Paramétre de retour :
-#        la valeur
-
 def getValueAttributeLxml(tree, path_element, attribute_name):
+    """
+    #   Role : Fonction qui retourne le valeur d'un attibut d'un noeud
+    #   Paramètres en entrée :
+    #       tree : le contenu xml au format lxml
+    #       path_element : le chemin + nom du noeud recherché
+    #       attribute_name : le nom de l'attribut rechercher pour le noeud
+    #   Paramétre de retour :
+    #        la valeur
+    """
+
     element_list = tree.xpath(path_element)
     value = str(element_list[0].get(attribute_name))
     return value
 
-
 #########################################################################
 # FONCTION parseDom()                                                   #
 #########################################################################
-#   Role : Fonction qui retourne le contenu d'un fichier xml (parser méthode dom)
-#   Paramètres en entrée :
-#       xml_file : nom du fichier xml d'entrée
-#   Paramétre de retour :
-#        xmldoc : le contenu du fichier xml
-
 def parseDom(xml_file):
+    """
+    #   Role : Fonction qui retourne le contenu d'un fichier xml (parser méthode dom)
+    #   Paramètres en entrée :
+    #       xml_file : nom du fichier xml d'entrée
+    #   Paramétre de retour :
+    #        xmldoc : le contenu du fichier xml
+    """
+
     # Lecture du fichier xml
     xmldoc = None
     try:
@@ -101,15 +107,17 @@ def parseDom(xml_file):
 #########################################################################
 # FONCTION findElement()                                                #
 #########################################################################
-#   Role : Fonction qui retourne élement d'un noeud
-#   Paramètres en entrée :
-#       xmldoc : le contenu xml au format dom
-#       element_name : le nom du noeud recherché
-#       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
-#   Paramétre de retour :
-#        l'élement
-
 def findElement(xmldoc, element_name, element_path=''):
+    """
+    #   Role : Fonction qui retourne élement d'un noeud
+    #   Paramètres en entrée :
+    #       xmldoc : le contenu xml au format dom
+    #       element_name : le nom du noeud recherché
+    #       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
+    #   Paramétre de retour :
+    #        l'élement
+    """
+
     find_element = None
 
     if xmldoc is not None:
@@ -144,15 +152,17 @@ def findElement(xmldoc, element_name, element_path=''):
 #########################################################################
 # FONCTION findAllElement()                                             #
 #########################################################################
-#   Role : Fonction qui retourne tous les élements identique d'un noeud
-#   Paramètres en entrée :
-#       xmldoc : le contenu xml au format dom
-#       element_name : le nom du noeud recherché
-#       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
-#   Paramétre de retour :
-#        la liste l'élement trouvés
-
 def findAllElement(xmldoc, element_name, element_path=''):
+    """
+    #   Role : Fonction qui retourne tous les élements identique d'un noeud
+    #   Paramètres en entrée :
+    #       xmldoc : le contenu xml au format dom
+    #       element_name : le nom du noeud recherché
+    #       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
+    #   Paramétre de retour :
+    #        la liste l'élement trouvés
+    """
+
     find_elements_list = []
 
     if xmldoc is not None:
@@ -185,15 +195,17 @@ def findAllElement(xmldoc, element_name, element_path=''):
 #########################################################################
 # FONCTION getValueNodeDataDom()                                        #
 #########################################################################
-#   Role : Fonction qui retourne le valeur d'un noeud
-#   Paramètres en entrée :
-#       xmldoc : le contenu xml au format dom
-#       element_name : le nom du noeud recherché
-#       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
-#   Paramétre de retour :
-#        la valeur
-
 def getValueNodeDataDom(xmldoc, element_name, element_path=''):
+    """
+    #   Role : Fonction qui retourne le valeur d'un noeud
+    #   Paramètres en entrée :
+    #       xmldoc : le contenu xml au format dom
+    #       element_name : le nom du noeud recherché
+    #       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
+    #   Paramétre de retour :
+    #        la valeur
+    """
+
     value = ""
 
     if xmldoc is not None:
@@ -211,16 +223,18 @@ def getValueNodeDataDom(xmldoc, element_name, element_path=''):
 #########################################################################
 # FONCTION getListNodeDataDom()                                         #
 #########################################################################
-#   Role : Fonction qui retourne une liste de valeur de sous noeuds identiques
-#   Paramètres en entrée :
-#       xmldoc : le contenu xml au format dom
-#       element_parent_name : le nom du noeud parent recherché
-#       element_name : le nom des noeuds fils identiques
-#       element_path : le chemin du noeud parent recherché (complet ou partiel), par défaut vide
-#   Paramétre de retour :
-#        la liste de valeur
-
 def getListNodeDataDom(xmldoc, element_parent_name, element_name, element_path=''):
+    """
+    #   Role : Fonction qui retourne une liste de valeur de sous noeuds identiques
+    #   Paramètres en entrée :
+    #       xmldoc : le contenu xml au format dom
+    #       element_parent_name : le nom du noeud parent recherché
+    #       element_name : le nom des noeuds fils identiques
+    #       element_path : le chemin du noeud parent recherché (complet ou partiel), par défaut vide
+    #   Paramétre de retour :
+    #        la liste de valeur
+    """
+
     value_list = []
 
     if xmldoc is not None:
@@ -244,16 +258,18 @@ def getListNodeDataDom(xmldoc, element_parent_name, element_name, element_path='
 #########################################################################
 # FONCTION getValueAttributeDom()                                       #
 #########################################################################
-#   Role : Fonction qui retourne le valeur d'un attibut d'un noeud
-#   Paramètres en entrée :
-#       xmldoc : le contenu xml au format dom
-#       attribute_name : le nom de l'attribut rechercher pour le noeud
-#       element_name : le nom du noeud recherché
-#       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
-#   Paramétre de retour :
-#        la valeur
-
 def getValueAttributeDom(xmldoc, attribute_name, element_name='',  element_path=''):
+    """
+    #   Role : Fonction qui retourne le valeur d'un attibut d'un noeud
+    #   Paramètres en entrée :
+    #       xmldoc : le contenu xml au format dom
+    #       attribute_name : le nom de l'attribut rechercher pour le noeud
+    #       element_name : le nom du noeud recherché
+    #       element_path : le chemin du noeud recherché (complet ou partiel), par défaut vide
+    #   Paramétre de retour :
+    #        la valeur
+    """
+
     value = ""
 
     if xmldoc is not None:
@@ -269,21 +285,22 @@ def getValueAttributeDom(xmldoc, attribute_name, element_name='',  element_path=
 
     return value
 
-
 #########################################################################
 # FONCTION getListValueAttributeDom()                                   #
 #########################################################################
-#   Role : Fonction qui retourne une liste de valeur d'attributs (identiques) de sous noeuds identiques
-#   Paramètres en entrée :
-#       xmldoc : le contenu xml au format dom
-#       element_parent_name : le nom du noeud parent recherché
-#       element_name : le nom des noeuds fils identiques
-#       attribute_name : le nom de l'attribut rechercher pour les noeuds identiques
-#       element_path : le chemin du noeud parent recherché (complet ou partiel), par défaut vide
-#   Paramétre de retour :
-#        la liste de valeur
-
 def getListValueAttributeDom(xmldoc, element_parent_name, element_name, attribute_name, element_path=''):
+    """
+    #   Role : Fonction qui retourne une liste de valeur d'attributs (identiques) de sous noeuds identiques
+    #   Paramètres en entrée :
+    #       xmldoc : le contenu xml au format dom
+    #       element_parent_name : le nom du noeud parent recherché
+    #       element_name : le nom des noeuds fils identiques
+    #       attribute_name : le nom de l'attribut rechercher pour les noeuds identiques
+    #       element_path : le chemin du noeud parent recherché (complet ou partiel), par défaut vide
+    #   Paramétre de retour :
+    #        la liste de valeur
+    """
+
     value_list = []
 
     if xmldoc is not None:

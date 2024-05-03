@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,8 +10,10 @@
 # FONCTIONS MATHEMATIQUES DE BASE                                           #
 #                                                                           #
 #############################################################################
-
-# Doc sur les lists : https://docs.python.org/2/tutorial/datastructures.html
+"""
+ Ce module contient des fonctions mathématique de base.
+ Doc sur les lists : https://docs.python.org/2/tutorial/datastructures.html.
+"""
 
 import sys, math
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
@@ -19,43 +21,55 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
 #########################################################################
 # FONCTION average()                                                    #
 #########################################################################
-#   Rôle : Cette fonction permet de calculer la moyenne des valeurs d'une liste (ou tableau)
-#   Paramètres en entrée :
-#       input_table : liste ou matrice
-#   Paramétre de retour : valeur statistique moyenne
-
 def average(table) :
+    """
+    #   Rôle : Cette fonction permet de calculer la moyenne des valeurs d'une liste (ou tableau)
+    #   Paramètres en entrée :
+    #       input_table : liste ou matrice
+    #   Paramétre de retour : valeur statistique moyenne
+    """
+
     return sum(table, 0.0) / len(table)
 
 #########################################################################
 # FONCTION variance()                                                   #
 #########################################################################
-#   Rôle : Cette fonction permet de calculer la variance des valeurs d'une liste (ou tableau)
-#   Paramètres en entrée :
-#       input_table : liste ou matrice
-#   Paramétre de retour : valeur statistique variance
-
 def variance(table) :
+    """
+    #   Rôle : Cette fonction permet de calculer la variance des valeurs d'une liste (ou tableau)
+    #   Paramètres en entrée :
+    #       input_table : liste ou matrice
+    #   Paramétre de retour : valeur statistique variance
+    """
+
     m = average(table)
     return average([(x-m)**2 for x in table])
 
 #########################################################################
 # FONCTION standardDeviation()                                          #
 #########################################################################
-#   Rôle : Cette fonction permet de calculer l'ecart type des valeurs d'une liste (ou tableau)
-#   Paramètres en entrée :
-#       input_table : liste ou matrice
-#   Paramétre de retour : valeur ecart type moyenne
-
 def standardDeviation(table) :
+    """
+    #   Rôle : Cette fonction permet de calculer l'ecart type des valeurs d'une liste (ou tableau)
+    #   Paramètres en entrée :
+    #       input_table : liste ou matrice
+    #   Paramétre de retour : valeur ecart type moyenne
+    """
+
     return variance(table)**0.5
 
 #########################################################################
 # FONCTION computeDistance()                                            #
 #########################################################################
-#   Rôle : Cette fonction calcule la distance euclidienne entre des points
-
 def computeDistance(coor1, coor2):
+    """
+    #   Rôle : Cette fonction calcule la distance euclidienne entre des points
+    #   Paramètres en entrée :
+    #       coor1 : coordonnée du point 1
+    #       coor2 : coordonnée du point 2
+    #   Paramétre de retour : valeur de la distance entre les 2 points
+    """
+
     fDistance = -1
     iNb1 = len(coor1)
     iNb2 = len(coor2)
@@ -71,9 +85,14 @@ def computeDistance(coor1, coor2):
 #########################################################################
 # FONCTION indMinPosition()                                             #
 #########################################################################
-#   Rôle : Cette fonction calcule l'index de la plus petite valeur d'une liste
-
 def findMinPosition(list_input):
+    """
+    #   Rôle : Cette fonction calcule l'index de la plus petite valeur d'une liste
+    #   Paramètres en entrée :
+    #       list_input : liste de valeur d'entrée
+    #   Paramétre de retour : l'index de la plus petite valeur
+    """
+
     pos = 0
     list_Lenght = len(list_input)
     iMin = list_input[0]
@@ -90,9 +109,14 @@ def findMinPosition(list_input):
 #########################################################################
 # FONCTION findGravityCenter()                                          #
 #########################################################################
-#   Rôle : Cette fonction calcule le centre de gravite d'un vecteur
-
 def findGravityCenter(vector):
+    """
+    #   Rôle : Cette fonction calcule le centre de gravite d'un vecteur
+    #   Paramètres en entrée :
+    #       vector : le vecteur d'entrée
+    #   Paramétre de retour : le centre de gravite du vecteur
+    """
+
     # Structure de la table : [[a1, b1, c1 ... n1], [a2, b2, c2 ... n2], ...[,]]
     # Liste des centres gravites de chaque colonne
     centreGravite = []
@@ -130,9 +154,15 @@ def findGravityCenter(vector):
 #########################################################################
 # FONCTION findMinPositionExceptValue()                                 #
 #########################################################################
-#   Rôle : Cette fonction calcule l'index de la plus petite valeur d'une liste, hors valeur particuliere
-
 def findMinPositionExceptValue(list_input, lsauf_value):
+    """
+    #   Rôle : Cette fonction calcule l'index de la plus petite valeur d'une liste, hors valeur particuliere
+    #   Paramètres en entrée :
+    #       list_input : liste de valeur d'entrée
+    #       lsauf_value : liste du valeur à extraire de la recherche
+    #   Paramétre de retour : l'index de la plus petite valeur
+    """
+
     pos = 0
     iMin = 0.0
     iNombre = len(list_input)
@@ -169,9 +199,14 @@ def findMinPositionExceptValue(list_input, lsauf_value):
 #########################################################################
 # FONCTION findMaxPosition()                                            #
 #########################################################################
-#   Rôle : Cette fonction calcule l'index de la plus grande valeur d'une liste
-
 def findMaxPosition(list_input):
+    """
+    #   Rôle : Cette fonction calcule l'index de la plus grande valeur d'une liste
+    #   Paramètres en entrée :
+    #       list_input : liste de valeur d'entrée
+    #   Paramétre de retour : l'index de la plus grande valeur
+    """
+
     posMax = -1
     vMax = -9999
     for i in range(0, len(list_input)):
@@ -184,9 +219,15 @@ def findMaxPosition(list_input):
 #########################################################################
 # FONCTION findMemberList()                                             #
 #########################################################################
-#   Rôle : Cette fonction identifie si une valeur est dans une liste
-
 def findMemberList(list_input, value):
+    """
+    #   Rôle : Cette fonction identifie si une valeur est dans une liste
+    #   Paramètres en entrée :
+    #       list_input : liste de valeur d'entrée
+    #       value : la valeur à rechercher
+    #   Paramétre de retour : vrai ou faux selon que la valeur est trouver ou pas
+    """
+
     for comp in list_input:
         if comp == value:
             return True
@@ -195,11 +236,16 @@ def findMemberList(list_input, value):
 #########################################################################
 # FONCTION sortList()                                                   #
 #########################################################################
-#   Rôle : Cette fonction trie une liste
-#     bType = True : tri par ordre croissant
-#     bType = False : tri par ordre décroissant
-
 def sortList(list_input, bType):
+    """
+    #   Rôle : Cette fonction trie une liste
+    #   Paramètres en entrée :
+    #       list_input : liste de valeur d'entrée
+    #       bType = True : tri par ordre croissant
+    #       bType = False : tri par ordre décroissant
+    #   Paramétre de retour : la liste triée
+    """
+
     retListe = list_input
     iLen = len(list_input)
     for i in range(0, iLen):
@@ -213,9 +259,15 @@ def sortList(list_input, bType):
 #########################################################################
 # FONCTION findPositionList()                                           #
 #########################################################################
-#   Rôle : Cette fonction trouve la position d'une valeur dans une liste
-
 def findPositionList(list_input, value):
+    """
+    #   Rôle : Cette fonction trouve la position d'une valeur dans une liste
+    #   Paramètres en entrée :
+    #       list_input : liste de valeur d'entrée
+    #       value : la valeur à rechercher
+    #   Paramétre de retour : l'index de la valeur recherchée
+    """
+
     iPos = -1
     iNb = len(list_input)
     for i in range(0,iNb):
@@ -228,9 +280,14 @@ def findPositionList(list_input, value):
 #########################################################################
 # FONCTION convertMatix2List(()                                         #
 #########################################################################
-#   Rôle : Cette fonction convertit une matrice en liste
-
 def convertMatix2List(matrix):
+    """
+    #   Rôle : Cette fonction convertit une matrice en liste
+    #   Paramètres en entrée :
+    #       matrix : matrice d'entrée
+    #   Paramétre de retour : la liste de sortie
+    """
+
     lArray = []
     iNbLigne = len(matrix)
     iNbCol = len(matrix[0])
@@ -242,9 +299,14 @@ def convertMatix2List(matrix):
 #########################################################################
 # FONCTION computeAverageValue()                                        #
 #########################################################################
-#   Rôle : Cette fonction calcule la valeur moyenne d'une liste
-
 def computeAverageValue(lArray):
+    """
+    #   Rôle : Cette fonction calcule la valeur moyenne d'une liste
+    #   Paramètres en entrée :
+    #       lArray : liste de valeur d'entrée
+    #   Paramétre de retour : la valeur moyenne de la liste
+    """
+
     moyenne = 0.0
     iNombre = len(lArray)
     i = 0
@@ -262,9 +324,14 @@ def computeAverageValue(lArray):
 #########################################################################
 # FONCTION computeStandardDeviation()                                   #
 #########################################################################
-#   Rôle : Cette fonction calcule l'ecart type d'une liste
-
 def computeStandardDeviation(lArray):
+    """
+    #   Rôle : Cette fonction calcule l'ecart type d'une liste
+    #   Paramètres en entrée :
+    #       lArray : liste de valeur d'entrée
+    #   Paramétre de retour : l'ecart type de la liste
+    """
+
     ecartType = 0.0
     moyenne = computeAverageValue(lArray)
     iNombre = len(lArray)
@@ -281,16 +348,18 @@ def computeStandardDeviation(lArray):
 #########################################################################
 # FONCTION normalizeMatrix(()                                           #
 #########################################################################
-#   Rôle : Cette fonction normalise une matrice
-
-# Attention : fonction qui appelle
-# - convertMatix2List
-# - computeAverageValue
-# - computeStandardDeviation
-
-# CODE A VALIDER
-
 def normalizeMatrix(matrix):
+    """
+    #   Rôle : Cette fonction normalise une matrice
+    #     Attention : fonction qui appelle
+    #     - convertMatix2List
+    #     - computeAverageValue
+    #     - computeStandardDeviation
+    #   Paramètres en entrée :
+    #       matrix : matrice d'entrée
+    #   Paramétre de retour : la martrice de sortie normalisée
+    """
+
     matrix_nor = []
     lArray = convertMatix2List(matrix)
     fMoyenne = computeAverageValue(lArray)

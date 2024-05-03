@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,8 +10,9 @@
 # FONCTIONS EN LIEN AVEC LE LOG                                             #
 #                                                                           #
 #############################################################################
-
-# DEFINITION DES FONCTIONS DE LOG UTILES A LA CHAINE
+"""
+ Ce module défini des fonctions de log utile à la chaîne.
+"""
 
 import time
 from datetime import datetime
@@ -21,10 +22,13 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
 # FONCTION D'AFFICHAGE DE L'HEURE                            #
 ##############################################################
 
-# path_timelog : nom du chemin et du fichier log
-# step : texte affiché devant l'heure sauvegardée
-
 def timeLine(path_timelog,step):
+    """
+    #   Role : Fonction pour chronometrer une tache, placer le code DebutTache = datetime.now() avant la tache a chronometrer.
+    #   Paramètres en entrée :
+    #      path_timelog : nom du chemin et du fichier log
+    #      step : texte affiché devant l'heure sauvegardée
+    """
     hour = time.strftime('%d/%m/%y %H:%M:%S',time.localtime())
     time_str = step + hour + '\n'
     if path_timelog != "":
@@ -33,14 +37,18 @@ def timeLine(path_timelog,step):
         logfile.close()
     else :
         print(blue + time_str + endC)
+    return
 
 
 def TimeLineDuration(path_timelog,step,startingDate_Task):
-
-    '''
-    pour chronometrer une tache, placer le code DebutTache = datetime.now() avant la tache a chronometrer. Puis aprés la tache apeller la fonction et lui passer la variable DebutTache en 3eme position : startingDate_Task
-      penser a ajouter au script :
-
+    """
+    #   Role : Fonction pour chronometrer une tache, placer le code DebutTache = datetime.now() avant la tache a chronometrer.
+    #          Puis aprés la tache apeller la fonction et lui passer la variable DebutTache en 3eme position : startingDate_Task.
+    #   Paramètres en entrée :
+    #      path_timelog : nom du chemin et du fichier log
+    #      step : texte affiché devant l'heure sauvegardée
+    #      startingDate_Task : date de départ
+    """
     ####################################
     # CODE A INTEGRER DANS LE SCRIPT   #
     # En début de script               #
@@ -49,7 +57,7 @@ def TimeLineDuration(path_timelog,step,startingDate_Task):
     # AVANT LE LANCEMENT DE LA TACHE : #
     # DebutTache = datetime.now()      #
     # ##################################
-  '''
+
     startingDate_Task_time = str(startingDate_Task.time())[:-7]
 
     FinTache = datetime.now()
@@ -65,3 +73,5 @@ def TimeLineDuration(path_timelog,step,startingDate_Task):
     time_str = step + "," + startingDate_Task_time + "," + FinTache_Time + "," + duree +'\n'
     logfile.write(time_str)
     logfile.close()
+
+    return

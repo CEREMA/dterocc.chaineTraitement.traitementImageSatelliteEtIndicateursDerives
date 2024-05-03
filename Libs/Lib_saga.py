@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,6 +10,9 @@
 # FONCTIONS POUR L'APPEL À DES FONCTIONS SAGA                               #
 #                                                                           #
 #############################################################################
+"""
+ Ce module défini des fonctions faisant  l'outil SAGA.
+"""
 
 import sys,os
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
@@ -26,52 +29,65 @@ debug = 3
 #########################################################################
 # FONCTION importGtiff2Sgrd()                                           #
 #########################################################################
-#   Rôle : cette fonction permet d'importer un fichier Gtiff en fichier SGRD (fichier 'grid' SAGA)
-#   Paramètres :
-#       input_gtiff : raster d'entrée sous format GTiff (ou autre)
-#       output_sgrd : raster de sortie sous format SGRD (SAGA grid)
-
 def importGtiff2Sgrd(input_gtiff, output_sgrd):
+    """
+    #   Rôle : cette fonction permet d'importer un fichier Gtiff en fichier SGRD (fichier 'grid' SAGA)
+    #   Paramètres :
+    #       input_gtiff : raster d'entrée sous format GTiff (ou autre)
+    #       output_sgrd : raster de sortie sous format SGRD (SAGA grid)
+    """
 
     print(bold + "Import SAGA : " + endC + input_gtiff + " vers " + output_sgrd)
     command = "saga_cmd io_gdal 0 -FILES %s -GRIDS %s" % (input_gtiff, output_sgrd)
-    exitCode = os.system(command)
+    try :
+        exitCode = os.system(command)
+    except:
+        pass
     if exitCode != 0 :
         print(command)
-        raise NameError(bold + red + "importGtiff2Sgrd(): An error occured during execution SAGA convert GTiff file '%s' to SAGA file '%s'. See error message above." + endC) % (str(input_gtiff), str(output_sgrd))
+        print(exitCode)
+        print(bold + yellow + "importGtiff2Sgrd(): Warning! An problème occured during execution SAGA convert GTiff file '%s' to SAGA file '%s'. But continue... " % (str(input_gtiff), str(output_sgrd)) + endC)
+        #raise NameError(bold + red + "importGtiff2Sgrd(): An error occured during execution SAGA convert GTiff file '%s' to SAGA file '%s'. See error message above." % (str(input_gtiff), str(output_sgrd)) + endC)
 
     return
 
 #########################################################################
 # FONCTION exportSgrd2Gtiff()                                           #
 #########################################################################
-#   Rôle : cette fonction permet d'exporter un fichier SGRD (fichier 'grid' SAGA) en fichier Gtiff
-#   Paramètres :
-#       input_sgrd : raster d'entrée sous format SGRD (SAGA grid)
-#       output_gtiff : raster de sortie sous format GTiff (ou autre)
-
 def exportSgrd2Gtiff(input_sgrd, output_gtiff):
+    """
+    #   Rôle : cette fonction permet d'exporter un fichier SGRD (fichier 'grid' SAGA) en fichier Gtiff
+    #   Paramètres :
+    #       input_sgrd : raster d'entrée sous format SGRD (SAGA grid)
+    #       output_gtiff : raster de sortie sous format GTiff (ou autre)
+    """
 
     print(bold + "Export SAGA : " + endC + input_sgrd + " vers " + output_gtiff)
     command = "saga_cmd io_gdal 2 -GRIDS %s -FILE %s" % (input_sgrd, output_gtiff)
-    exitCode = os.system(command)
+    try:
+        exitCode = os.system(command)
+    except:
+        pass
     if exitCode != 0 :
         print(command)
-        raise NameError(bold + red + "exportSgrd2Gtiff(): An error occured during execution SAGA convert SAGA file '%s' to GTiff file '%s'. See error message above." + endC) % (str(input_sgrd), str(output_gtiff))
+        print(exitCode)
+        print(bold + yellow + "exportSgrd2Gtiff(): Warning! An problème occured during execution SAGA convert SAGA file '%s' to GTiff file '%s'. But continue... " % (str(input_sgrd), str(output_gtiff)) + endC)
+        #raise NameError(bold + red + "exportSgrd2Gtiff(): An error occured during execution SAGA convert SAGA file '%s' to GTiff file '%s'. See error message above." % (str(input_sgrd), str(output_gtiff)) + endC)
 
     return
 
 #########################################################################
 # FONCTION fillNodata()                                                 #
 #########################################################################
-#   Rôle : Cette fonction permet de remplir des zones de pixels defini comme nodata par interpolation de pixels voisins
-#   Paramètres :
-#       image_input : fichier image d'entrée une bande
-#       image_mask_input : fichier maske binaire (0 et autre valeur) definissant les zone utiles (optionel peut etre vide dans ce cas pas de masque)
-#       image_output : fichier image de sortie avec les zones nodata remplies
-#       save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-
 def fillNodata(image_input, image_mask_input, image_output, save_results_intermediate=False):
+    """
+    #   Rôle : Cette fonction permet de remplir des zones de pixels defini comme nodata par interpolation de pixels voisins
+    #   Paramètres :
+    #       image_input : fichier image d'entrée une bande
+    #       image_mask_input : fichier maske binaire (0 et autre valeur) definissant les zone utiles (optionel peut etre vide dans ce cas pas de masque)
+    #       image_output : fichier image de sortie avec les zones nodata remplies
+    #       save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    """
 
     if debug >= 2:
         print(cyan + "fillNodata() : " + bold + "Remplissage des valeurs NoData sous SAGA, à partir du fichier : " + endC + image_input)
@@ -125,17 +141,18 @@ def fillNodata(image_input, image_mask_input, image_output, save_results_interme
 #########################################################################
 # FONCTION computeSkyViewFactor()                                       #
 #########################################################################
-#   Rôle : Cette fonction calcul du ciel visible, du facteur de vue du ciel (Sky View Factor)
-#   Paramètres :
-#       dem_input : fichier DEM d'entrée une bande
-#       image_output : fichier image de sortie contenant les valeurs de sky view factor
-#       svf_radius : paramètre 'radius' du Sky View Factor sous SAGA (en mètres)
-#       svf_method : paramètre 'method' du Sky View Factor sous SAGA
-#       svf_dlevel : paramètre 'dlevel' du Sky View Factor sous SAGA
-#       svf_ndirs :  paramètre 'ndirs' du Sky View Factor sous SAGA
-#       save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-
 def computeSkyViewFactor(dem_input, image_output, svf_radius, svf_method, svf_dlevel, svf_ndirs, save_results_intermediate=False):
+    """
+    #   Rôle : Cette fonction calcul du ciel visible, du facteur de vue du ciel (Sky View Factor)
+    #   Paramètres :
+    #       dem_input : fichier DEM d'entrée une bande
+    #       image_output : fichier image de sortie contenant les valeurs de sky view factor
+    #       svf_radius : paramètre 'radius' du Sky View Factor sous SAGA (en mètres)
+    #       svf_method : paramètre 'method' du Sky View Factor sous SAGA
+    #       svf_dlevel : paramètre 'dlevel' du Sky View Factor sous SAGA
+    #       svf_ndirs :  paramètre 'ndirs' du Sky View Factor sous SAGA
+    #       save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    """
 
     if debug >= 2:
         print(cyan + "computeSkyViewFactor() : " + bold + "Calcul du Sky View Factor sous SAGA, à partir du fichier : " + endC + dem_input)
@@ -165,7 +182,7 @@ def computeSkyViewFactor(dem_input, image_output, svf_radius, svf_method, svf_dl
     exitCode = os.system(command)
     if exitCode != 0 :
         print(command)
-        raise NameError(bold + red + "computeSkyViewFactor(): An error occured during execution SAGA (Sky View Factor) command to file '%s'. See error message above." + endC) % (str(dem_input_saga))
+        raise NameError(bold + red + "computeSkyViewFactor(): An error occured during execution SAGA (Sky View Factor) command to file '%s'. See error message above." % (str(dem_input_saga)) + endC)
 
     # Export du SVF sous SAGA
     exportSgrd2Gtiff(image_output_saga, image_output)
@@ -179,12 +196,13 @@ def computeSkyViewFactor(dem_input, image_output, svf_radius, svf_method, svf_dl
 #########################################################################
 # FONCTION computeCentroid()                                            #
 #########################################################################
-#   Rôle : Création d'un fichier shape des centroides des polygones d'un fichier shape d'entrée
-#   Paramètres :
-#       vector_input : fichier vecteur d'entrée
-#       vector_output : fichier vecteur de sortie contenant les centroides
-
 def computeCentroid(vector_input, vector_output):
+    """
+    #   Rôle : Création d'un fichier shape des centroides des polygones d'un fichier shape d'entrée
+    #   Paramètres :
+    #       vector_input : fichier vecteur d'entrée
+    #       vector_output : fichier vecteur de sortie contenant les centroides
+    """
 
     if debug >= 2:
         print(cyan + "computeCentroid() : " + bold + "Calcul des centroides du fichier vecteur : " + endC + vector_input)
@@ -193,50 +211,52 @@ def computeCentroid(vector_input, vector_output):
     exitCode = os.system(command)
     if exitCode != 0 :
         print(command)
-        raise NameError(bold + red + "computeCentroid(): An error occured during execution SAGA (Polygon Centroids) command to file '%s'. See error message above." + endC) % (str(vector_input))
+        raise NameError(bold + red + "computeCentroid(): An error occured during execution SAGA (Polygon Centroids) command to file '%s'. See error message above."  % (str(vector_input)) + endC)
 
     return
 
 #########################################################################
 # FONCTION computeConvex()                                              #
 #########################################################################
-#   Rôle : Création d'un fichier shape des  polygones convexes d'un fichier shape d'entrée selon le type de traitement demandé
-#   Paramètres :
-#       vector_input : fichier vecteur d'entrée
-#       vector_output : fichier vecteur de sortie contenant les polygones convexes
-#       process : option de construction de la convexité valant 0, 1 (défaut) ou 2
-#           0 = un polygone convexe à tout les polygones d'entrées
-#           1 = un polygone convexe par polygones d'entrées
-#           2 = un polygone convexe par partie de polygones d'entrées
-
 def computeConvex(vector_input, vector_output, process = 1):
+    """
+    #   Rôle : Création d'un fichier shape des  polygones convexes d'un fichier shape d'entrée selon le type de traitement demandé
+    #   Paramètres :
+    #       vector_input : fichier vecteur d'entrée
+    #       vector_output : fichier vecteur de sortie contenant les polygones convexes
+    #       process : option de construction de la convexité valant 0, 1 (défaut) ou 2
+    #           0 = un polygone convexe à tout les polygones d'entrées
+    #           1 = un polygone convexe par polygones d'entrées
+    #           2 = un polygone convexe par partie de polygones d'entrées
+    """
 
     if debug >= 2:
         print(cyan + "computeConvex() : " + bold + "Calcul de la convexité du fichier vecteur : " + endC + vector_input)
 
     if process < 0 or process > 2:
-        raise ValueError(bold + red +"computeConvex(): Argument error : 'process' should be between [0,1,2]. Received '%s' instead." + endC) % (str(process))
+        raise ValueError(bold + red +"computeConvex(): Argument error : 'process' should be between [0,1,2]. Received '%s' instead." % (str(process)) + endC)
 
     command = "saga_cmd shapes_points 'Convex Hull' -SHAPES %s -POLYPOINTS %s -HULLS %s" %(vector_input, str(process), vector_output)
     exitCode = os.system(command)
     if exitCode != 0 :
         print(command)
-        raise NameError(bold + red + "computeConvex(): An error occured during execution SAGA (Convex Hull) command to file '%s'. See error message above." + endC) % (str(vector_input))
+        raise NameError(bold + red + "computeConvex(): An error occured during execution SAGA (Convex Hull) command to file '%s'. See error message above." % (str(vector_input)) + endC)
 
     return
 
 #########################################################################
 # FONCTION triangulationDelaunay()                                      #
 #########################################################################
-#   Rôle : Triangulation de données points par la méthode de Delaunay
-#   Documentation : https://grass.osgeo.org/grass76/manuals/v.sample.html
-#   Paramètres :
-#       vector_input : vecteur points en entrée
-#       grid_output : raster GRID triangulé en sortie
-#       field_name : champ du vecteur points sur lequel faire la triangulation
-#       cellsize : résolution du raster GRID en sortie (par défaut, 1)
-
 def triangulationDelaunay(vector_input, grid_output, field_name, cellsize=1):
+    """
+    #   Rôle : Triangulation de données points par la méthode de Delaunay
+    #   Documentation : https://grass.osgeo.org/grass76/manuals/v.sample.html
+    #   Paramètres :
+    #       vector_input : vecteur points en entrée
+    #       grid_output : raster GRID triangulé en sortie
+    #       field_name : champ du vecteur points sur lequel faire la triangulation
+    #       cellsize : résolution du raster GRID en sortie (par défaut, 1)
+    """
 
     if debug >= 2:
         print(cyan + "triangulationDelaunay() : " + bold + green + "Triangulation de données points par la méthode de Delaunay : " + endC + vector_input)
@@ -245,7 +265,30 @@ def triangulationDelaunay(vector_input, grid_output, field_name, cellsize=1):
     exitCode = os.system(command)
     if exitCode != 0 :
         print(command)
-        raise NameError(bold + red + "triangulationDelaunay(): An error occured during execution SAGA (Triangulation) command to file '%s'. See error message above." + endC) % vector_input
+        raise NameError(bold + red + "triangulationDelaunay(): An error occured during execution SAGA (Triangulation) command to file '%s'. See error message above." % vector_input + endC)
 
     return
 
+#########################################################################
+# FONCTION intersectionPolygonByLines()                                 #
+#########################################################################
+def intersectionPolygonByLines(vector_lines_input, vector_polygons_input, vector_polygons_output):
+    """
+    #   Rôle : Découpage de polygones en 2 parties par des lignes tranversantes
+    #   Documentation : https://saga-gis.sourceforge.io/saga_tool_doc/2.2.3/shapes_lines_3.html
+    #   Paramètres :
+    #       vector_lines_input : vecteur d'entrée de type ligne de decoupe en entrée
+    #       vector_polygons_input : vecteur d'entrée de polygones à traiter
+    #       vector_polygons_output : vecteur de sortie polygones découpés
+    """
+
+    if debug >= 2:
+        print(cyan + "intersectionPolygonByLines() : " + bold + green + "Découpage de polygones par des lignes : " + endC + vector_polygons_input)
+
+    command = "saga_cmd shapes_polygons 8 -POLYGONS %s -LINES %s -INTERSECT %s" % (vector_polygons_input, vector_lines_input, vector_polygons_output)
+    exitCode = os.system(command)
+    if exitCode != 0 :
+        print(command)
+        raise NameError(bold + red + "intersectionPolygonByLines(): An error occured during execution SAGA (Line-polygon intersection) command to file '%s'. See error message above." % vector_polygons_input + endC)
+
+    return

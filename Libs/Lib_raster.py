@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,17 +10,18 @@
 # FONCTIONS DE BASE SUR LES RASTERS                                         #
 #                                                                           #
 #############################################################################
-#
-# Ce module contient un certain nombre de fonctions de bases pour réaliser des traitement sur les images raster, ils reposent tous sur les bibliothèques GDAL et OTB
-#
-
+"""
+ Ce module contient un certain nombre de fonctions de bases pour réaliser des traitement sur les images raster, ils reposent tous sur les bibliothèques GDAL et OTB.
+"""
 
 # IMPORTS DIVERS
 from __future__ import print_function
-import os,glob,sys,shutil,time
+import os,glob,sys,shutil,time, numpy
+
 from sklearn.cluster import KMeans
-import gdal, osr, numpy, gdalnumeric
-from gdalconst import *
+from osgeo import gdal, osr, gdalnumeric, gdalconst
+from osgeo.gdalnumeric import *
+from osgeo.gdalconst import *
 from osgeo import gdal_array
 from PIL import Image
 from pylab import *
@@ -28,7 +29,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
 from Lib_operator import *
-from Lib_vector import getEmpriseFile
+from Lib_vector import getEmpriseVector
 from Lib_text import writeTextFile, appendTextFileCR
 from Lib_file import renameFile, removeFile
 from Lib_xml import parseDom, getListNodeDataDom, getListValueAttributeDom
@@ -36,42 +37,55 @@ from Lib_xml import parseDom, getListNodeDataDom, getListValueAttributeDom
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 3 : affichage maximum de commentaires lors de l'execution du script. Intermédiaire : affichage intermédiaire
-
-debug = 2
+debug = 1
 
 # Les parametres de la fonction OTB otbcli_BinaryMorphologicalOperation a changé à partir de la version 7.0 de l'OTB
-IS_VERSION_UPPER_OTB_7_0 = False
 pythonpath = os.environ["PYTHONPATH"]
-print ("Identifier la version d'OTB : ")
+if debug >= 3:
+    print ("Identifier la version d'OTB : ")
+pythonpath_list = pythonpath.split(os.sep)
+otb_info = ""
+for info in pythonpath_list :
+    if info.find("OTB") > -1:
+        otb_info = info.split("-")[1]
+        break
+if debug >= 4:
+    print (otb_info)
+if int(otb_info.split(".")[0]) >= 7 :
+    IS_VERSION_UPPER_OTB_7_0 = True
+else :
+    IS_VERSION_UPPER_OTB_7_0 = False
 
 #########################################################################
 # FONCTION computeHistogram ()                                          #
 #########################################################################
-#   Rôle : Cette fonction calcul l'histogramme d'une image.
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       hist_file : image de l'histogramme en sortie (formats supportés : eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff)
-#       plot_title : titre du graphique. Par défaut, "Histogramme raster"
-#       x_title : titre de l'axe X. Par défaut, "Valeur de pixels"
-#       y_title : titre de l'axe Y. Par défaut, "Fréquence"
-#       x_axe : plage de valeurs X à afficher, au format [x_min, x_max, pas]. Par défaut, [1,4095,1]
-#       buckets : nombre de classes pour générer l'histogramme (si 0, générer automatiquement suivant paramètre 'x_axe'). Par défaut, 0
-#       figsize : taille du graphique, au format [largeur, hauteur]. Par défaut, [20,10]
-#       fontsize : taille des caractères du graphique. Par défaut, 20
-#       show_plot : affiche le graphique dans une fenêtre matplotlib à la fin de la fonction. Par défaut, False
-#       colors_bands_list : liste des couleurs affectées à chaque bande. Par défaut, ['red','green','blue','magenta']
-#   Paramétres de retour :
-#       histogram_list : l'histogramme de chaque bande
-#
-#   Exemples d'utilisation du paramètre 'colors_bands_list' :
-#       - ['red','green','blue','magenta'] pour une image 4 bandes R-V-B-PIR : Pléiades, SPOT-6/7
-#       - ['grey'] pour une image 1 bande : radar, MNH, NDVI
-#       - ['red','green','blue','darkred','magenta'] pour une image 5 bandes R-V-B-RE-PIR : RapidEye
-#       - ['magenta','red','green','purple'] pour une image 4 bandes PIR-R-V-MIR : SPOT-5
-#       - ['cyan','blue','green','red','darkred','brown','salmon','magenta','orchid','violet','blueviolet','purple','indigo'] pour une image multispectrale type Sentinel-2 (si l'ordre des 13 bandes est respecté dans l'image d'entrée)
-#   La liste des couleurs est disponible ici : https://matplotlib.org/_images/sphx_glr_named_colors_003.png
-
 def computeHistogram(image_raster, hist_file, plot_title="Histogramme raster", x_title="Valeur de pixel", y_title="Fréquence", x_axe=[1,4095,1], buckets=0, figsize=[20,10], fontsize=20, show_plot=False, colors_bands_list = ['red','green','blue','magenta']):
+    """
+    #   Rôle : Cette fonction calcul l'histogramme d'une image.
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       hist_file : image de l'histogramme en sortie (formats supportés : eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff)
+    #       plot_title : titre du graphique. Par défaut, "Histogramme raster"
+    #       x_title : titre de l'axe X. Par défaut, "Valeur de pixels"
+    #       y_title : titre de l'axe Y. Par défaut, "Fréquence"
+    #       x_axe : plage de valeurs X à afficher, au format [x_min, x_max, pas]. Par défaut, [1,4095,1]
+    #       buckets : nombre de classes pour générer l'histogramme (si 0, générer automatiquement suivant paramètre 'x_axe'). Par défaut, 0
+    #       figsize : taille du graphique, au format [largeur, hauteur]. Par défaut, [20,10]
+    #       fontsize : taille des caractères du graphique. Par défaut, 20
+    #       show_plot : affiche le graphique dans une fenêtre matplotlib à la fin de la fonction. Par défaut, False
+    #       colors_bands_list : liste des couleurs affectées à chaque bande. Par défaut, ['red','green','blue','magenta']
+    #   Paramétres de retour :
+    #       histogram_list : l'histogramme de chaque bande
+    #
+    #   Exemples d'utilisation du paramètre 'colors_bands_list' :
+    #       - ['red','green','blue','magenta'] pour une image 4 bandes R-V-B-PIR : Pléiades, SPOT-6/7
+    #       - ['grey'] pour une image 1 bande : radar, MNH, NDVI
+    #       - ['red','green','blue','darkred','magenta'] pour une image 5 bandes R-V-B-RE-PIR : RapidEye
+    #       - ['magenta','red','green','purple'] pour une image 4 bandes PIR-R-V-MIR : SPOT-5
+    #       - ['cyan','blue','green','red','darkred','brown','salmon','magenta','orchid','violet','blueviolet','purple','indigo'] pour une image multispectrale type Sentinel-2 (si l'ordre des 13 bandes est respecté dans l'image d'entrée)
+    #   La liste des couleurs est disponible ici : https://matplotlib.org/_images/sphx_glr_named_colors_003.png
+    """
+
     if debug >= 3:
          print(cyan + "computeHistogram(): Identification des pixels de l'image." + endC)
 
@@ -125,17 +139,19 @@ def computeHistogram(image_raster, hist_file, plot_title="Histogramme raster", x
     return histogram_dico
 
 #########################################################################
-# FONCTION computeStatisticsImage ()                                    #
+# FONCTION computeStatisticsImage()                                     #
 #########################################################################
-#   Rôle : Cette fonction calcul les statisiques d'une image la moyenne et ecart type  pour chaque bande
-#   Utilité : Resultat sous forme de fichier xml identique à la fonction OTB ComputeImagesStatistics qui ne fonctionne pas avec des images trop importante
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       statistic_file : image du resulatt statistique en sortie (en .xml)
-#   Paramétres de retour :
-#       none
+def computeStatisticsImage(image_raster, statistic_file=""):
+    """
+    #   Rôle : Cette fonction calcul les statisiques d'une image la moyenne et ecart type  pour chaque bande
+    #   Utilité : Resultat sous forme de fichier xml identique à la fonction OTB ComputeImagesStatistics qui ne fonctionne pas avec des images trop importante
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       statistic_file : image du resulatt statistique en sortie (en .xml) par defaut à vide
+    #   Paramétres de retour :
+    #       dico contenat les statistiques
+    """
 
-def computeStatisticsImage(image_raster, statistic_file):
     if debug >= 3:
          print(cyan + "computeHistogram() : Calcul des statistiques de l'image" +  image_raster + endC)
 
@@ -145,43 +161,61 @@ def computeStatisticsImage(image_raster, statistic_file):
         bands = dataset.RasterCount
 
     # Calcul de  la moyenne et ecart type avec numpy
-    staistic_dico = {}
+    statistics_dico = {}
     for i in range (1, bands+1) :
         image = dataset.GetRasterBand(i)
+        no_data_value = image.GetNoDataValue()
         image_array = image.ReadAsArray()
-        image_mean = numpy.mean(image_array)
-        image_std = numpy.std(image_array)
-        staistic_dico[i] = [image_mean, image_std]
+        image_array_float = np.array(image_array).astype(float)
+        image_array_float[image_array_float == no_data_value] = np.nan
+        image_min = numpy.nanmin(image_array_float)
+        image_max = numpy.nanmax(image_array_float)
+        image_mean = numpy.nanmean(image_array_float)
+        image_std = numpy.nanstd(image_array_float)
+        statistics_dico[i] = [image_min, image_max, image_mean, image_std]
 
     # Ecriture des resultats dans un fichier xml
-    writeTextFile(statistic_file, '<?xml version="1.0" ?>\n')
-    appendTextFileCR(statistic_file, '<FeatureStatistics>')
-    appendTextFileCR(statistic_file, '    <Statistic name="mean">')
-    for i in range (1, bands+1) :
-         appendTextFileCR(statistic_file, '        <StatisticVector value="%s" />' %(staistic_dico[i][0]))
-    appendTextFileCR(statistic_file, '    </Statistic>')
-    appendTextFileCR(statistic_file, '    <Statistic name="stddev">')
-    for i in range (1, bands+1) :
-        appendTextFileCR(statistic_file, '        <StatisticVector value="%s" />' %(staistic_dico[i][1]))
-    appendTextFileCR(statistic_file, '    </Statistic>')
-    appendTextFileCR(statistic_file, '</FeatureStatistics>')
+    if statistic_file != "" :
+        writeTextFile(statistic_file, '<?xml version="1.0" ?>\n')
+        appendTextFileCR(statistic_file, '<FeatureStatistics>')
+        appendTextFileCR(statistic_file, '    <Statistic name="min">')
+        for i in range (1, bands+1) :
+             appendTextFileCR(statistic_file, '        <StatisticVector value="%s" />' %(statistics_dico[i][0]))
+        appendTextFileCR(statistic_file, '    </Statistic>')
+        appendTextFileCR(statistic_file, '    <Statistic name="max">')
+        for i in range (1, bands+1) :
+            appendTextFileCR(statistic_file, '        <StatisticVector value="%s" />' %(statistics_dico[i][1]))
+        appendTextFileCR(statistic_file, '    </Statistic>')
+        appendTextFileCR(statistic_file, '    <Statistic name="mean">')
+        for i in range (1, bands+1) :
+             appendTextFileCR(statistic_file, '        <StatisticVector value="%s" />' %(statistics_dico[i][2]))
+        appendTextFileCR(statistic_file, '    </Statistic>')
+        appendTextFileCR(statistic_file, '    <Statistic name="stddev">')
+        for i in range (1, bands+1) :
+            appendTextFileCR(statistic_file, '        <StatisticVector value="%s" />' %(statistics_dico[i][3]))
+        appendTextFileCR(statistic_file, '    </Statistic>')
+        appendTextFileCR(statistic_file, '</FeatureStatistics>')
+        if debug >=3:
+         print(cyan + "computeStatisticsImage() : Ecriture du fichier statistique" + statistic_file + endC)
 
     if debug >=3:
-        print(cyan + "computeStatisticsImage() : Fin du calcul statistique ecriture du fichier statistique : " + statistic_file + endC)
-    return
+        print(cyan + "computeStatisticsImage() : Fin du calcul statistique : " + statistics_dico + endC)
+
+    return statistics_dico
 
 #########################################################################
-# FONCTION identifyPixelValues ()                                       #
+# FONCTION identifyPixelValues()                                        #
 #########################################################################
-#   Rôle : Cette fonction identifie les valeurs présentes dans une image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#   Paramétres de retour :
-#       image_values_list : liste des differentes valeurs des pixels
-#
-#   Exemple d'utilisation: image_values_list = identifyPixelValues(image_raster)
-
 def identifyPixelValues(image_raster):
+    """
+    #   Rôle : Cette fonction identifie les valeurs présentes dans une image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #   Paramétres de retour :
+    #       image_values_list : liste des differentes valeurs des pixels
+    #
+    #   Exemple d'utilisation: image_values_list = identifyPixelValues(image_raster)
+    """
 
     if debug >= 3:
         print(cyan + "identifyPixelValues() : Début de l'identification des pixels de l'image" + endC)
@@ -203,17 +237,18 @@ def identifyPixelValues(image_raster):
 #########################################################################
 # FONCTION countPixelsOfValueBis()                                      #
 #########################################################################
-#   Rôle : Cette fonction compte le nombre de pixels d'une valeur donnée
-#   Codage : Utilisation de la lib "Image"
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       value : valeur du pixel dont on recherche l'occurence dans l'image
-#   Paramétres de retour :
-#       pixelCount : le nombre de pixel correspondant à la valeur recherché
-#
-#   Exemple d'utilisation: trainingSetSize = countPixelsOfValue("testMask.tif",10)
-
 def countPixelsOfValueBis(image_raster, value):
+    """
+    #   Rôle : Cette fonction compte le nombre de pixels d'une valeur donnée
+    #   Codage : Utilisation de la lib "Image"
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       value : valeur du pixel dont on recherche l'occurence dans l'image
+    #   Paramétres de retour :
+    #       pixelCount : le nombre de pixel correspondant à la valeur recherché
+    #
+    #   Exemple d'utilisation: trainingSetSize = countPixelsOfValue("testMask.tif",10)
+    """
 
     if debug >= 3:
         print(cyan + "countPixelsOfValueBis() : " + bold + green + "Image input to count pixel : "  + endC + image_raster)
@@ -246,18 +281,19 @@ def countPixelsOfValueBis(image_raster, value):
 #########################################################################
 # FONCTION countPixelsOfValue()                                         #
 #########################################################################
-#   Rôle : Cette fonction compte le nombre de pixels d'une valeur donnée
-#   Codage : Utilisation de la lib "numpy"
-#   Paramètres :
-#       image_raster : fichier image binaire d'entrée
-#       value : valeur du pixel dont on recherche l'occurence dans l'image
-#       num_band : la valeur de la bande choisi par defaut bande 1
-#   Paramétres de retour :
-#       pixelCount : le nombre de pixel correspondant à la valeur recherché
-#
-#   Exemple d'utilisation: trainingSetSize = countPixelsOfValue("testMask.tif",1)
-
 def countPixelsOfValue(image_raster, value, num_band=1):
+    """
+    #   Rôle : Cette fonction compte le nombre de pixels d'une valeur donnée
+    #   Codage : Utilisation de la lib "numpy"
+    #   Paramètres en entrée :
+    #       image_raster : fichier image binaire d'entrée
+    #       value : valeur du pixel dont on recherche l'occurence dans l'image
+    #       num_band : la valeur de la bande choisi par defaut bande 1
+    #   Paramétres de retour :
+    #       pixelCount : le nombre de pixel correspondant à la valeur recherché
+    #
+    #   Exemple d'utilisation: trainingSetSize = countPixelsOfValue("testMask.tif",1)
+    """
 
     if debug >= 3:
         print(cyan + "countPixelsOfValue() : " + bold + green + "Image input to count pixel : "  + endC + image_raster)
@@ -294,13 +330,14 @@ def countPixelsOfValue(image_raster, value, num_band=1):
 #########################################################################
 # FONCTION getPixelSizeImage()                                          #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner la taille d'un pixel de l'image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#   Paramétres de retour :
-#       pixel_size : la taille d'un pixel de l'image (surface)
-
 def getPixelSizeImage(image_raster):
+    """
+    #   Rôle : Cette fonction permet de retourner la taille d'un pixel de l'image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #   Paramétres de retour :
+    #       pixel_size : la taille d'un pixel de l'image (surface)
+    """
 
     pixel_size = 0.0
     dataset = gdal.Open(image_raster, GA_ReadOnly)
@@ -316,14 +353,15 @@ def getPixelSizeImage(image_raster):
 #########################################################################
 # FONCTION getPixelWidthXYImage()                                       #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner les dimensions d'un pixel de l'image en X et en Y
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#   Paramétres de retour :
-#       pixel_width : la dimension d'un pixel en largeur
-#       pixel_height : la dimension d'un pixel en hauteur
-
 def getPixelWidthXYImage(image_raster):
+    """
+    #   Rôle : Cette fonction permet de retourner les dimensions d'un pixel de l'image en X et en Y
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #   Paramétres de retour :
+    #       pixel_width : la dimension d'un pixel en largeur
+    #       pixel_height : la dimension d'un pixel en hauteur
+    """
 
     pixel_width = 0.0
     pixel_height = 0.0
@@ -334,21 +372,22 @@ def getPixelWidthXYImage(image_raster):
         pixel_height = geotransform[5] # n-s pixel resolution
     dataset = None
 
-    return pixel_width, pixel_height
+    return abs(pixel_width), abs(pixel_height)
 
 #########################################################################
 # FONCTION getPixelValueImageGeographical()                             #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner la valeur d'un pixel de l'image défini par ses coordonnées X et Y geographiques
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       coor_x   : coordonnée géographique du pixel en X
-#       coor_y   : coordonnée géographique du pixel en Y
-#       num_band : la valeur de la bande choisi par defaut bande 1
-#   Paramétres de retour :
-#       value_pixel : la valeur un pixel dont les coordonnees sont defini en x et en y
-
 def getPixelValueImageGeographical(image_raster, coor_x, coor_y, num_band=1):
+    """
+    #   Rôle : Cette fonction permet de retourner la valeur d'un pixel de l'image défini par ses coordonnées X et Y geographiques
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       coor_x   : coordonnée géographique du pixel en X
+    #       coor_y   : coordonnée géographique du pixel en Y
+    #       num_band : la valeur de la bande choisi par defaut bande 1
+    #   Paramétres de retour :
+    #       value_pixel : la valeur un pixel dont les coordonnees sont defini en x et en y
+    """
 
     cols, rows, bands = getGeometryImage(image_raster)
     xmin, xmax, ymin, ymax = getEmpriseImage(image_raster)
@@ -362,16 +401,17 @@ def getPixelValueImageGeographical(image_raster, coor_x, coor_y, num_band=1):
 #########################################################################
 # FONCTION getPixelValueImage()                                         #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner la valeur d'un pixel de l'image défini par ses postions X et Y dans la matrice image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       pos_x   : position du pixel en X
-#       pos_y   : position du pixel en Y
-#       num_band : la valeur de la bande choisi par defaut bande 1
-#   Paramétres de retour :
-#       value_pixel : la valeur un pixel dont la position est defini en x et en y
-
 def getPixelValueImage(image_raster, pos_x, pos_y, num_band=1):
+    """
+    #   Rôle : Cette fonction permet de retourner la valeur d'un pixel de l'image défini par ses postions X et Y dans la matrice image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       pos_x   : position du pixel en X
+    #       pos_y   : position du pixel en Y
+    #       num_band : la valeur de la bande choisi par defaut bande 1
+    #   Paramétres de retour :
+    #       value_pixel : la valeur un pixel dont la position est defini en x et en y
+    """
 
     value_pixel = None
     dataset = gdal.Open(image_raster, GA_ReadOnly)
@@ -388,14 +428,15 @@ def getPixelValueImage(image_raster, pos_x, pos_y, num_band=1):
 #########################################################################
 # FONCTION getDataTypeImage()                                           #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner le type de data de l'image (UInt8, Uint16, Float32...)
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       num_band     : la valeur de la bande choisi par defaut bande 1
-#   Paramétres de retour :
-#       data_type : le type des data si defini None sinon
-
 def getDataTypeImage(image_raster, num_band=1):
+    """
+    #   Rôle : Cette fonction permet de retourner le type de data de l'image (UInt8, Uint16, Float32...)
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       num_band     : la valeur de la bande choisi par defaut bande 1
+    #   Paramétres de retour :
+    #       data_type : le type des data si defini None sinon
+    """
 
     data_type = None
 
@@ -415,14 +456,15 @@ def getDataTypeImage(image_raster, num_band=1):
 #########################################################################
 # FONCTION getNodataValueImage()                                        #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner la valeur du nodata defini pour l'image ou None si le nodata n'est pas défini
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       num_band     : la valeur de la bande choisi par defaut bande 1
-#   Paramétres de retour :
-#       no_data_value : la valeur des pixels nodata si defini None sinon
-
 def getNodataValueImage(image_raster, num_band=1):
+    """
+    #   Rôle : Cette fonction permet de retourner la valeur du nodata defini pour l'image ou None si le nodata n'est pas défini
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       num_band     : la valeur de la bande choisi par defaut bande 1
+    #   Paramétres de retour :
+    #       no_data_value : la valeur des pixels nodata si defini None sinon
+    """
 
     no_data_value = None
 
@@ -442,15 +484,15 @@ def getNodataValueImage(image_raster, num_band=1):
 #########################################################################
 # FONCTION SetNodataValueImage()                                        #
 #########################################################################
-#   Rôle : Cette fonction permet de d'affecter une même valeur de nodata pour toutes les bandes de l'image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       no_data_value : la valeur des pixels nodata peut etre None si pas de valeur défini
-#   Paramétres de retour :
-#       le fichier d'entrée modifier
-
-
 def setNodataValueImage(image_raster, no_data_value):
+    """
+    #   Rôle : Cette fonction permet de d'affecter une même valeur de nodata pour toutes les bandes de l'image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       no_data_value : la valeur des pixels nodata peut etre None si pas de valeur défini
+    #   Paramétres de retour :
+    #       le fichier d'entrée modifier
+    """
 
     dataset = gdal.Open(image_raster, GA_Update)
     if dataset is not None:
@@ -474,17 +516,18 @@ def setNodataValueImage(image_raster, no_data_value):
 #########################################################################
 # FONCTION getPixelsValueListImage()                                    #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner la valeur d'un pixel de l'image défini par ses postions X et Y dans la matrice image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       points_coordonnees_list : contenant une liste de coordonnes de point [[pos1_x, pos1_y], [pos2_x, pos2_y],...]
-#                                   pos_x   : position du pixel en X
-#                                   pos_y   : position du pixel en Y
-#       num_band     : la valeur de la bande choisi par defaut bande 1
-#   Paramétres de retour :
-#       value_pixel_list : liste des valeurs des pixels dont les coordonnees sont defini en x et en y
-
 def getPixelsValueListImage(image_raster, points_coordonnees_list, num_band=1):
+    """
+    #   Rôle : Cette fonction permet de retourner la valeur d'un pixel de l'image défini par ses postions X et Y dans la matrice image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       points_coordonnees_list : contenant une liste de coordonnes de point [[pos1_x, pos1_y], [pos2_x, pos2_y],...]
+    #                                   pos_x   : position du pixel en X
+    #                                   pos_y   : position du pixel en Y
+    #       num_band     : la valeur de la bande choisi par defaut bande 1
+    #   Paramétres de retour :
+    #       value_pixel_list : liste des valeurs des pixels dont les coordonnees sont defini en x et en y
+    """
 
     value_pixel_list = []
 
@@ -504,14 +547,15 @@ def getPixelsValueListImage(image_raster, points_coordonnees_list, num_band=1):
 #########################################################################
 # FONCTION getRawDataImage()                                            #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner une matrice contenant des données brutes de l'image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       num_band     : la valeur de la bande choisi par defaut bande 1
-# Paramétres de retour :
-#       data : la matrice brute de pixels de l'image
-
 def getRawDataImage(image_raster, num_band=1):
+    """
+    #   Rôle : Cette fonction permet de retourner une matrice contenant des données brutes de l'image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       num_band     : la valeur de la bande choisi par defaut bande 1
+    # Paramétres de retour :
+    #       data : la matrice brute de pixels de l'image
+    """
 
     data = None
 
@@ -529,16 +573,17 @@ def getRawDataImage(image_raster, num_band=1):
 #########################################################################
 # FONCTION getEmpriseImage()                                            #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner les coordonnées xmin,xmax,ymin,ymax de l'emprise de l'image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#   Paramétres de retour :
-#       xmin : valeur xmin de l'emprise de l'image
-#       xmax : valeur xmax de l'emprise de l'image
-#       ymin : valeur ymin de l'emprise de l'image
-#       ymax : valeur ymax de l'emprise de l'image
-
 def getEmpriseImage(image_raster):
+    """
+    #   Rôle : Cette fonction permet de retourner les coordonnées xmin,xmax,ymin,ymax de l'emprise de l'image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #   Paramétres de retour :
+    #       xmin : valeur xmin de l'emprise de l'image
+    #       xmax : valeur xmax de l'emprise de l'image
+    #       ymin : valeur ymin de l'emprise de l'image
+    #       ymax : valeur ymax de l'emprise de l'image
+    """
 
     if debug >= 3:
         print(cyan + "getEmpriseImage() : Début de la récupération de l'emprise de l'image" + endC)
@@ -571,37 +616,47 @@ def getEmpriseImage(image_raster):
 #########################################################################
 # FONCTION roundPixelEmpriseSize()                                      #
 #########################################################################
-#   Rôle : Calcul des valeur arrondis d'une emprise arrondi à la taille du pixel de l'image
-#   Paramètres :
-#       pixel_size_x : Taille du pixel en x (en m)
-#       pixel_size_y : Taille du pixel en y (en m)
-#       empr_xmin    : L'emprise brute d'entrée coordonnée xmin
-#       empr_xmax    : L'emprise brute d'entrée coordonnée xmax
-#       empr_ymin    : L'emprise brute d'entrée coordonnée ymin
-#       empr_ymax    : L'emprise brute d'entrée coordonnée ymax
-#   Paramétres de retour :
-#       round_xmin    : L'emprise corrigée de sortie coordonnée xmin
-#       round_xmax    : L'emprise corrigée de sortie coordonnée xmax
-#       round_ymin    : L'emprise corrigée de sortie coordonnée ymin
-#       round_ymax    : L'emprise corrigée de sortie coordonnée ymax
-#
 def roundPixelEmpriseSize(pixel_size_x, pixel_size_y, empr_xmin, empr_xmax, empr_ymin, empr_ymax):
+    """
+    #   Rôle : Calcul des valeur arrondis d'une emprise arrondi à la taille du pixel de l'image
+    #   Paramètres en entrée :
+    #       pixel_size_x : Taille du pixel en x (en m)
+    #       pixel_size_y : Taille du pixel en y (en m)
+    #       empr_xmin    : L'emprise brute d'entrée coordonnée xmin
+    #       empr_xmax    : L'emprise brute d'entrée coordonnée xmax
+    #       empr_ymin    : L'emprise brute d'entrée coordonnée ymin
+    #       empr_ymax    : L'emprise brute d'entrée coordonnée ymax
+    #   Paramétres de retour :
+    #       round_xmin    : L'emprise corrigée de sortie coordonnée xmin
+    #       round_xmax    : L'emprise corrigée de sortie coordonnée xmax
+    #       round_ymin    : L'emprise corrigée de sortie coordonnée ymin
+    #       round_ymax    : L'emprise corrigée de sortie coordonnée ymax
+    #
+    """
 
     # Calculer l'arrondi pour une emprise à la taille d'un pixel pres (+/-)
-    val_round = abs(pixel_size_x)
+    val_round_x = abs(pixel_size_x)
+    val_round_y = abs(pixel_size_y)
 
-    pos_xmin = int(floor(empr_xmin))
-    round_xmin = pos_xmin - pos_xmin % val_round
-    pos_xmax = int(ceil(empr_xmax))
-    round_xmax = pos_xmax - pos_xmax % val_round
-    if round_xmax < pos_xmax :
-        round_xmax = round_xmax + val_round
-    pos_ymin = int(floor(empr_ymin))
-    round_ymin = pos_ymin - pos_ymin % val_round
-    pos_ymax = int(ceil(empr_ymax))
-    round_ymax = pos_ymax - pos_ymax % val_round
-    if round_ymax < pos_ymax :
-        round_ymax = round_ymax + val_round
+    pos_xmin_div = int(floor(empr_xmin / val_round_x))
+    round_xmin = pos_xmin_div * val_round_x
+    if empr_xmin < round_xmin :
+        round_xmin = round_xmin - pixel_size_x
+
+    pos_xmax_div = int(ceil(empr_xmax / val_round_x))
+    round_xmax = pos_xmax_div * val_round_x
+    if round_xmax < empr_xmax :
+        round_xmax = round_xmax + val_round_x
+
+    pos_ymin_div = int(floor(empr_ymin / val_round_y))
+    round_ymin = pos_ymin_div * val_round_y
+    if empr_ymin < round_ymin :
+        round_ymin = round_ymin - pixel_size_y
+
+    pos_ymax_div = int(ceil(empr_ymax / val_round_y))
+    round_ymax = pos_ymax_div * val_round_y
+    if round_ymax < empr_ymax :
+        round_ymax = round_ymax + val_round_y
 
     if debug >= 3:
         print(cyan + "roundPixelEmpriseSize : " + endC + "Emprise arrondi : " + endC)
@@ -615,15 +670,16 @@ def roundPixelEmpriseSize(pixel_size_x, pixel_size_y, empr_xmin, empr_xmax, empr
 #########################################################################
 # FONCTION getMinMaxValueBandImage()                                    #
 #########################################################################
-#   Rôle : Cette fonction permet de récupérer la valeur minimale et maximale d'un canal d'une l'image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#       channel : Le numéro de bande de l'image
-#   Paramétres de retour :
-#       image_max_band : la valeur pixel minimale d'une bande de l'image
-#       image_mini_band : la valeur pixel maximale d'une bande de l'image
-
 def getMinMaxValueBandImage(image_raster, channel):
+    """
+    #   Rôle : Cette fonction permet de récupérer la valeur minimale et maximale d'un canal d'une l'image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #       channel : Le numéro de bande de l'image
+    #   Paramétres de retour :
+    #       image_max_band : la valeur pixel minimale d'une bande de l'image
+    #       image_mini_band : la valeur pixel maximale d'une bande de l'image
+    """
 
     dataset = gdal.Open(image_raster, GA_ReadOnly)
     band = dataset.GetRasterBand(channel)
@@ -647,15 +703,16 @@ def getMinMaxValueBandImage(image_raster, channel):
 #########################################################################
 # FONCTION getGeometryImage()                                           #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner le nombre de colonne, le nombre de ligne et le nombre de bande de l'image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#   Paramétres de retour :
-#       cols : le nombre de colonnes de l'image
-#       rows : le nombre de lignes de l'image
-#       bands : le nombre de bandes de l'image
-
 def getGeometryImage(image_raster):
+    """
+    #   Rôle : Cette fonction permet de retourner le nombre de colonne, le nombre de ligne et le nombre de bande de l'image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #   Paramétres de retour :
+    #       cols : le nombre de colonnes de l'image
+    #       rows : le nombre de lignes de l'image
+    #       bands : le nombre de bandes de l'image
+    """
 
     cols = 0
     rows = 0
@@ -672,14 +729,16 @@ def getGeometryImage(image_raster):
 #########################################################################
 # FONCTION getProjectionImage()                                         #
 #########################################################################
-#   Rôle : Cette fonction permet de retourner la valeur de la projection de l'image
-#   Paramètres :
-#       image_raster : fichier image d'entrée
-#   Paramétres de retour :
-#       epsg : la valeur de la projection de l'image
-
 def getProjectionImage(image_raster):
-
+    """
+    #   Rôle : Cette fonction permet de retourner la valeur de la projection de l'image
+    #   Paramètres en entrée :
+    #       image_raster : fichier image d'entrée
+    #   Paramétres de retour :
+    #       epsg : la valeur de la projection de l'image
+    #       srs : l'ensemble des information de la projection
+    """
+    srs = 0
     epsg = 0
     dataset = gdal.Open(image_raster, GA_ReadOnly)
     if dataset is not None:
@@ -689,18 +748,19 @@ def getProjectionImage(image_raster):
         epsg = srs.GetAttrValue('AUTHORITY',1)
     dataset = None
 
-    return epsg
+    return epsg, srs
 
 #########################################################################
 # FONCTION updateReferenceProjection()                                  #
 #########################################################################
-#   Rôle : Cette fonction permet de mettre a jour la projection d'un fichier avec un fichier de référence
-#   Paramètres :
-#       ref_image : fichier image donnant la projection de référence. Si aucune, mettre None
-#       output_image : fichier image à modifier
-#       epsg : choix du système de projection que l'on veut appliquer à l'image. Par exemple : epsg = 2154
-
 def updateReferenceProjection (ref_image, output_image, epsg = 2154):
+    """
+    #   Rôle : Cette fonction permet de mettre a jour la projection d'un fichier avec un fichier de référence
+    #   Paramètres en entrée :
+    #       ref_image : fichier image donnant la projection de référence. Si aucune, mettre None
+    #       output_image : fichier image à modifier
+    #       epsg : choix du système de projection que l'on veut appliquer à l'image. Par exemple : epsg = 2154
+    """
 
     # Ouverture du fichier a modifier
     try:
@@ -756,18 +816,19 @@ def updateReferenceProjection (ref_image, output_image, epsg = 2154):
 #########################################################################
 # FONCTION changeDataValueToOtherValue()                                #
 #########################################################################
-#   Rôle : Cette fonction permet de changer les pixels d'une image à une valeur donnée par une autre valeur résultat en fichier de sortie
-#   Codage : Utilisation de la lib "gdal et numpy"
-#   Paramètres :
-#       image_input : fichier image d'entrée
-#       image_output : fichier de sortie avec les pixels changés
-#       value_to_change : valeur des pixels à changer
-#       new_value : nouvel valeur des pixels
-#       format_raster : Format de l'image de sortie par défaut GTiff (GTiff, HFA...)
-#   Paramétres de retour :
-#       le fichier de sortie avec les pixels changés
-
 def changeDataValueToOtherValue(image_input, image_output, value_to_change,  new_value, format_raster="GTiff"):
+    """
+    #   Rôle : Cette fonction permet de changer les pixels d'une image à une valeur donnée par une autre valeur résultat en fichier de sortie
+    #   Codage : Utilisation de la lib "gdal et numpy"
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée
+    #       image_output : fichier de sortie avec les pixels changés
+    #       value_to_change : valeur des pixels à changer
+    #       new_value : nouvel valeur des pixels
+    #       format_raster : Format de l'image de sortie par défaut GTiff (GTiff, HFA...)
+    #   Paramétres de retour :
+    #       le fichier de sortie avec les pixels changés
+    """
 
     # Si le fichier de sortie existe deja
     if os.path.exists(image_output):
@@ -819,18 +880,20 @@ def changeDataValueToOtherValue(image_input, image_output, value_to_change,  new
 #########################################################################
 # FONCTION changeDataValueToOtherValueBis()                             #
 #########################################################################
-#   Rôle : Cette fonction permet de changer les pixels d'une image à une valeur donnée par une autre valeur résultat en fichier de sortie
-#   Codage : Utilisation de l'outil "OTB"
-#   Paramètres :
-#       image_input : fichier image d'entrée
-#       image_output : fichier de sortie avec les pixels changés
-#       value_to_change : valeur des pixels à changer
-#       new_value : nouvel valeur des pixels
-#       codage : type de codage du fichier de sortie
-#   Paramétres de retour :
-#       le fichier de sortie avec les pixels changés
-
-def changeDataValueToOtherValueBis(image_input, image_output, value_to_change,  new_value, codage="uint16"):
+def changeDataValueToOtherValueBis(image_input, image_output, value_to_change,  new_value, codage="uint16", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de changer les pixels d'une image à une valeur donnée par une autre valeur résultat en fichier de sortie
+    #   Codage : Utilisation de l'outil "OTB"
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée
+    #       image_output : fichier de sortie avec les pixels changés
+    #       value_to_change : valeur des pixels à changer
+    #       new_value : nouvel valeur des pixels
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    #   Paramétres de retour :
+    #       le fichier de sortie avec les pixels changés
+    """
 
     # Définir le nombre de bande de l'image d'entréé
     cols, rows, bands = getGeometryImage(image_input)
@@ -851,6 +914,9 @@ def changeDataValueToOtherValueBis(image_input, image_output, value_to_change,  
 
     # BandmathX pour application de l'expression
     command = "otbcli_BandMathX -il %s -out %s %s -exp %s" %(image_input,image_output,codage,expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
+
     if debug >= 3:
         print(command)
     exitCode = os.system(command)
@@ -866,25 +932,28 @@ def changeDataValueToOtherValueBis(image_input, image_output, value_to_change,  
 #########################################################################
 # FONCTION cutImageByVector()                                           #
 #########################################################################
-#   Rôle : Cette fonction découpe une image (.tif) par un vecteur (.shp)
-#   Paramètres :
-#       cut_shape_file : le nom du shapefile de découpage (exple : "/chemin/path_clipper.shp"
-#       input_image : le nom de l'image à traiter (exmple : "/users/images/image_raw.tif")
-#       output_image : le nom de l'image resultat découpée (exmple : "/users/images/image_cut.tif")
-#       pixel_size_x : taille du pixel de sortie en x
-#       pixel_size_y : taille du pixel de sortie en y
-#       no_data_value : valeur de l'image d'entrée à transformer en NoData dans l'image de sortie
-#       epsg : Valeur de la projection par défaut 0, si à 0 c'est la valeur de projection du fichier raster d'entrée qui est utilisé automatiquement
-#       format_raster : le format du fichier de sortie, par defaut : 'GTiff'
-#       format_vector : format du fichier vecteur, par defaut : 'ESRI Shapefile'
-#
-#   Return True si l'operataion c'est bien passé, False sinon
-
-def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=None, pixel_size_y=None, no_data_value=0, epsg=0, format_raster="GTiff", format_vector='ESRI Shapefile'):
+def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=None, pixel_size_y=None, in_line=False, no_data_value=0, epsg=0, format_raster="GTiff", format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction découpe une image (.tif) par un vecteur (.shp)
+    #   Paramètres en entrée :
+    #       cut_shape_file : le nom du shapefile de découpage (exple : "/chemin/path_clipper.shp"
+    #       input_image : le nom de l'image à traiter (exmple : "/users/images/image_raw.tif")
+    #       output_image : le nom de l'image resultat découpée (exmple : "/users/images/image_cut.tif")
+    #       pixel_size_x : taille du pixel de sortie en x
+    #       pixel_size_y : taille du pixel de sortie en y
+    #       in_line : option permet de garder uniquement les pixels strictement à l'interieur du vecteur (à False par defaut)
+    #       no_data_value : valeur de l'image d'entrée à transformer en NoData dans l'image de sortie
+    #       epsg : Valeur de la projection par défaut 0, si à 0 c'est la valeur de projection du fichier raster d'entrée qui est utilisé automatiquement
+    #       format_raster : le format du fichier de sortie, par defaut : 'GTiff'
+    #       format_vector : format du fichier vecteur, par defaut : 'ESRI Shapefile'
+    #
+    #   Paramétres de retour :
+    #       True si l'operataion c'est bien passé, False sinon
+    """
 
     if debug >= 3:
-        print(cyan + "cutImageByVector() : Vecteur de découpe des l'image : " + cut_shape_file + endC)
-        print(cyan + "cutImageByVector() : L'image à découper : " + input_image + endC)
+        print(cyan + "cutImageByVector() " + endC + "Vecteur de découpe des l'image : " + cut_shape_file + endC)
+        print(cyan + "cutImageByVector() " + endC + "L'image à découper : " + input_image + endC)
 
     # Constante
     EPSG_DEFAULT = 2154
@@ -914,17 +983,17 @@ def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=Non
 
     # Récuperation de la projection de l'image
     if epsg == 0:
-        epsg_proj = getProjectionImage(input_image)
+        epsg_proj, _ = getProjectionImage(input_image)
     else :
         epsg_proj = epsg
     if epsg_proj == 0:
         epsg_proj = EPSG_DEFAULT
 
     if debug >= 3:
-        print(cyan + "cutImageByVector() : EPSG : " + str(epsg_proj) + endC)
+        print(cyan + "cutImageByVector() " + endC + "EPSG : " + str(epsg_proj) + endC)
 
     # Identification de l'emprise de vecteur de découpe
-    empr_xmin, empr_xmax, empr_ymin, empr_ymax = getEmpriseFile(cut_shape_file, format_vector)
+    empr_xmin, empr_xmax, empr_ymin, empr_ymax = getEmpriseVector(cut_shape_file, format_vector)
 
     if debug >= 5:
         print("Emprise vector : ")
@@ -969,7 +1038,139 @@ def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=Non
         print("\n")
 
     # Découpage grace à gdal
-    command = 'gdalwarp -t_srs EPSG:%s  -te %s %s %s %s -tap -multi -wo "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), cut_shape_file, format_raster, input_image, output_image)
+    pixel_debord = 0.5
+    if in_line :
+        pixel_debord = 0
+
+    command = 'gdalwarp -t_srs EPSG:%s -te %s %s %s %s -tap -cblend 0.5 -multi -wo "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), cut_shape_file, format_raster, input_image, output_image)
+
+    if debug >= 4:
+        print(command)
+    exit_code = os.system(command)
+    if debug >= 0:
+        print()
+    if exit_code != 0:
+        print(command)
+        print(cyan + "cutImageByVector() " + bold + red + "!!! Une erreur c'est produite au cours du decoupage de l'image : " + input_image + ". Voir message d'erreur." + endC, file=sys.stderr)
+        ret = False
+
+    else :
+        if debug >= 4:
+            print(cyan + "cutImageByVector() " + endC + ": L'image résultat découpée : " + output_image + endC)
+
+    return ret
+
+#########################################################################
+# FONCTION cutImageByGrid()                                             #
+#########################################################################
+def cutImageByGrid(cut_shape_file ,input_image, output_image, grid_size_x, grid_size_y, debord, pixel_size_x=None, pixel_size_y=None, no_data_value=0, epsg=0, format_raster="GTiff", format_vector='ESRI Shapefile'):
+    """
+    # Rôle:
+    #    Cette fonction découpe une image (.tif) par un carre de vecteur (.shp) et un debord
+    #
+    # Paramètres en entrée :
+    #    cut_shape_file (string) : le nom du shapefile de découpage (exple : "/chemin/path_clipper.shp")
+    #    input_image (string) : le nom de l'image à traiter (exmple : "/users/images/image_raw.tif")
+    #    output_image (string) : le nom de l'image resultat découpée (exmple : "/users/images/image_cut.tif")
+    #    grid_size_x (int) : dimension de la grille en x
+    #    grid_size_y (int) : dimension de la grille en y
+    #    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
+    #    pixel_size_x (float) : taille du pixel de sortie en x
+    #    pixel_size_y (float) : taille du pixel de sortie en y
+    #    no_data_value (int) : valeur de l'image d'entrée à transformer en NoData dans l'image de sortie
+    #    epsg (int) : Valeur de la projection par défaut 0, si à 0 c'est la valeur de projection du fichier raster d'entrée qui est utilisé automatiquement
+    #    format_raster (string) : le format du fichier de sortie, par defaut : 'GTiff'
+    #    format_vector (string) : format du fichier vecteur, par defaut : 'ESRI Shapefile'
+    #
+    #   Paramétres de retour :
+    #    Aucune sortie
+    #
+    """
+
+    if debug >= 3:
+        print(cyan + "cutImageByGrid() : Vecteur de découpe des l'image : " + cut_shape_file + endC)
+        print(cyan + "cutImageByGrid() : L'image à découper : " + input_image + endC)
+
+    # Constante
+    EPSG_DEFAULT = 2154
+
+    ret = True
+
+    # Récupération de la résolution du raster d'entrée
+    if pixel_size_x == None or pixel_size_y == None :
+        pixel_size_x, pixel_size_y = getPixelWidthXYImage(input_image)
+
+    if debug >= 5:
+        print("Taille des pixels : ")
+        print("pixel_size_x = " + str(pixel_size_x))
+        print("pixel_size_y = " + str(pixel_size_y))
+        print("grid_size_x = " + str(grid_size_x))
+        print("grid_size_y = " + str(grid_size_y))
+        print("debord = " + str(debord))
+        print("\n")
+
+    # Récuperation de l'emprise de l'image
+    ima_xmin, ima_xmax, ima_ymin, ima_ymax = getEmpriseImage(input_image)
+
+    if debug >= 5:
+        print("Emprise raster : ")
+        print("ima_xmin = " + str(ima_xmin))
+        print("ima_xmax = " + str(ima_xmax))
+        print("ima_ymin = " + str(ima_ymin))
+        print("ima_ymax = " + str(ima_ymax))
+        print("\n")
+
+    # Récuperation de la projection de l'image
+    if epsg == 0:
+        epsg_proj, _ = getProjectionImage(input_image)
+    else :
+        epsg_proj = epsg
+    if epsg_proj == 0:
+        epsg_proj = EPSG_DEFAULT
+
+    if debug >= 3:
+        print(cyan + "cutImageByGrid() : EPSG : " + str(epsg_proj) + endC)
+
+    # Identification de l'emprise de vecteur de découpe
+    empr_xmin, empr_xmax, empr_ymin, empr_ymax = getEmpriseVector(cut_shape_file, format_vector)
+
+    if debug >= 5:
+        print("Emprise vector : ")
+        print("empr_xmin = " + str(empr_xmin))
+        print("empr_xmax = " + str(empr_xmax))
+        print("empr_ymin = " + str(empr_ymin))
+        print("empr_ymax = " + str(empr_ymax))
+        print("\n")
+
+    # Calculer l'emprise arrondi
+    xmin, xmax, ymin, ymax = roundPixelEmpriseSize(pixel_size_x, pixel_size_y, empr_xmin, empr_xmax, empr_ymin, empr_ymax)
+
+    if debug >= 5:
+        print("Emprise vecteur arrondi a la taille du pixel : ")
+        print("xmin = " + str(xmin))
+        print("xmax = " + str(xmax))
+        print("ymin = " + str(ymin))
+        print("ymax = " + str(ymax))
+        print("(debord * pixel_size_x) = " + str(debord * pixel_size_x))
+        print("\n")
+
+    # Trouver l'emprise optimale
+    opt_xmin = xmin - (debord * pixel_size_x)
+    opt_xmax = xmin + grid_size_x + (debord * pixel_size_x)
+
+    opt_ymin = ymax - grid_size_y - (debord * pixel_size_y)
+    opt_ymax = ymax + (debord * pixel_size_y)
+
+    if debug >= 5:
+        print("Emprise retenu : ")
+        print("opt_xmin = " + str(opt_xmin))
+        print("opt_xmax = " + str(opt_xmax))
+        print("opt_ymin = " + str(opt_ymin))
+        print("opt_ymax = " + str(opt_ymax))
+        print("\n")
+
+    # Découpage grace à gdal
+    command = 'gdalwarp -t_srs EPSG:%s  -te %s %s %s %s -tap -multi -co "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), format_raster, input_image, output_image)
 
     if debug >= 4:
         print(command)
@@ -977,27 +1178,29 @@ def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=Non
     exit_code = os.system(command)
     if exit_code != 0:
         print(command)
-        print(cyan + "cutImageByVector() : " + bold + red + "!!! Une erreur c'est produite au cours du decoupage de l'image : " + input_image + ". Voir message d'erreur." + endC, file=sys.stderr)
+        print(cyan + "cutImageByGrid() : " + bold + red + "!!! Une erreur c'est produite au cours du decoupage de l'image : " + input_image + ". Voir message d'erreur." + endC, file=sys.stderr)
         ret = False
 
     else :
         if debug >= 4:
-            print(cyan + "cutImageByVector() : L'image résultat découpée : " + output_image + endC)
+            print(cyan + "cutImageByGrid() : L'image résultat découpée : " + output_image + endC)
 
     return ret
 
 #########################################################################
 # FONCTION reallocateClassRaster()                                      #
 #########################################################################
-#   Rôle : Cette fonction permet de réaffecter des valeurs de pixels par d'autre valeurs
-#   Paramètres :
-#       input_image : fichier image à réaffecter
-#       output_image : fichier image de sortie
-#       reaff_value_list : liste des valeurs à réaffecter
-#       change_reaff_value_list : liste des valeurs de réaffectation
-#       codage : type de codage du fichier de sortie
-
-def reallocateClassRaster(input_image, output_image, reaff_value_list, change_reaff_value_list, codage="uint16"):
+def reallocateClassRaster(input_image, output_image, reaff_value_list, change_reaff_value_list, codage="uint16", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de réaffecter des valeurs de pixels par d'autre valeurs
+    #   Paramètres en entrée :
+    #       input_image : fichier image à réaffecter
+    #       output_image : fichier image de sortie
+    #       reaff_value_list : liste des valeurs à réaffecter
+    #       change_reaff_value_list : liste des valeurs de réaffectation
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     if not reaff_value_list == []:
 
@@ -1030,6 +1233,8 @@ def reallocateClassRaster(input_image, output_image, reaff_value_list, change_re
             print(cyan + "reallocateClassRaster() : " + endC + "final_expression = " + final_expression)
 
         command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(input_image,image_output_tmp,codage,final_expression)
+        if ram_otb > 0 :
+            command += " -ram %d " %(ram_otb)
 
         # Application du BandMath
         if debug >= 3:
@@ -1057,14 +1262,16 @@ def reallocateClassRaster(input_image, output_image, reaff_value_list, change_re
 #########################################################################
 # FONCTION mergeListRaster()                                            #
 #########################################################################
-#   Rôle : Cette fonction permet de merger plusieurs fichier raster en un seul fichier raster
-#          La priorité des pixels est l'ordre de position dans la liste (le premier est le plus prioritaire sur les autres et ainsi de suite))
-#   Paramètres :
-#       input_images_list :liste des fichiers images à merger
-#       output_merge_image : fichier image de sortie fusionné
-#       codage : type de codage du fichier de sortie
-
-def mergeListRaster(input_images_list, output_merge_image, codage="uint16"):
+def mergeListRaster(input_images_list, output_merge_image, codage="uint16", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de merger plusieurs fichier raster en un seul fichier raster
+    #          La priorité des pixels est l'ordre de position dans la liste (le premier est le plus prioritaire sur les autres et ainsi de suite))
+    #   Paramètres en entrée :
+    #       input_images_list :liste des fichiers images à merger
+    #       output_merge_image : fichier image de sortie fusionné
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     if debug >= 3:
         print(cyan + "mergeListRaster() : " + endC + "Fusion de plusieurs images raster en une seule")
@@ -1105,6 +1312,8 @@ def mergeListRaster(input_images_list, output_merge_image, codage="uint16"):
 
         # Fin de la fonction BandMath
         command = command + " -exp %s " %(final_expression)
+        if ram_otb > 0 :
+            command += " -ram %d " %(ram_otb)
 
         if debug >= 2:
             print(command)
@@ -1125,14 +1334,16 @@ def mergeListRaster(input_images_list, output_merge_image, codage="uint16"):
 #########################################################################
 # FONCTION deletePixelsSuperpositionMasks()                             #
 #########################################################################
-#   Rôle : Cette fonction permet de reperer les pixels ayant de l'information binaire sur plusieurs images (0 et 1) et de les supprimer sur toutes ces images
-#   Paramètres :
-#       images_input_list : liste des images à nettoyer les pixels superposés
-#       images_output_list :  liste des images résultats du nettoyage
-#       image_name : nom de l'image de référence pour l'image de nettoyage
-#       codage : type de codage du fichier de sortie
-
-def deletePixelsSuperpositionMasks(images_input_list, images_output_list, image_name='image', codage="uint16"):
+def deletePixelsSuperpositionMasks(images_input_list, images_output_list, image_name='image', codage="uint16", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de reperer les pixels ayant de l'information binaire sur plusieurs images (0 et 1) et de les supprimer sur toutes ces images
+    #   Paramètres en entrée :
+    #       images_input_list : liste des images à nettoyer les pixels superposés
+    #       images_output_list :  liste des images résultats du nettoyage
+    #       image_name : nom de l'image de référence pour l'image de nettoyage
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     if debug >= 3:
         print(cyan + "deletePixelsSuperpositionMasks() : " + endC + "Nettoyage des pixels superposer sur plusieurs images masques")
@@ -1158,7 +1369,7 @@ def deletePixelsSuperpositionMasks(images_input_list, images_output_list, image_
     if length_input != length_output:
         raise NameError(bold + red + "deletePixelsSuperpositionMasks() : Error le nombre d'images d'entrée est différents du nombre d'image de sortie" + endC)
 
-    elif length_input > MIN_NB_IMAGES:
+    elif length_input >= MIN_NB_IMAGES:
 
         repertory_output = os.path.dirname(images_output_list[0])
         extension_file = os.path.splitext(os.path.basename(images_input_list[0]))[1]
@@ -1182,6 +1393,8 @@ def deletePixelsSuperpositionMasks(images_input_list, images_output_list, image_
         # Fin de la fonction BandMath
         command = command + "-out %s " %(cleaning_image)
         command = command + "%s -exp %s " %(codage,final_expression)
+        if ram_otb > 0 :
+            command += " -ram %d " %(ram_otb)
 
         if debug >= 3:
             print("Reperage et creation du fichier de nettoyage")
@@ -1203,6 +1416,8 @@ def deletePixelsSuperpositionMasks(images_input_list, images_output_list, image_
             # Expression
             expression = "\"(im1b1!=0 and im2b1!=0?0:im1b1)\""
             command = "otbcli_BandMath -il %s %s -out %s %s -exp %s" %(image_origin,cleaning_image,image_cleaned,codage,expression)
+            if ram_otb > 0 :
+                command += " -ram %d " %(ram_otb)
 
             if debug >= 3:
                 print("Expression2 = " + expression)
@@ -1230,21 +1445,26 @@ def deletePixelsSuperpositionMasks(images_input_list, images_output_list, image_
 #########################################################################
 # FONCTION createEdgeExtractionImage()                                  #
 #########################################################################
-#   Rôle : Cette fonction permet de créer un raster issu de la détection de contours
-#   Paramètres :
-#       image_input : fichier image
-#       image_output : fichier image sortie
-#       filtre : nom de l'algortihme pour la détection de contours (parmi 'gradient', 'sobel', 'touzi')
-#       channel : numéro de la bande à traiter dans l'image (défaut = 1)
-#       xradius : si filtre=touzi : nombre de pixels dans le voisinage à prendre en compte (défaut=1)
-#       yradius : si filtre=touzi : nombre de pixels dans le voisinage à prendre en compte (défaut=1)
-
-def createEdgeExtractionImage(image_input, image_output, filtre, channel=1, xradius=1, yradius=1):
+def createEdgeExtractionImage(image_input, image_output, filtre, channel=1, xradius=1, yradius=1, ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de créer un raster issu de la détection de contours
+    #   Paramètres en entrée :
+    #       image_input : fichier image
+    #       image_output : fichier image sortie
+    #       filtre : nom de l'algortihme pour la détection de contours (parmi 'gradient', 'sobel', 'touzi')
+    #       channel : numéro de la bande à traiter dans l'image (défaut = 1)
+    #       xradius : si filtre=touzi : nombre de pixels dans le voisinage à prendre en compte (défaut=1)
+    #       yradius : si filtre=touzi : nombre de pixels dans le voisinage à prendre en compte (défaut=1)
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     if filtre == "touzi":
         command = "otbcli_EdgeExtraction -in %s -channel %s -filter %s -filter.touzi.xradius %s -filter.touzi.yradius %s -out %s" %(image_input, channel, filtre, xradius, yradius, image_output)
     else:
         command = "otbcli_EdgeExtraction -in %s -channel %s -filter %s -out %s" %(image_input, channel, filtre, image_output)
+
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >=3:
         print(command)
@@ -1263,15 +1483,17 @@ def createEdgeExtractionImage(image_input, image_output, filtre, channel=1, xrad
 #########################################################################
 # FONCTION createBinaryMask()                                           #
 #########################################################################
-#   Rôle : Cette fonction permet de créer un masque binaire par seuillage d'une image raster à une seul bande
-#   Paramètres :
-#       image_input : fichier image d'entrée une bande
-#       image_output : fichier binaire seuillé en sortie
-#       threshold : valeur du seuillage
-#       positif : codage de l'information 1 sur 0 (positif) si vrai sinon 0 sur 1 (negatif)
-#       codage : type de codage du fichier de sortie
-
-def createBinaryMask(image_input, image_output, threshold, positif, codage="uint8"):
+def createBinaryMask(image_input, image_output, threshold, positif, codage="uint8", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de créer un masque binaire par seuillage d'une image raster à une seul bande
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée une bande
+    #       image_output : fichier binaire seuillé en sortie
+    #       threshold : valeur du seuillage
+    #       positif : codage de l'information 1 sur 0 (positif) si vrai sinon 0 sur 1 (negatif)
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Création de l'expression
     if positif:
@@ -1281,6 +1503,8 @@ def createBinaryMask(image_input, image_output, threshold, positif, codage="uint
 
     # bandmath pour seuiller l'image d'entrée et creer une image binaire
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input,image_output,codage,expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >= 3:
         print(command)
@@ -1298,21 +1522,25 @@ def createBinaryMask(image_input, image_output, threshold, positif, codage="uint
 #########################################################################
 # FONCTION createBinaryMaskThreshold()                                  #
 #########################################################################
-#   Rôle : Cette fonction permet de créer un masque binaire par seuillage min et max d'une image raster à une seul bande
-#   Paramètres :
-#       image_input : fichier image d'entrée une bande
-#       image_output : fichier binaire seuillé en sortie
-#       threshold_min : valeur du seuillage min
-#       threshold_max : valeur du seuillage max
-#       codage : type de codage du fichier de sortie
-
-def createBinaryMaskThreshold(image_input, image_output, threshold_min, threshold_max, codage="uint8"):
+def createBinaryMaskThreshold(image_input, image_output, threshold_min, threshold_max, codage="uint8", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de créer un masque binaire par seuillage min et max d'une image raster à une seul bande
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée une bande
+    #       image_output : fichier binaire seuillé en sortie
+    #       threshold_min : valeur du seuillage min
+    #       threshold_max : valeur du seuillage max
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Creer l'expression
     expression = "\"(im1b1 >= %f and im1b1 <= %f ?1:0)\""%(threshold_min, threshold_max)
 
     # bandmath pour seuiller l'image d'entrée est creer une image binaire
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input,image_output,codage,expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >= 3:
         print(command)
@@ -1330,14 +1558,16 @@ def createBinaryMaskThreshold(image_input, image_output, threshold_min, threshol
 #########################################################################
 # FONCTION createBinaryMaskMultiBand()                                  #
 #########################################################################
-#   Rôle : Cette fonction permet de créer un masque binaire d'une image raster à plusieurs bandes les pixels nodata ou à zéro -> 0, sinon -> 1
-#   Paramètres :
-#       image_input : fichier image d'entrée multi bandes
-#       image_output : fichier binaire en sortie
-#       no_data_value : valeur du no data à zéro par défaut
-#       codage : type de codage du fichier de sortie
-
-def createBinaryMaskMultiBand(image_input, image_output, no_data_value=0, codage="uint8"):
+def createBinaryMaskMultiBand(image_input, image_output, no_data_value=0, codage="uint8", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de créer un masque binaire d'une image raster à plusieurs bandes les pixels nodata ou à zéro -> 0, sinon -> 1
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée multi bandes
+    #       image_output : fichier binaire en sortie
+    #       no_data_value : valeur du no data à zéro par défaut
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Recuperer le nombre de bande du fichier
     cols, rows, nb_bands = getGeometryImage(image_input)
@@ -1351,6 +1581,8 @@ def createBinaryMaskMultiBand(image_input, image_output, no_data_value=0, codage
 
     # Bandmath pour creer une image binaire pixels avec valeur different de nodata ou valeurs à zéro
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input,image_output,codage,expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >= 3:
         print(command)
@@ -1368,20 +1600,24 @@ def createBinaryMaskMultiBand(image_input, image_output, no_data_value=0, codage
 #########################################################################
 # FONCTION applyMaskAnd()                                               #
 #########################################################################
-#   Rôle : Cette fonction permet d'appliquer un masque binaire logique "and" à un fichier d'entrée résultat en fichier de sortie
-#   Paramètres :
-#       image_input : fichier image d'entrée une bande
-#       image_mask_input : fichier masque binaire
-#       image_output : fichier de sortie masqué
-#       codage : type de codage du fichier de sortie
-
-def applyMaskAnd(image_input, image_mask_input, image_output, codage="float") :
+def applyMaskAnd(image_input, image_mask_input, image_output, codage="float", ram_otb=0) :
+    """
+    #   Rôle : Cette fonction permet d'appliquer un masque binaire logique "and" à un fichier d'entrée résultat en fichier de sortie
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée une bande
+    #       image_mask_input : fichier masque binaire
+    #       image_output : fichier de sortie masqué
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Creer l'expression
     expression = "\"(im2b1==1?im1b1:0)\""
 
     # bandmath pour application du masque binaire
     command = "otbcli_BandMath -il %s %s -out %s %s -exp %s" %(image_input,image_mask_input,image_output,codage,expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >= 3:
         print(command)
@@ -1399,20 +1635,24 @@ def applyMaskAnd(image_input, image_mask_input, image_output, codage="float") :
 #########################################################################
 # FONCTION applyMaskOr()                                                #
 #########################################################################
-#   Rôle : Cette fonction permet d'appliquer un masque binaire logique "or" à un fichier d'entrée résultat en fichier de sortie
-#   Paramètres :
-#       image_input : fichier image d'entrée une bande
-#       image_mask_input : fichier masque binaire
-#       image_output : fichier de sortie masqué
-#       codage : type de codage du fichier de sortie
-
-def applyMaskOr(image_input, image_mask_input, image_output, codage="float"):
+def applyMaskOr(image_input, image_mask_input, image_output, codage="float", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet d'appliquer un masque binaire logique "or" à un fichier d'entrée résultat en fichier de sortie
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée une bande
+    #       image_mask_input : fichier masque binaire
+    #       image_output : fichier de sortie masqué
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Creer l'expression
     expression = "\"(im2b1==1||im1b1==1?1:0)\""
 
     # bandmath pour application du masque binaire
     command = "otbcli_BandMath -il %s %s -out %s %s -exp %s" %(image_input,image_mask_input,image_output,codage,expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >= 3:
         print(command)
@@ -1430,22 +1670,26 @@ def applyMaskOr(image_input, image_mask_input, image_output, codage="float"):
 #########################################################################
 # FONCTION createDifferenceFile()                                       #
 #########################################################################
-#   Rôle : Cette fonction permet de créer un fichier de différence de deux images raster à une seul bande conditionner à un masque
-#   Paramètres :
-#       image1_input : fichier image1 d'entrée une bande
-#       image2_input : fichier image2 d'entrée une bande
-#       image_mask_input : fichier masque ou sera fait la différence
-#       image_output : fichier de différence
-#       image_mns_output : fichier MNS de sortie
-#       codage : type de codage du fichier de sortie
-
-def createDifferenceFile(image1_input, image2_input, image_mask_input, image_output, codage="float"):
+def createDifferenceFile(image1_input, image2_input, image_mask_input, image_output, codage="float", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de créer un fichier de différence de deux images raster à une seul bande conditionner à un masque
+    #   Paramètres en entrée :
+    #       image1_input : fichier image1 d'entrée une bande
+    #       image2_input : fichier image2 d'entrée une bande
+    #       image_mask_input : fichier masque ou sera fait la différence
+    #       image_output : fichier de différence
+    #       image_mns_output : fichier MNS de sortie
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Creer l'expression
     expression = "\"(im3b1==1?sqrt((im1b1 - im2b1) * (im1b1 - im2b1)):0)\""
 
     # bandmath pour faire la différence de deux fichiers d'entrée contionner par un fichier masque
     command = "otbcli_BandMath -il %s %s %s -out %s %s -exp %s" %(image1_input,image2_input,image_mask_input,image_output,codage,expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >= 3:
         print(command)
@@ -1463,15 +1707,17 @@ def createDifferenceFile(image1_input, image2_input, image_mask_input, image_out
 #########################################################################
 # FONCTION filterBinaryRaster()                                         #
 #########################################################################
-#   Rôle : Cette fonction permet de filtrer une image binaire raster à une seul bande
-#   Paramètres :
-#       image_input : fichier image binaire d'entrée à filtrer à une bande
-#       image_output : fichier de sortie filtré
-#       param_filter_0 : parametre de filtrage définie la taille de la fenêtre pour les zones à 0
-#       param_filter_1 : parametre de filtrage définie la taille de la fenêtre pour les zones à 1
-#       codage : type de codage du fichier de sortie (défaut=uint8)
-
-def filterBinaryRaster(image_input, image_output, param_filter_0, param_filter_1, codage="uint8"):
+def filterBinaryRaster(image_input, image_output, param_filter_0, param_filter_1, codage="uint8", ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de filtrer une image binaire raster à une seul bande
+    #   Paramètres en entrée :
+    #       image_input : fichier image binaire d'entrée à filtrer à une bande
+    #       image_output : fichier de sortie filtré
+    #       param_filter_0 : parametre de filtrage définie la taille de la fenêtre pour les zones à 0
+    #       param_filter_1 : parametre de filtrage définie la taille de la fenêtre pour les zones à 1
+    #       codage : type de codage du fichier de sortie (défaut=uint8)
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Creer un fichier image temporaire
     name_file = os.path.splitext(image_output)[0]
@@ -1485,6 +1731,8 @@ def filterBinaryRaster(image_input, image_output, param_filter_0, param_filter_1
             command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -xradius %d -yradius %d -filter opening -foreval 0 -backval 1 -out %s %s" %(image_input,param_filter_0,param_filter_1,image_filter_input_tmp,codage)
         else :
             command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter opening -filter.opening.foreval 0 -filter.opening.backval 1 -out %s %s" %(image_input,param_filter_0,param_filter_1,image_filter_input_tmp,codage)
+        if ram_otb > 0 :
+            command += " -ram %d " %(ram_otb)
 
         if debug >= 3:
             print(command)
@@ -1503,6 +1751,8 @@ def filterBinaryRaster(image_input, image_output, param_filter_0, param_filter_1
             command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -xradius %d -yradius %d -filter opening -foreval 1 -backval 0 -out %s %s" %(image_filter_input_tmp,param_filter_1,param_filter_1,image_output,codage)
         else :
             command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter opening -filter.opening.foreval 1 -filter.opening.backval 0 -out %s %s" %(image_filter_input_tmp,param_filter_1,param_filter_1,image_output,codage)
+        if ram_otb > 0 :
+            command += " -ram %d " %(ram_otb)
 
         if debug >= 3:
             print(command)
@@ -1526,16 +1776,18 @@ def filterBinaryRaster(image_input, image_output, param_filter_0, param_filter_1
 #########################################################################
 # FONCTION bufferBinaryRaster()                                         #
 #########################################################################
-#   Rôle : Cette fonction permet de bufferiser/eroder une image binaire raster à une seul bande
-#   Paramètres :
-#       image_input : fichier image binaire d'entrée à bufferiser à une bande
-#       image_output : fichier de sortie buffurisé
-#       buffer_to_apply : parametre taille du buffer en pixel (positif => buffer, negatif => erosion)
-#       codage : type de codage du fichier de sortie (défaut=uint8)
-#       foreground_value: La valeur des pixels à traiter (défaut=1)
-#       background_value: La valeur des pixels de fonds no data (défaut=0)
-
-def bufferBinaryRaster(image_input, image_output, buffer_to_apply, codage="uint8", foreground_value=1, background_value=0):
+def bufferBinaryRaster(image_input, image_output, buffer_to_apply, codage="uint8", foreground_value=1, background_value=0, ram_otb=0):
+    """
+    #   Rôle : Cette fonction permet de bufferiser/eroder une image binaire raster à une seul bande
+    #   Paramètres en entrée :
+    #       image_input : fichier image binaire d'entrée à bufferiser à une bande
+    #       image_output : fichier de sortie buffurisé
+    #       buffer_to_apply : parametre taille du buffer en pixel (positif => buffer, negatif => erosion)
+    #       codage : type de codage du fichier de sortie (défaut=uint8)
+    #       foreground_value: La valeur des pixels à traiter (défaut=1)
+    #       background_value: La valeur des pixels de fonds no data (défaut=0)
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
     # Si le buffer est nul, alors on copie juste le masque binaire
     if buffer_to_apply == 0:
@@ -1552,6 +1804,8 @@ def bufferBinaryRaster(image_input, image_output, buffer_to_apply, codage="uint8
                 command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -xradius %d -yradius %d -filter erode -foreval %d -backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
             else :
                 command = "otbcli_BinaryMorphologicalOperation -in %s -channel 1 -structype ball -structype.ball.xradius %d -structype.ball.yradius %d -filter erode -filter.erode.foreval %d -filter.erode.backval %d -out %s %s" %(image_input,abs(buffer_to_apply),abs(buffer_to_apply),foreground_value,background_value,image_output,codage)
+        if ram_otb > 0 :
+            command += " -ram %d " %(ram_otb)
 
         if debug >= 2:
             print(command)
@@ -1568,16 +1822,20 @@ def bufferBinaryRaster(image_input, image_output, buffer_to_apply, codage="uint8
 #########################################################################
 # FONCTION createVectorMask()                                           #
 #########################################################################
-#   Role : Création d'un masque binaire à partir d'une image sat (0 pour les zones non renseignées et 1 pour les zones ayant de l'information)
-#          puis vectorisation de celui-ci, pour céer un masque vecteur
-#   Paramètres en entrée :
-#       input_image : image raw source
-#       vector_mask : masque vecteur correspondant à l'image d'entrée
-#       no_data_value : la valeur des pixels nodata peut etre 0 si pas de valeur défini
-#       format_vector : format du fichier vecteur par defaut = 'ESRI Shapefile'
+def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='ESRI Shapefile', codage="uint8", ram_otb=0):
+    """
+    #   Rôle : Création d'un masque binaire à partir d'une image sat (0 pour les zones non renseignées et 1 pour les zones ayant de l'information)
+    #          puis vectorisation de celui-ci, pour céer un masque vecteur
+    #   Paramètres en entrée :
+    #       input_image : image raw source
+    #       vector_mask : masque vecteur correspondant à l'image d'entrée
+    #       no_data_value : la valeur des pixels nodata peut etre 0 si pas de valeur défini
+    #       format_vector : format du fichier vecteur par defaut = 'ESRI Shapefile'
+    #       codage : type de codage du fichier de sortie (défaut=uint8)
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
-def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='ESRI Shapefile'):
-
+    debug =3
     if debug >=3:
         print(cyan + "createVectorMask() : " + endC + "Creation d'un masque de decoupage avec l'image : " + str(input_image))
 
@@ -1608,7 +1866,9 @@ def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='E
     #~ except Exception:
         #~ raise NameError(bold + red + "An error occured during execution otb BandMath command. See error message above." + endC)
 
-    command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(input_image,raster_mask,"uint8",expression)
+    command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(input_image, raster_mask, codage, expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >=3:
         print(command)
@@ -1617,6 +1877,9 @@ def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='E
     if exit_code != 0:
         print(command)
         raise NameError(bold + red + "An error occured during otbcli_BandMath command. See error message above." + endC)
+
+    # Set valeur du no data
+    setNodataValueImage(raster_mask, no_data_value)
 
     # Creer le shape file
     command = "gdal_polygonize.py -8 \"%s\" -b 1 -f \"%s\" \"%s\" \"%s\" id" %(raster_mask,format_vector,vector_mask,mask_layer)
@@ -1633,12 +1896,14 @@ def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='E
 #########################################################################
 # FONCTION h5ToGtiff()                                                  #
 #########################################################################
-#   Role : Transforme un conteneur de fichiers HDF5 en fichier GTiff
-#   Paramètres :
-#       hdf5_input : fichier HDF5 d'origine
-#       gtiff_output : fichier GTiff resultat
-
 def h5ToGtiff(hdf5_input, gtiff_output):
+    """
+    #   Rôle : Transforme un conteneur de fichiers HDF5 en fichier GTiff
+    #   Paramètres en entrée :
+    #       hdf5_input : fichier HDF5 d'origine
+    #       gtiff_output : fichier GTiff resultat
+    """
+
     if debug >=3:
         print(cyan + "h5ToGtiff() : " + endC + "Le fichier HDF5 à traiter : " + str(hdf5_input))
 
@@ -1705,17 +1970,18 @@ def h5ToGtiff(hdf5_input, gtiff_output):
 #########################################################################
 # FONCTION polygonizeRaster()                                           #
 #########################################################################
-# Lien vers la documentation GDAL : http://www.gdal.org/gdal_polygonize.html
-#
-#   Rôle : Cette fonction permet de polygoniser un fichier raster
-#   Paramètres :
-#       raster_file_input : Nom du fichier raster d'entrée à polygoniser (servannt aussi de masque masque)
-#       vector_file_output : Nom du fichier vecteur de sortie
-#       layer_name : nom de la couche de sortie vecteur
-#       field_name : nom du champs de sortie vecteur
-#       vector_export_format : Format ogr de sortie du vecteur. Exemple : vector_export_format="ESRI Shapefile"
-
 def polygonizeRaster(raster_file_input, vector_file_output, layer_name, field_name="id", vector_export_format="ESRI Shapefile"):
+    """
+    # Lien vers la documentation GDAL : http://www.gdal.org/gdal_polygonize.html
+    #
+    #   Rôle : Cette fonction permet de polygoniser un fichier raster
+    #   Paramètres en entrée :
+    #       raster_file_input : Nom du fichier raster d'entrée à polygoniser (servannt aussi de masque masque)
+    #       vector_file_output : Nom du fichier vecteur de sortie
+    #       layer_name : nom de la couche de sortie vecteur
+    #       field_name : nom du champs de sortie vecteur
+    #       vector_export_format : Format ogr de sortie du vecteur. Exemple : vector_export_format="ESRI Shapefile"
+    """
 
     if debug >= 3:
         print(bold + green + '\n' + "Polygonizing " + raster_file_input + "..." + "\n" + endC)
@@ -1739,15 +2005,18 @@ def polygonizeRaster(raster_file_input, vector_file_output, layer_name, field_na
 #########################################################################
 # FONCTION rasterizeBinaryVector()                                      #
 #########################################################################
-#   Role : Rasterise un fichier shape resultat du fichier raster binaire
-#   Paramètres :
-#       vector_input : fichier shape d'origine
-#       image_ref : image de référence (projection reference system information)
-#       raster_output : fichier raster resultat
-#       label : valeur pour la zone non a zero (labelisation)
-#       codage : type de codage du fichier de sortie
+def rasterizeBinaryVector(vector_input, image_ref, raster_output, label=1, codage="uint8", ram_otb=0):
+    """
+    #   Rôle : Rasterise un fichier shape resultat du fichier raster binaire
+    #   Paramètres en entrée :
+    #       vector_input : fichier shape d'origine
+    #       image_ref : image de référence (projection reference system information)
+    #       raster_output : fichier raster resultat
+    #       label : valeur pour la zone non a zero (labelisation)
+    #       codage : type de codage du fichier de sortie
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
-def rasterizeBinaryVector(vector_input, image_ref, raster_output, label=1, codage="uint8"):
     if debug >=3:
         print(cyan + "rasterizeBinaryVector() : " + endC + "Le fichier vecteur à rasteriser : " + str(vector_input))
 
@@ -1768,6 +2037,8 @@ def rasterizeBinaryVector(vector_input, image_ref, raster_output, label=1, codag
         #~ raise NameError(cyan + "rasterizeBinaryVector() : " + bold + red + "An error occured during execution otb Rasterization command. See error message above." + endC)
 
     command = "otbcli_Rasterization -in %s -out %s %s -im %s -background 0 -mode binary -mode.binary.foreground %s" %(vector_input,raster_output,codage,image_ref,str(label))
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >=3:
         print(command)
@@ -1784,14 +2055,17 @@ def rasterizeBinaryVector(vector_input, image_ref, raster_output, label=1, codag
 #########################################################################
 # FONCTION rasterizeVector()                                            #
 #########################################################################
-#   Role : Rasterise un fichier shape resultat du fichier raster contenant un champ de valeurs
-#   Paramètres :
-#       vector_input : fichier shape d'origine
-#       raster_output : fichier raster resultat
-#       image_ref : image de référence (projection reference system information)
-#       field : champ du fichier shape qui definira la valeur pour le raster
+def rasterizeVector(vector_input, raster_output, image_ref, field, codage="float", ram_otb=0):
+    """
+    #   Rôle : Rasterise un fichier shape resultat du fichier raster contenant un champ de valeurs
+    #   Paramètres en entrée :
+    #       vector_input : fichier shape d'origine
+    #       raster_output : fichier raster resultat
+    #       image_ref : image de référence (projection reference system information)
+    #       field : champ du fichier shape qui definira la valeur pour le raster
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    """
 
-def rasterizeVector(vector_input, raster_output, image_ref, field, codage="float"):
     if debug >=3:
         print(cyan + "rasterizeVector() : " + endC + "Le fichier vecteur à rasteriser : " + str(vector_input))
 
@@ -1812,6 +2086,8 @@ def rasterizeVector(vector_input, raster_output, image_ref, field, codage="float
         #~ raise NameError(cyan + "rasterizeVector() : " + bold + red + "An error occured during execution otb Rasterization command. See error message above." + endC)
 
     command = "otbcli_Rasterization -in %s -out %s %s -im %s -background 0 -mode attribute -mode.attribute.field %s" %(vector_input,raster_output,codage,image_ref,field)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >=3:
         print(command)
@@ -1828,22 +2104,24 @@ def rasterizeVector(vector_input, raster_output, image_ref, field, codage="float
 #########################################################################
 # FONCTION rasterizeBinaryVectorWithoutReference()                      #
 #########################################################################
-#   Rôle : Rastérise un vecteur en raster binaire, sans image de référence (on renseigne manuellement l'emprise et la résolution)
-#   Paramètres :
-#       vector_input : fichier shape d'origine
-#       raster_output : fichier raster resultat
-#       xmin : valeur Xmin de l'emprise (ouest)
-#       ymin : valeur Ymin de l'emprise (sud)
-#       xmax : valeur Xmax de l'emprise (est)
-#       ymax : valeur Ymax de l'emprise (nord)
-#       pixel_width : résolution en X
-#       pixel_height : résolution en Y
-#       burn_value : valeur à appliquer sur le raster de sortie (défaut : 1)
-#       nodata_value : valeur NoData du raster de sortie (défaut : 0)
-#       format_raster : format du raster de sortie (défault : 'GTiff')
-#       codage : codage du raster de sortie (défault : 'Byte')
-
 def rasterizeBinaryVectorWithoutReference(vector_input, raster_output, xmin, ymin, xmax, ymax, pixel_width, pixel_height, burn_value=1, nodata_value=0, format_raster="GTiff", codage="Byte"):
+    """
+    #   Rôle : Rastérise un vecteur en raster binaire, sans image de référence (on renseigne manuellement l'emprise et la résolution)
+    #   Paramètres en entrée :
+    #       vector_input : fichier shape d'origine
+    #       raster_output : fichier raster resultat
+    #       xmin : valeur Xmin de l'emprise (ouest)
+    #       ymin : valeur Ymin de l'emprise (sud)
+    #       xmax : valeur Xmax de l'emprise (est)
+    #       ymax : valeur Ymax de l'emprise (nord)
+    #       pixel_width : résolution en X
+    #       pixel_height : résolution en Y
+    #       burn_value : valeur à appliquer sur le raster de sortie (défaut : 1)
+    #       nodata_value : valeur NoData du raster de sortie (défaut : 0)
+    #       format_raster : format du raster de sortie (défault : 'GTiff')
+    #       codage : codage du raster de sortie (défault : 'Byte')
+    """
+
     if debug >= 3:
         print(cyan + "rasterizeBinaryVectorWithoutReference() : " + endC + "Le fichier vecteur à rastériser : " + str(vector_input))
 
@@ -1864,17 +2142,19 @@ def rasterizeBinaryVectorWithoutReference(vector_input, raster_output, xmin, ymi
 #########################################################################
 # FONCTION rasterCalculator()                                           #
 #########################################################################
-#   Rôle : Calculatrice raster OTB BandMath
-#   Paramètres :
-#       raster_input_list : liste de fichiers raster en entrée
-#       raster_output : fichier raster en sortie
-#       expression : calcul à réaliser
-#       codage : type de codage du raster de sortie (défaut : 'float') [uint8/uint16/int16/uint32/int32/float/double/cint16/cint32/cfloat/cdouble]
-#   Remarques :
-#       - attention à l'ordre des rasters dans la liste en entrée, et leur appel dans l'expression (imXbY)
-#       - tous les rasters en entrée doivent être parfaitement superposable (même emprise et même résolution spatiale)
-
-def rasterCalculator(raster_input_list, raster_output, expression, codage='float'):
+def rasterCalculator(raster_input_list, raster_output, expression, codage='float', ram_otb=0):
+    """
+    #   Rôle : Calculatrice raster OTB BandMath
+    #   Paramètres en entrée :
+    #       raster_input_list : liste de fichiers raster en entrée
+    #       raster_output : fichier raster en sortie
+    #       expression : calcul à réaliser
+    #       codage : type de codage du raster de sortie (défaut : 'float') [uint8/uint16/int16/uint32/int32/float/double/cint16/cint32/cfloat/cdouble]
+    #       ram_otb : memoire RAM disponible pour les applications OTB
+    #   Remarques :
+    #       - attention à l'ordre des rasters dans la liste en entrée, et leur appel dans l'expression (imXbY)
+    #       - tous les rasters en entrée doivent être parfaitement superposable (même emprise et même résolution spatiale)
+    """
 
     # Gestion de la liste des raster en entrée
     raster_input_list_str = ""
@@ -1882,6 +2162,8 @@ def rasterCalculator(raster_input_list, raster_output, expression, codage='float
         raster_input_list_str += raster_input + ' '
 
     command = "otbcli_BandMath -il %s -out %s %s -exp '%s'" %(raster_input_list_str[:-1], raster_output, codage, expression)
+    if ram_otb > 0 :
+        command += " -ram %d " %(ram_otb)
 
     if debug >= 3:
         print(command)
@@ -1893,30 +2175,29 @@ def rasterCalculator(raster_input_list, raster_output, expression, codage='float
 
     return
 
-
 #########################################################################
 # FONCTION classificationKmeans()                                       #
 #########################################################################
-#   Rôle : Cette fonction permet d'appliquer une classification non superviser de type Kmeans sur une images multi bande
-#   Codage : Utilisation de les lib "sklearn", ""Gdal"  et numpy"
-#   Paramètres :
-#       image_input : fichier image d'entrée
-#       image_mask_input : fichier masque ou sera fait la classification (peut etre vide "" ou à None dans ce cas toute l image sera classifée)
-#       image_output : fichier de sortie image classifié
-#       nb_class : nombre de class (custer) pour l image de sortie
-#       max_iteration : Nombre maximal d'itérations de l'algorithme des k-moyennes pour une seule exécution
-#       random_kmeans : valeur de la graine random pour l execution kmeans par defaut à None
-#       no_data_value : la valeur des pixels nodata peut etre 0 si pas de valeur défini
-#       format_raster : Format de l'image de sortie par défaut GTiff (GTiff, HFA...)
-#   Paramétres de retour :
-#       le fichier de sortie avec les pixels classifiés
-
 def classificationKmeans(image_input, image_mask_input, image_output, nb_class, max_iteration, random_kmeans=None, no_data_value=0, format_raster="GTiff"):
+    """
+    #   Rôle : Cette fonction permet d'appliquer une classification non superviser de type Kmeans sur une images multi bande
+    #   Codage : Utilisation de les lib "sklearn", ""Gdal"  et numpy"
+    #   Paramètres en entrée :
+    #       image_input : fichier image d'entrée
+    #       image_mask_input : fichier masque ou sera fait la classification (peut etre vide "" ou à None dans ce cas toute l image sera classifée)
+    #       image_output : fichier de sortie image classifié
+    #       nb_class : nombre de class (custer) pour l image de sortie
+    #       max_iteration : Nombre maximal d'itérations de l'algorithme des k-moyennes pour une seule exécution
+    #       random_kmeans : valeur de la graine random pour l execution kmeans par defaut à None
+    #       no_data_value : la valeur des pixels nodata peut etre 0 si pas de valeur défini
+    #       format_raster : Format de l'image de sortie par défaut GTiff (GTiff, HFA...)
+    #   Paramétres de retour :
+    #       le fichier de sortie avec les pixels classifiés
+    """
 
     # Si le fichier de sortie existe deja on le supprime
     if os.path.exists(image_output):
         os.remove(image_output)
-
 
     if (image_mask_input != "" and image_mask_input != None) :
 
@@ -1967,7 +2248,7 @@ def classificationKmeans(image_input, image_mask_input, image_output, nb_class, 
         applyMaskAnd(image_input, image_mask_input, image_masked_output, codage)
 
     else :
-        image_masked_input = image_input
+        image_masked_output = image_input
 
     # Open the dataset
     dataset = gdal.Open(image_masked_output, GA_ReadOnly)
@@ -1991,7 +2272,7 @@ def classificationKmeans(image_input, image_mask_input, image_output, nb_class, 
     X = img[:, :, :nb_bands].reshape(new_shape)
 
     # Application du Kmeans
-    k_means = KMeans(n_clusters=nb_class + 1, max_iter=max_iteration, random_state=random_kmeans).fit(X)
+    k_means = KMeans(n_clusters=nb_class + 1, n_init='auto', max_iter=max_iteration, random_state=random_kmeans).fit(X)
     X_cluster = k_means.labels_
     X_cluster = X_cluster.reshape(img[:, :, 0].shape)
 

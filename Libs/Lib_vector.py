@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,18 +10,20 @@
 # FONCTIONS DE BASE SUR LES VECTEURS (fichier shapefile)                    #
 #                                                                           #
 #############################################################################
-#
-# Ce module contient un certain nombre de fonctions de bases pour réaliser des géotraitements sur les shapefiles, ils reposent tous sur les bibliothèques OGR GDAL et OTB
-#
+"""
+ Ce module contient un certain nombre de fonctions de bases pour réaliser des géotraitements sur les shapefiles, ils reposent tous sur les bibliothèques OGR ou ogr2ogr.
+"""
 
 # IMPORTS DIVERS
 from __future__ import print_function
 import sys,os,glob
 from osgeo import ogr ,osr
+import geopandas
 from rasterstats2 import raster_stats
 from Lib_operator import *
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
-from Lib_file import renameVectorFile, removeVectorFile
+from Lib_file import renameVectorFile, removeVectorFile, removeFile
+from Lib_text import writeTextFile, appendTextFileCR
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 3 : affichage maximum de commentaires lors de l'execution du script. Intermédiaire : affichage intermédiaire
@@ -30,16 +32,17 @@ debug = 1
 ########################################################################
 # FONCTION updateProjection()                                          #
 ########################################################################
-# Rôle : cette fonction met à jour la projection d'un fichier shape, peu importe sa projection d'origine.
-# Paramètres en entrée :
-#       vector_input : vecteur d'entrée, celui à qui on veut changer la projection
-#       vector_output : vecteur de sortie, celui avec la nouvelle projection
-#       projection : projection à appliquer, code EPSG (par défaut : 2154)
-#       format_vector : format du vecteur de sortie (par défaut : ESRI Shapefile)
-# Paramètres en sortie :
-#       N.A.
-
 def updateProjection(vector_input, vector_output, projection=2154, format_vector='ESRI Shapefile'):
+    """
+    # Rôle : cette fonction met à jour la projection d'un fichier shape, peu importe sa projection d'origine.
+    # Paramètres en entrée :
+    #       vector_input : vecteur d'entrée, celui à qui on veut changer la projection
+    #       vector_output : vecteur de sortie, celui avec la nouvelle projection
+    #       projection : projection à appliquer, code EPSG (par défaut : 2154)
+    #       format_vector : format du vecteur de sortie (par défaut : ESRI Shapefile)
+    # Paramètres en sortie :
+    #       N.A.
+    """
 
     if debug >=2:
         print(cyan + "updateProjection() : " + endC + "mise à jour de la projection du fichier " + vector_input + " (code EPSG : " + str(projection) + ")." + endC)
@@ -59,77 +62,80 @@ def updateProjection(vector_input, vector_output, projection=2154, format_vector
 ########################################################################
 # FONCTION getProjection()                                             #
 ########################################################################
-# Rôle : cette fonction retourne la valeur de la projection la projection d'un fichier shape.
-# Paramètres en entrée :
-#       vector_input : vecteur d'entrée, celui à qui on veut recupere la projection
-#       format_vector : format du vecteur d'entrée (par défaut : ESRI Shapefile)
-# Paramètres en sortie :
-#       N.A.
-
 def getProjection(vector_input, format_vector='ESRI Shapefile'):
+    """
+    # Rôle : cette fonction retourne la valeur de la projection la projection d'un fichier shape.
+    # Paramètres en entrée :
+    #       vector_input : vecteur d'entrée, celui à qui on veut recupere la projection
+    #       format_vector : format du vecteur d'entrée (par défaut : ESRI Shapefile)
+    # Paramètres en sortie :
+    #       epsg : l epsg de la projection
+    #       projection : l'ensemble des information de la projection
+    """
 
     if debug >=2:
         print(cyan + "getProjection() : Récupération de la projection du vecteur : " + vector_input + endC)
 
-    projection = None
+    epsg = None
 
      # Recuperation du  driver pour le format shape
     driver = ogr.GetDriverByName(format_vector)
 
     # Ouverture du fichier d'emprise
-    data_source = driver.Open(vector_input, 0)
-    if data_source is None:
+    data_source_input = driver.Open(vector_input, 0)
+    if data_source_input is None:
         print(cyan + "getProjection() : " + bold + red + "Impossible d'ouvrir le fichier d'emprise : " + vector_input + endC, file=sys.stderr)
         sys.exit(1) #exit with an error code
 
     # Recuperation des couches de donnees
-    layer = data_source.GetLayer()
+    layer = data_source_input.GetLayer()
     spatialRef = layer.GetSpatialRef()
 
     # Recuperation de la projection
     feature_input = layer.GetNextFeature()
     geometry = feature_input.GetGeometryRef()
-    projectio_txt = geometry.GetSpatialReference().ExportToWkt()
-    len_index = len(projectio_txt)
-    last_index = projectio_txt.rfind('AUTHORITY["EPSG"')
+    projection = geometry.GetSpatialReference().ExportToWkt()
+    len_index = len(projection)
+    last_index = projection.rfind('AUTHORITY["EPSG"')
     if last_index >= 0 :
-        projectio_txt_bis = projectio_txt[last_index:]
-        projection_txt = projectio_txt_bis.split('"')[3]
-        projection = int(projection_txt)
+        epsg_txt_bis = projection[last_index:]
+        epsg_txt = epsg_txt_bis.split('"')[3]
+        epsg = int(epsg_txt)
 
-    return projection
+    return epsg, projection
 
-###########################################################################################################################################
-# FONCTION getEmpriseFile()                                                                                                               #
-###########################################################################################################################################
-#   Role : Cette fonction permet de retourner les coordonnées xmin,xmax,ymin,ymax de l'emprise d'un fichier shape
-#   Parametres :
-#       vector_input : nom du fichier vecteur d'entrée
-#       format_vector : format du fichier vecteur
-#   Paramétres de retour :
-#       xmin, xmax, ymin, ymax
-
-def getEmpriseFile(vector_input, format_vector='ESRI Shapefile'):
+########################################################################
+# FONCTION getEmpriseVector()                                            #
+########################################################################
+def getEmpriseVector(vector_input, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction permet de retourner les coordonnées xmin,xmax,ymin,ymax de l'emprise d'un fichier shape
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       format_vector : format du fichier vecteur
+    #   Paramétres de retour :
+    #       xmin, xmax, ymin, ymax
+    """
 
     if debug >=2:
-        print(cyan + "getEmpriseFile() : Début de la récupération des emprises" + endC)
+        print(cyan + "getEmpriseVector() : Début de la récupération des emprises" + endC)
 
     # Recuperation du  driver pour le format shape
     driver = ogr.GetDriverByName(format_vector)
 
     # Ouverture du fichier d'emprise
-    data_source = driver.Open(vector_input, 0)
-    if data_source is None:
-        print(cyan + "getEmpriseFile() : " + bold + red + "Impossible d'ouvrir le fichier d'emprise : " + vector_input + endC, file=sys.stderr)
+    data_source_input = driver.Open(vector_input, 0)
+    if data_source_input is None:
+        print(cyan + "getEmpriseVector() : " + bold + red + "Impossible d'ouvrir le fichier d'emprise : " + vector_input + endC, file=sys.stderr)
         sys.exit(1) #exit with an error code
 
     # Recuperation des couches de donnees
-    layer = data_source.GetLayer(0)
+    layer = data_source_input.GetLayer(0)
     num_features = layer.GetFeatureCount()
     extent = layer.GetExtent()
 
     # Fermeture du fichier d'emprise
-    data_source.Destroy()
+    data_source_input.Destroy()
 
     xmin = extent[0]
     xmax = extent[1]
@@ -137,23 +143,25 @@ def getEmpriseFile(vector_input, format_vector='ESRI Shapefile'):
     ymax = extent[3]
 
     if debug >=2:
-        print(cyan + "getEmpriseFile() : " + bold + green + "Fin de la récupération des emprises" + endC)
+        print(cyan + "getEmpriseVector() : " + bold + green + "Fin de la récupération des emprises" + endC)
 
     return xmin,xmax,ymin,ymax
 
 #########################################################################
 # FONCTION getAreaPolygon()                                             #
 #########################################################################
-#   Role : Fonction qui retourne la somme des surfaces de polygones défini par un champs et une valeur
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       col : nom du champs (colonne) à regarder
-#       value : valeur du champs pour identifier le polygone ou les polygones
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour :
-#        sum_area : la somme des surface
-
 def getAreaPolygon(vector_input, col, value, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui retourne la somme des surfaces de polygones défini par un champs et une valeur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       col : nom du champs (colonne) à regarder
+    #       value : valeur du champs pour identifier le polygone ou les polygones
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour :
+    #        sum_area : la somme des surface
+    """
+
     # Variable de retour
     sum_area = 0.0
     if debug >=2:
@@ -197,14 +205,16 @@ def getAreaPolygon(vector_input, col, value, format_vector='ESRI Shapefile'):
 #########################################################################
 # FONCTION getNumberFeature()                                           #
 #########################################################################
-#   Role : Fonction qui retourne le nombre d'element geometrique (point ou ligne ou polygone) dans un fichier vecteur
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour :
-#        number_polygon : le nombre de polygones trouvé
-
 def getNumberFeature(vector_input, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui retourne le nombre d'element geometrique (point ou ligne ou polygone) dans un fichier vecteur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour :
+    #        number_polygon : le nombre de polygones trouvé
+    """
+
     # Variable de retour
     number_feature = 0
     if debug >=2:
@@ -232,71 +242,18 @@ def getNumberFeature(vector_input, format_vector='ESRI Shapefile'):
     return number_feature
 
 #########################################################################
-# FONCTION getGeomPolygons()                                            #
-#########################################################################
-#   Role : Fonction qui retourne la liste de géometrie des polygones défini par un champs et une valeur
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       col : nom du champs (colonne) à regarder si None tous les polygonnes sont retournés (valeur par defaut)
-#       value : valeur du champs pour identifier le polygone si None tous les polygonnes sont retournés (valeur par defaut)
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour :
-#        geometry_list : la liste de géometrie de polygone
-
-def getGeomPolygons(vector_input, col=None, value=None, format_vector='ESRI Shapefile'):
-    # Variable de retour
-    geometry_list = []
-    if debug >=2:
-       print(cyan + "getGeomPolygons() : " + endC + "Recherche les polygones valeur: " + str(value) + " champs : " + str(col) + " du fichier : " + str(vector_input))
-
-    # Recuperation du driver pour le format shape fichier entrée
-    driver_input = ogr.GetDriverByName(format_vector)
-
-    # Ouverture du fichier shape en lecture
-    data_source_input = driver_input.Open(vector_input, 0) # 0 means read-only.
-    if data_source_input is None:
-        print(cyan + "getGeomPolygons() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
-        return None
-
-    # Recuperer la couche (une couche contient les polygones)
-    layer_input = data_source_input.GetLayer(0)
-
-    # Recuperer le nombre de champs du fichier d'entrée
-    defn_layer_input = layer_input.GetLayerDefn()
-    nb_fields = defn_layer_input.GetFieldCount()
-
-    # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
-
-         # Si le polygone correspond au polygone rechercher
-         if (not col == None) or (not value == None) :
-             field_label = feature_input.GetFieldAsString(col)
-             if field_label == str(value) :
-                 # Get polygon geometry
-                 geometry_list.append(feature_input.GetGeometryRef().Clone())
-         else : # On recupere tous les polygones
-             geometry_list.append(feature_input.GetGeometryRef().Clone())
-
-    # Fermeture du fichier shape
-    data_source_input.Destroy()
-    if debug >=2:
-       print(cyan + "getGeomPolygons() : " + bold + green + "Recuperation de la liste de géométrie de polygone fichier %s" %(vector_input) + endC)
-    return geometry_list
-
-
-#########################################################################
 # FONCTION getGeometryType()                                            #
 #########################################################################
-#   Role : Fonction qui retourne le type de  géometrie d'un fichier vecteur
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour :
-#        geometry_type : le type de  géometrie
-
 def getGeometryType(vector_input, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui retourne le type de  géometrie d'un fichier vecteur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour :
+    #        geometry_type : le type de  géometrie
+    """
+
     # Variable de retour
     geometry_type = None
     if debug >=2:
@@ -348,15 +305,73 @@ def getGeometryType(vector_input, format_vector='ESRI Shapefile'):
     return geometry_type
 
 #########################################################################
+# FONCTION getGeomPolygons()                                            #
+#########################################################################
+def getGeomPolygons(vector_input, col=None, value=None, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui retourne la liste de géometrie des polygones défini par un champs et une valeur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       col : nom du champs (colonne) à regarder si None tous les polygonnes sont retournés (valeur par defaut)
+    #       value : valeur du champs pour identifier le polygone si None tous les polygonnes sont retournés (valeur par defaut)
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour :
+    #        geometry_list : la liste de géometrie de polygone
+    """
+
+    # Variable de retour
+    geometry_list = []
+    if debug >=2:
+       print(cyan + "getGeomPolygons() : " + endC + "Recherche les polygones valeur: " + str(value) + " champs : " + str(col) + " du fichier : " + str(vector_input))
+
+    # Recuperation du driver pour le format shape fichier entrée
+    driver_input = ogr.GetDriverByName(format_vector)
+
+    # Ouverture du fichier shape en lecture
+    data_source_input = driver_input.Open(vector_input, 0) # 0 means read-only.
+    if data_source_input is None:
+        print(cyan + "getGeomPolygons() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
+        return None
+
+    # Recuperer la couche (une couche contient les polygones)
+    layer_input = data_source_input.GetLayer(0)
+
+    # Recuperer le nombre de champs du fichier d'entrée
+    defn_layer_input = layer_input.GetLayerDefn()
+    nb_fields = defn_layer_input.GetFieldCount()
+
+    # Pour chaque polygones
+    for i in range(0, layer_input.GetFeatureCount()):
+         # Get the input Feature
+         feature_input = layer_input.GetFeature(i)
+         if feature_input is not None :
+             # Si le polygone correspond au polygone rechercher
+             if (not col == None) or (not value == None) :
+                 field_label = feature_input.GetFieldAsString(col)
+                 if field_label == str(value) :
+                     # Get polygon geometry
+                     geometry_list.append(feature_input.GetGeometryRef().Clone())
+             else : # On recupere tous les polygones
+                 geometry_list.append(feature_input.GetGeometryRef().Clone())
+
+    # Fermeture du fichier shape
+    data_source_input.Destroy()
+
+    if debug >=2:
+       print(cyan + "getGeomPolygons() : " + bold + green + "Recuperation de la liste de géométrie de polygone fichier %s" %(vector_input) + endC)
+    return geometry_list
+
+#########################################################################
 # FONCTION getAttributeNameList()                                       #
 #########################################################################
-#   Role : Fonction qui retourne la liste des noms  des attributs constituant le vecteur
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour : attr_nanes_list : listes des noms des attributs
-
 def getAttributeNameList(vector_input, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Fonction qui retourne la liste des noms  des attributs constituant le vecteur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour : attr_nanes_list : listes des noms des attributs
+    """
 
     if debug >=2:
        print(cyan + "getAttributeNameList() : " + endC + "Recuperation des noms des champs du fichier vecteur : " + str(vector_input))
@@ -390,14 +405,15 @@ def getAttributeNameList(vector_input, format_vector='ESRI Shapefile') :
 #########################################################################
 # FONCTION getAttributeType()                                           #
 #########################################################################
-#   Role : Fonction qui retourne le type d'un attribut défini dans par son un identifiant
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       attribute_name_id : nom du champs d'identification de l'élement
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour : attr_type : type ogr d'attribut exemple  : (gr.OFTInteger, ogr.OFTReal, OFTString ...)
-
 def getAttributeType(vector_input, attribute_name_id, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Fonction qui retourne le type d'un attribut défini dans par son un identifiant
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       attribute_name_id : nom du champs d'identification de l'élement
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour : attr_type : type ogr d'attribut exemple  : (gr.OFTInteger, ogr.OFTReal, OFTString ...)
+    """
 
     if debug >=2:
        print(cyan + "getAttributeType() : " + endC + "Recuperation des valeurs d'un champs du fichier vecteur : " + str(vector_input))
@@ -421,7 +437,6 @@ def getAttributeType(vector_input, attribute_name_id, format_vector='ESRI Shapef
     # Pour chaque champs
     for i in range(defn_layer_input.GetFieldCount()):
         field_defn = defn_layer_input.GetFieldDefn(i)
-
         if field_defn.GetName() == attribute_name_id :
             attribute_type = field_defn.GetType()
 
@@ -435,16 +450,17 @@ def getAttributeType(vector_input, attribute_name_id, format_vector='ESRI Shapef
 #########################################################################
 # FONCTION getAttributeValues()                                         #
 #########################################################################
-#   Role : Fonction qui retourne une liste (dico) de valeur d'attribut défini dans une liste pour un identifiant d'élement
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       attribute_name_id : nom du champs d'identification de l'élement si None retourne toutes les valeurs (et id_element = None)
-#       id_element : la valeur d'identifiant de l'élement si None retourne toutes les valeurs (et attribute_name_id = None)
-#       attribute_name_dico : dico des champs à récuperer et leur type
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour : attr_values_dico : dictionaire des valeurs des attributs demander pour l'élement cherché
-
 def getAttributeValues(vector_input, attribute_name_id, id_element, attribute_name_dico, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Fonction qui retourne une liste (dico) de valeur d'attribut défini dans une liste pour un identifiant d'élement
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       attribute_name_id : nom du champs d'identification de l'élement si None retourne toutes les valeurs (et id_element = None)
+    #       id_element : la valeur d'identifiant de l'élement si None retourne toutes les valeurs (et attribute_name_id = None)
+    #       attribute_name_dico : dico des champs à récuperer et leur type
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour : attr_values_dico : dictionaire des valeurs des attributs demander pour l'élement cherché
+    """
 
     if debug >=2:
        print(cyan + "getAttributeValues() : " + endC + "Recuperation des valeurs d'un champs du fichier vecteur : " + str(vector_input))
@@ -491,14 +507,12 @@ def getAttributeValues(vector_input, attribute_name_id, id_element, attribute_na
                      if case(ogr.OFTIntegerList):
                         value = feature_input.GetFieldAsIntegerList(attr_name)
                         break
-                     '''
                      if case(ogr.OFTInteger64):
                         value = feature_input.GetFieldAsInteger64(attr_name)
                         break
                      if case(ogr.OFTInteger64List):
                         value = feature_input.GetFieldAsInteger64List(attr_name)
                         break
-                     '''
                      if case(ogr.OFTRealList):
                         value = feature_input.GetFieldAsDoubleList(attr_name)
                         break
@@ -531,16 +545,17 @@ def getAttributeValues(vector_input, attribute_name_id, id_element, attribute_na
 #########################################################################
 # FONCTION setAttributeValues()                                         #
 #########################################################################
-#   Role : Fonction qui met à jour des valeurs d'attribut défini dans une liste (dico) pour un identifiant d'élement
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       attribute_name_id : nom du champs d'identification de l'élement
-#       id_element : la valeur d'identifiant de l'élement
-#       attribute_name_dico : dico des champs à mettre à jour et leur valeur
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour : 0 si ok -1 sinon
-
 def setAttributeValues(vector_input, attribute_name_id, id_element, attribute_name_dico, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Fonction qui met à jour des valeurs d'attribut défini dans une liste (dico) pour un identifiant d'élement
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       attribute_name_id : nom du champs d'identification de l'élement
+    #       id_element : la valeur d'identifiant de l'élement
+    #       attribute_name_dico : dico des champs à mettre à jour et leur valeur
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour : 0 si ok -1 sinon
+    """
 
     if debug >=2:
        print(cyan + "setAttributeValues() : " + endC + "mise à jour des valeurs d'un champs du fichier vecteur : " + str(vector_input))
@@ -587,15 +602,16 @@ def setAttributeValues(vector_input, attribute_name_id, id_element, attribute_na
 #########################################################################
 # FONCTION setAttributeIndexValuesList()                                #
 #########################################################################
-#   Role : Fonction qui met à jour des valeurs d'attribut défini dans un dico (de dico de champs) pour un identifiant d'élement
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       attribute_name_id : nom du champs d'identification de l'élement
-#       field_new_values_dico : dico des valeurs index par id de polygones (sur dico de champs à mettre à jour et leur valeur)
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour : 0 si ok -1 sinon
-
 def setAttributeIndexValuesList(vector_input, attribute_name_id, field_new_values_dico, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Fonction qui met à jour des valeurs d'attribut défini dans un dico (de dico de champs) pour un identifiant d'élement
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       attribute_name_id : nom du champs d'identification de l'élement
+    #       field_new_values_dico : dico des valeurs index par id de polygones (sur dico de champs à mettre à jour et leur valeur)
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour : 0 si ok -1 sinon
+    """
 
     if debug >=2:
        print(cyan + "setAttributeIndexValuesList() : " + endC + "mise à jour des valeurs des champs du fichier vecteur : " + str(vector_input))
@@ -647,14 +663,15 @@ def setAttributeIndexValuesList(vector_input, attribute_name_id, field_new_value
 #########################################################################
 # FONCTION setAttributeValuesList()                                     #
 #########################################################################
-#   Role : Fonction qui met à jour des valeurs de liste d'attribut défini dans une liste de dico
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       field_new_values_list : liste de dico de champs à mettre à jour et leur valeur pour tous les elements du fichier
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour : 0 si ok -1 sinon
-
 def setAttributeValuesList(vector_input, field_new_values_list, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Fonction qui met à jour des valeurs de liste d'attribut défini dans une liste de dico
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       field_new_values_list : liste de dico de champs à mettre à jour et leur valeur pour tous les elements du fichier
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour : 0 si ok -1 sinon
+    """
 
     if debug >=2:
        print(cyan + "setAttributeValuesList() : " + endC + "mise à jour des valeurs des champs du fichier vecteur : " + str(vector_input))
@@ -698,14 +715,16 @@ def setAttributeValuesList(vector_input, field_new_values_list, format_vector='E
 #########################################################################
 # FONCTION updateIndexVector()                                          #
 #########################################################################
-#   Role : Fonction qui remets a jour les index des élements du fichier vecteur dans un champs défini par son nom
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       index_name : nom du champs (colonne) contenant la valeur de l'index par defaut à "id"
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-#   Paramétre de retour : le nombre d'élement (index valeur max)
-
 def updateIndexVector(vector_input, index_name="id", format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui remets a jour les index des élements du fichier vecteur dans un champs défini par son nom
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       index_name : nom du champs (colonne) contenant la valeur de l'index par defaut à "id"
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    #   Paramétre de retour : le nombre d'élement (index valeur max)
+    """
+
     # Variable de retour
     index_max = 0
 
@@ -745,15 +764,17 @@ def updateIndexVector(vector_input, index_name="id", format_vector='ESRI Shapefi
 ########################################################################
 # FONCTION updateFieldVector()                                         #
 ########################################################################
-#   Role : Fonction qui met à jour (avec la même valeur partout) le champ d'un fichier vecteur
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       field_name : nom du champs (colonne) à mettre à jour. Par défaut : "id"
-#       value : valeur à mettre à jour dans le champ (peut-être de tout type, pour peu que le type du champ corresponde). Par défaut : 0
-#       format_vector : format d'entrée du fichier vecteur. Par défaut : 'ESRI Shapefile'
-#   Paramètre de retour
-
 def updateFieldVector(vector_input, field_name="id", value=0, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui met à jour (avec la même valeur partout) le champ d'un fichier vecteur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       field_name : nom du champs (colonne) à mettre à jour. Par défaut : "id"
+    #       value : valeur à mettre à jour dans le champ (peut-être de tout type, pour peu que le type du champ corresponde). Par défaut : 0
+    #       format_vector : format d'entrée du fichier vecteur. Par défaut : 'ESRI Shapefile'
+    #   Paramètre de retour
+    """
+
     if debug >=2:
        print(cyan + "updateFieldVector() : " + endC + "mise à jour du champ '" + field_name + "' du fichier vecteur " + vector_input + " avec la valeur de " + value)
 
@@ -791,18 +812,19 @@ def updateFieldVector(vector_input, field_name="id", value=0, format_vector='ESR
 #########################################################################
 # FONCTION addNewFieldVector()                                          #
 #########################################################################
-#   Role : Cette fonction permet de rajouter un nouveau champ à un fichier vecteur
-#          Si le champ existe déjà, il est effacé puis recréé
-#   Parametres :
-#       vector_input : fichier vecteur a modifier
-#       field_name : le nom du nouveau champs à ajouter
-#       field_type : le type du nouveau champs à ajouter
-#       field_value : la valeur à donnéer au nouveau champs pour chaque éléments
-#       field_width : la largeur du champs (par defaut à None)
-#       field_precision : la précision pour le type ogr.OFTReal (par defaut à None)
-#       format_vector : format du fichier vecteur (par defaut 'ESRI Shapefile')
-
 def addNewFieldVector(vector_input, field_name, field_type, field_value=None, field_width=None, field_precision=None, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Cette fonction permet de rajouter un nouveau champ à un fichier vecteur
+    #          Si le champ existe déjà, il est effacé puis recréé
+    #   Paramètres en entrée :
+    #       vector_input : fichier vecteur a modifier
+    #       field_name : le nom du nouveau champs à ajouter
+    #       field_type : le type du nouveau champs à ajouter
+    #       field_value : la valeur à donnéer au nouveau champs pour chaque éléments
+    #       field_width : la largeur du champs (par defaut à None)
+    #       field_precision : la précision pour le type ogr.OFTReal (par defaut à None)
+    #       format_vector : format du fichier vecteur (par defaut 'ESRI Shapefile')
+    """
 
     if debug >=2:
         print(cyan + "addNewFieldVector() : " + endC + "Ajout d'un champs au vecteur : " + str(vector_input))
@@ -861,13 +883,15 @@ def addNewFieldVector(vector_input, field_name, field_type, field_value=None, fi
 ########################################################################
 # FONCTION cloneFieldDefn()                                            #
 ########################################################################
-#   Role : Fonction qui duplique des champs
-#   Paramètres en entrée :
-#       src_def : le champs d'entrée à dupliqué
-#   Paramètre de retour
-#       dest_def : une copie du champs
-
 def cloneFieldDefn(src_def):
+    """
+    #   Rôle : Fonction qui duplique des champs
+    #   Paramètres en entrée :
+    #       src_def : le champs d'entrée à dupliqué
+    #   Paramètre de retour
+    #       dest_def : une copie du champs
+    """
+
     dest_def = ogr.FieldDefn(src_def.GetName(), src_def.GetType())
     dest_def.SetWidth(src_def.GetWidth())
     dest_def.SetPrecision(src_def.GetPrecision())
@@ -876,15 +900,17 @@ def cloneFieldDefn(src_def):
 ########################################################################
 # FONCTION renameFieldsVector()                                        #
 ########################################################################
-#   Role : Fonction qui renome les champs d'un fichier vecteur
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       field_sname_list : liste des noms de champs (colonne) à mettre à renomer.
-#       new_fields_name_list : valeur des nouveaux noms des champs à renomer
-#       format_vector : format d'entrée du fichier vecteur. Par défaut : 'ESRI Shapefile'
-#   Paramètre de retour
-
 def renameFieldsVector(vector_input, fields_name_list, new_fields_name_list, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui renome les champs d'un fichier vecteur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       field_sname_list : liste des noms de champs (colonne) à mettre à renomer.
+    #       new_fields_name_list : valeur des nouveaux noms des champs à renomer
+    #       format_vector : format d'entrée du fichier vecteur. Par défaut : 'ESRI Shapefile'
+    #   Paramètre de retour
+    """
+
     if debug >=2:
        print(cyan + "renameFieldsVector() : " + endC + "renomage des noms des champs " + str(field_name_list) + " du fichier vecteur " + vector_input )
 
@@ -930,15 +956,16 @@ def renameFieldsVector(vector_input, fields_name_list, new_fields_name_list, for
 #########################################################################
 # FONCTION deleteFieldsVector()                                         #
 #########################################################################
-#   Role : Cette fonction permet de supprimer des champs d'un fichier vecteur
-#          Les champs sont définis dans une liste
-#   Parametres :
-#       vector_input : fichier vecteur en entrée
-#       vector_output : fichier vecteur en sortie
-#       fields_name_list : liste des noms des champs à supprimer
-#       format_vector : format du fichier vecteur (par defaut 'ESRI Shapefile')
-
 def deleteFieldsVector(vector_input, vector_output, fields_name_list, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Cette fonction permet de supprimer des champs d'un fichier vecteur
+    #          Les champs sont définis dans une liste
+    #   Paramètres en entrée :
+    #       vector_input : fichier vecteur en entrée
+    #       vector_output : fichier vecteur en sortie
+    #       fields_name_list : liste des noms des champs à supprimer
+    #       format_vector : format du fichier vecteur (par defaut 'ESRI Shapefile')
+    """
 
     if debug >=2:
         print(cyan + "deleteFieldsVector() : " + endC + "Suppression de champs du vecteur : " + str(vector_input))
@@ -973,7 +1000,6 @@ def deleteFieldsVector(vector_input, vector_output, fields_name_list, format_vec
     geomType = geometry.GetGeometryType()
 
     # Creation du fichier de sortie
-    #------------------------------
     if os.path.exists(vector_output):
         driver.DeleteDataSource(vector_output)
 
@@ -1041,8 +1067,6 @@ def deleteFieldsVector(vector_input, vector_output, fields_name_list, format_vec
         feature_input = layer_input.GetNextFeature()
         featureID += 1
 
-    #------------------------------
-
     data_source_input.Destroy()
     data_source_output.Destroy()
 
@@ -1050,16 +1074,84 @@ def deleteFieldsVector(vector_input, vector_output, fields_name_list, format_vec
        print(cyan + "deleteFieldsVector() : " + bold + green + "Delete fields %s to file %s complete!" %(fields_name_list, vector_input) + endC)
     return
 
+###########################################################################################################################################
+# FONCTION getPositionsPoints()                                                                                                           #
+###########################################################################################################################################
+def getPositionsPoints(vector_input, field_name, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction permet de retourner les coordonnées x,y de chaque point d'un fichier vecteur de geometrie point sous forme de liste
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       field_name : nom de la colonne name pour recuperer le nom
+    #       format_vector : format du fichier vecteur
+    #   Paramétres de retour :
+    #       Dico [nom1:[x1, y1], nom2:[x1, y2], ....]
+    """
+
+    if debug >=2:
+        print(cyan + "getPositionsPoints() : Début de la récupération des emprises" + endC)
+
+    position_points_dico = {}
+
+    # Test le type de géometrie
+    if not getGeometryType(vector_input, format_vector) in ('POINT', 'MULTIPOINT') :
+        print(cyan + "getPositionsPoints() : " + bold + yellow + "Attention le fichier vecteur n'est pas de type géometrie POINTS : " + vector_input + endC)
+        return position_points_dico
+
+    # Recuperation du  driver pour le format shape
+    driver = ogr.GetDriverByName(format_vector)
+
+    # Ouverture du fichier d'emprise
+    data_source_input = driver.Open(vector_input, 0) # 0 means read-only.
+    if data_source_input is None:
+        print(cyan + "getPositionsPoints() : " + bold + red + "Impossible d'ouvrir le fichier d'entrée : " + vector_input + endC, file=sys.stderr)
+        sys.exit(1) #exit with an error code
+
+    # Recuperer la couche (une couche contient les points)
+    layer_input = data_source_input.GetLayer(0)
+
+    # Verifier l'existance du champs
+    layer_definition = layer_input.GetLayerDefn()
+    id_field = layer_definition.GetFieldIndex(field_name)
+    if id_field == -1 :
+        print(cyan + "getPositionsPoints() : " + bold + red + "Erreur le champs n'existe pas : " + field_name + endC)
+        sys.exit(1) #exit with an error code
+
+    # Pour chaque polygones
+    for i in range(0, layer_input.GetFeatureCount()):
+        position_point_list = [[],[]]
+        # Get the input Feature
+        feature_input = layer_input.GetFeature(i)
+
+        field_value = feature_input.GetFieldAsString(id_field)
+        geometry = feature_input.GetGeometryRef()
+        if geometry != None :
+            coor_x = geometry.GetX()
+            coor_y = geometry.GetY()
+            position_point_list[0] = coor_x
+            position_point_list[1] = coor_y
+        position_points_dico[field_value] = position_point_list
+
+    # Fermeture du fichier shape
+    data_source_input.Destroy()
+
+    if debug >=2:
+        print(cyan + "getPositionsPoints() : " + bold + green + "Fin de la récupération des positions des points" + endC)
+
+    return position_points_dico
+
 #########################################################################
 # FONCTION readVectorFilePoints()                                       #
 #########################################################################
-#   Role : Fonction qui retourne la liste des coordonnées d'un fichier shapes de points
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée (contenant uniquement des géometries points)
-#       names_column_point_list : Liste des attributs a récuperer avec le point
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-
 def readVectorFilePoints(vector_input, names_column_point_list=[], format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui retourne la liste des coordonnées d'un fichier shapes de points
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée (contenant uniquement des géometries points)
+    #       names_column_point_list : Liste des attributs a récuperer avec le point
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    """
+
     # Variable de retour dico liste de points
     points_coordinates_dico = {}
 
@@ -1107,14 +1199,16 @@ def readVectorFilePoints(vector_input, names_column_point_list=[], format_vector
 #########################################################################
 # FONCTION readVectorFileLinesExtractTeminalsPoints()                   #
 #########################################################################
-#   Role : Fonction qui retourne la liste des coordonnées points début et fin d'un fichier shapes de lignes
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée (contenant uniquement des géometries points)
-#       names_column_start_point_list : Liste des attributs a récuperer avec le point de début
-#       names_column_end_point_list : Liste des attributs a récuperer avec le point de fin
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-
 def readVectorFileLinesExtractTeminalsPoints(vector_input, names_column_start_point_list=[], names_column_end_point_list=[], format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui retourne la liste des coordonnées points début et fin d'un fichier shapes de lignes
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée (contenant uniquement des géometries points)
+    #       names_column_start_point_list : Liste des attributs a récuperer avec le point de début
+    #       names_column_end_point_list : Liste des attributs a récuperer avec le point de fin
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    """
+
     # Variable de retour dico liste de points
     points_coordinates_dico = {}
 
@@ -1180,14 +1274,16 @@ def readVectorFileLinesExtractTeminalsPoints(vector_input, names_column_start_po
 #########################################################################
 # FONCTION getAverageAreaClass()                                        #
 #########################################################################
-#   Role : Fonction qui retourne la valeur moyenne les surfaces de polygones d'une même classe
-#   Paramètres en entrée :
-#       vector_input : nom du fichier vecteur d'entrée
-#       col : nom du champs (colonne) à regarder
-#       class_id : valeur du champs pour identifier le polygone
-#       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
-
 def getAverageAreaClass(vector_input, col, class_id, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui retourne la valeur moyenne les surfaces de polygones d'une même classe
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       col : nom du champs (colonne) à regarder
+    #       class_id : valeur du champs pour identifier le polygone
+    #       format_vector : format d'entrée du fichier vecteur. Par default : 'ESRI Shapefile'
+    """
+
     # Variable de retour
     sum_area = 0.0
     compt_class = 0
@@ -1242,17 +1338,18 @@ def getAverageAreaClass(vector_input, col, class_id, format_vector='ESRI Shapefi
 #########################################################################
 # FONCTION roundHoldVector()                                            #
 #########################################################################
-#   Role : Redefinir un vecteur avec une emprise correspondant au valeur d'emprise xmin, xmax, ymin, ymax données
-#   Paramètres :
-#       vector_input : fichier shape d'origine
-#       vector_output :  fichier shape avec emprise arrondie
-#       round_xmin : L'emprise à corrigée de sortie coordonnée xmin
-#       round_xmax: L'emprise à corrigée de sortie coordonnée xmax
-#       round_ymin: L'emprise à corrigée de sortie coordonnée ymin
-#       round_ymax : L'emprise à corrigée de sortie coordonnée ymax
-#       format_vector : format du fichier vecteur, default : ESRI Shapefile
-
 def roundHoldVector(vector_input, vector_output, round_xmin, round_xmax, round_ymin, round_ymax, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Redefinir un vecteur avec une emprise correspondant au valeur d'emprise xmin, xmax, ymin, ymax données
+    #   Paramètres en entrée :
+    #       vector_input : fichier shape d'origine
+    #       vector_output :  fichier shape avec emprise arrondie
+    #       round_xmin : L'emprise à corrigée de sortie coordonnée xmin
+    #       round_xmax: L'emprise à corrigée de sortie coordonnée xmax
+    #       round_ymin: L'emprise à corrigée de sortie coordonnée ymin
+    #       round_ymax : L'emprise à corrigée de sortie coordonnée ymax
+    #       format_vector : format du fichier vecteur, default : ESRI Shapefile
+    """
 
     if debug >=2:
         print(cyan + "roundHoldVector() : " + endC + "Arrondi de l'emprise géométrie du vecteur : " + str(vector_input))
@@ -1361,8 +1458,6 @@ def roundHoldVector(vector_input, vector_output, round_xmin, round_xmax, round_y
             feature_output.Destroy()
             feature_input.Destroy()
 
-    ##########################################################
-
     layer_output.SyncToDisk()
     data_source_input.Destroy()
     data_source_output.Destroy()
@@ -1374,14 +1469,15 @@ def roundHoldVector(vector_input, vector_output, round_xmin, round_xmax, round_y
 #########################################################################
 # FONCTION simplifyVector()                                             #
 #########################################################################
-#   Role : Simplifier ou lisser la géométrie d'une couche vecteur
-#   Paramètres :
-#       vector_input : fichier shape d'origine
-#       vector_output :  fichier shape simplifié
-#       tolerance : indice de lissage en float : entre 2.0 et 0.05 pour un shape d'origine très pixelisé
-#       format_vector : format du fichier vecteur
-
 def simplifyVector(vector_input ,vector_output, tolerance, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Simplifier ou lisser la géométrie d'une couche vecteur
+    #   Paramètres en entrée :
+    #       vector_input : fichier shape d'origine
+    #       vector_output :  fichier shape simplifié
+    #       tolerance : indice de lissage en float : entre 2.0 et 0.05 pour un shape d'origine très pixelisé
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "simplifyVector() : " + endC + "Simplification de la géométrie d'une couche vecteur : " + str(vector_input))
@@ -1405,7 +1501,7 @@ def simplifyVector(vector_input ,vector_output, tolerance, format_vector='ESRI S
     geometry = feature_input.GetGeometryRef()
     geomType = geometry.GetGeometryType()
 
-    ########CREATION DU FICHIER DE SORTIE ############
+    # Creation du fichier de sortie
     if os.path.exists(vector_output):
         driver.DeleteDataSource(vector_output)
 
@@ -1482,21 +1578,21 @@ def simplifyVector(vector_input ,vector_output, tolerance, format_vector='ESRI S
         print(cyan + "simplifyVector() : " + endC + "Fichier vecteur simplifie : " + str(vector_output))
     return
 
-
 #########################################################################
 # FONCTION bufferVector()                                               #
 #########################################################################
-#   Role : Créer un tampon d'une distance donné autour des entités d'un fichier shape
-#   Paramètres :
-#      vector_input : fichier shape d'origine
-#      vector_output : fichier shape comprenent le buffer
-#      buffer_dist : taille du buffer en float
-#      col_name_buf : nom de la colonne contenant la valeur du buffer
-#      fact_buf : facteur de la valeur du buffer par defaut à 1
-#      quadsecs : indice de lissage en entier : entre 1 et 30 (max) pour un shape d'origine très pixelisé
-#      format_vector : format du fichier vecteur
-
 def bufferVector(vector_input, vector_output, buffer_dist, col_name_buf = "", fact_buf=1.0, quadsecs=10, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Créer un tampon d'une distance donné autour des entités d'un fichier shape
+    #   Paramètres en entrée :
+    #      vector_input : fichier shape d'origine
+    #      vector_output : fichier shape comprenent le buffer
+    #      buffer_dist : taille du buffer en float
+    #      col_name_buf : nom de la colonne contenant la valeur du buffer
+    #      fact_buf : facteur de la valeur du buffer par defaut à 1
+    #      quadsecs : indice de lissage en entier : entre 1 et 30 (max) pour un shape d'origine très pixelisé
+    #      format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "bufferVector() : " + endC + "Creation d'un buffer de " + str(buffer_dist) + " autour du fichier " + str(vector_input))
@@ -1551,7 +1647,7 @@ def bufferVector(vector_input, vector_output, buffer_dist, col_name_buf = "", fa
 
             # Recuperer la valeur du buffer
             if col_name_buf != "" :
-                value =  feature_output.GetFieldAsDouble(col_name_buf)
+                value = feature_output.GetFieldAsDouble(col_name_buf)
                 size_buf = float(value)
                 if size_buf == 0.0 :
                     size_buf = float(buffer_dist)
@@ -1578,17 +1674,17 @@ def bufferVector(vector_input, vector_output, buffer_dist, col_name_buf = "", fa
         print(cyan + "bufferVector() : " + endC + "Le fichier vecteur " + str(vector_output)  + " a ete bufferise")
     return
 
-
 #########################################################################
 # FONCTION cleanRingVector()                                            #
 #########################################################################
-#   Role : Nettoye les polygones d'un fichier shape contenant des trous (ring)
-#   Paramètres :
-#      vector_input : fichier shape d'origine
-#      vector_output : fichier shape nettoyé
-#      format_vector : format du fichier vecteur
-
 def cleanRingVector(vector_input, vector_output, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Nettoye les polygones d'un fichier shape contenant des trous (ring)
+    #   Paramètres en entrée :
+    #      vector_input : fichier shape d'origine
+    #      vector_output : fichier shape nettoyé
+    #      format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "cleanRingVector() : " + endC + "Nettoyage des rings du fichier vecteur : " + str(vector_input))
@@ -1671,16 +1767,17 @@ def cleanRingVector(vector_input, vector_output, format_vector='ESRI Shapefile')
 #########################################################################
 # FONCTION cleanMiniAreaPolygons()                                      #
 #########################################################################
-#   Role : Fonction qui supprime les polygones de surfaces minimales d'un shapefile
-#   Paramètres :
-#       vector_input : nom du fichier vecteur d'entrée
-#       vector_output : nom du fichier vecteur de sortie
-#       min_size_area : valeur de la taille minimale de surface des polygones à nettoyer
-#       col : nom du champs (colonne) à regarder
-#       format_vector : format d'entrée et de sortie des fichiers vecteurs. Par default : 'ESRI Shapefile'
-#  Exemple d'utilisation: cleanMiniAreaPolygons("vectorInput.shape","vectorOutput.shape",0.45,'ESRI Shapefile')
-
 def cleanMiniAreaPolygons(vector_input, vector_output, min_size_area, col='id', format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fonction qui supprime les polygones de surfaces minimales d'un shapefile
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       vector_output : nom du fichier vecteur de sortie
+    #       min_size_area : valeur de la taille minimale de surface des polygones à nettoyer
+    #       col : nom du champs (colonne) à regarder
+    #       format_vector : format d'entrée et de sortie des fichiers vecteurs. Par default : 'ESRI Shapefile'
+    #  Exemple d'utilisation: cleanMiniAreaPolygons("vectorInput.shape","vectorOutput.shape",0.45,'ESRI Shapefile')
+    """
 
     if debug >=2:
         print(cyan + "cleanMiniAreaPolygons() : " + endC + "Supression des polygones de surfaces minimales du vecteur " + vector_input)
@@ -1750,30 +1847,31 @@ def cleanMiniAreaPolygons(vector_input, vector_output, min_size_area, col='id', 
     for i in range(0, layer_input.GetFeatureCount()):
 
          feature_input = layer_input.GetFeature(i)  # Get the input Feature
-         geometry = feature_input.GetGeometryRef() # Calculating the actual area
+         if feature_input is not None :
+             geometry = feature_input.GetGeometryRef() # Calculating the actual area
 
-         # Si la geometry est non nulle
-         if not geometry is None :
-            idfeat = feature_input.GetFID()
-            polygonArea = geometry.GetArea()
+             # Si la geometry est non nulle
+             if not geometry is None :
+                idfeat = feature_input.GetFID()
+                polygonArea = geometry.GetArea()
 
-            # Si la surface est superieur a min_size_area, on copie le polygone
-            if polygonArea >= min_size_area :
-                if debug >= 4:
-                    print('surface %s superieur a %s'%(str(polygonArea) , str(min_size_area)))
-                    print("id conserver", idfeat)
+                # Si la surface est superieur a min_size_area, on copie le polygone
+                if polygonArea >= min_size_area :
+                    if debug >= 4:
+                        print('surface %s superieur a %s'%(str(polygonArea) , str(min_size_area)))
+                        print("id conserver", idfeat)
 
-                # Add new feature to output Layer
-                layer_output.CreateFeature(feature_input)
+                    # Add new feature to output Layer
+                    layer_output.CreateFeature(feature_input)
 
-                # Mettre a jour information du dictionaire surface total par classe
-                if col != "":
-                    class_label = int(feature_input.GetFieldAsString(col))
+                    # Mettre a jour information du dictionaire surface total par classe
+                    if col != "":
+                        class_label = int(feature_input.GetFieldAsString(col))
 
-                    if class_label not in size_area_by_class_dico :
-                        size_area_by_class_dico[class_label] = polygonArea
-                    else :
-                        size_area_by_class_dico[class_label] += polygonArea
+                        if class_label not in size_area_by_class_dico :
+                            size_area_by_class_dico[class_label] = polygonArea
+                        else :
+                            size_area_by_class_dico[class_label] += polygonArea
 
     # Comptage du nombre de polygones destinations
     num_features = layer_output.GetFeatureCount()
@@ -1792,14 +1890,16 @@ def cleanMiniAreaPolygons(vector_input, vector_output, min_size_area, col='id', 
 #########################################################################
 # FONCTION addGeometryToLayer()                                         #
 #########################################################################
-#   Role : Ajout d'une geometrie à une couche (feature) de sortie
-#   Paramètres :
-#       simpleGeometryWkb : la geometrie à ajouter au format Wkb
-#       layer_output : la couche layer de sortie
-#       fields_list : liste des noms de champs à ajouter
-#       values_list : liste de valeurs de champs correspondant à ajouter
-
 def addGeometryToLayer(simpleGeometryWkb, layer_output, fields_list=[], values_list=[]):
+    """
+    #   Rôle : Ajout d'une geometrie à une couche (feature) de sortie
+    #   Paramètres en entrée :
+    #       simpleGeometryWkb : la geometrie à ajouter au format Wkb
+    #       layer_output : la couche layer de sortie
+    #       fields_list : liste des noms de champs à ajouter
+    #       values_list : liste de valeurs de champs correspondant à ajouter
+    """
+
     if len(fields_list) != len(values_list):
         print(cyan + "addGeometryToLayer() : " + bold + red  + "La liste de valeurs et celle des champs ne font pas la même taille" + endC, file=sys.stderr)
         sys.exit(1)
@@ -1815,13 +1915,15 @@ def addGeometryToLayer(simpleGeometryWkb, layer_output, fields_list=[], values_l
 #########################################################################
 # FONCTION addFields()                                                  #
 #########################################################################
-#   Role : Ajouter les champs de la couche (layer) d'entrée à la couche (layer) de sortie
-#   Paramètres :
-#       layer_input : la couche layer d'entrée
-#       layer_output : la couche layer de sortie
-#       field_name : le nom du champs à ajouter
-
 def addFields(layer_input, layer_output, field_name = ""):
+    """
+    #   Rôle : Ajouter les champs de la couche (layer) d'entrée à la couche (layer) de sortie
+    #   Paramètres en entrée :
+    #       layer_input : la couche layer d'entrée
+    #       layer_output : la couche layer de sortie
+    #       field_name : le nom du champs à ajouter
+    """
+
     defn_layer_input = layer_input.GetLayerDefn()
     for i in range(0, defn_layer_input.GetFieldCount()):
         field_defn = defn_layer_input.GetFieldDefn(i)
@@ -1832,15 +1934,16 @@ def addFields(layer_input, layer_output, field_name = ""):
 #########################################################################
 # FONCTION multigeometries2geometries()                                 #
 #########################################################################
-#   Role : Remplacer les multi-géométries du fichier vecteur d'entrée en géométries simples
-#   Paramètres :
-#       vector_input : fichier shape d'origine avec des muti-géométries
-#       vector_output : fichier shape avec multi-géométries transformées en géométries simples
-#       fields_list : liste des champs à copier dans le fichier de sortie
-#       input_geom_type : le type des multi-géométries à transformer
-#       format_vector : format du fichier vecteur
-
 def multigeometries2geometries(vector_input, vector_output, fields_list=[], input_geom_type='MULTIPOLYGON', format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Remplacer les multi-géométries du fichier vecteur d'entrée en géométries simples
+    #   Paramètres en entrée :
+    #       vector_input : fichier shape d'origine avec des muti-géométries
+    #       vector_output : fichier shape avec multi-géométries transformées en géométries simples
+    #       fields_list : liste des champs à copier dans le fichier de sortie
+    #       input_geom_type : le type des multi-géométries à transformer
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "multigeometries2geometries() : " + endC + "Transformation des geometries de type multi-géometrie en géometrie simple du vecteur " + vector_input)
@@ -1921,18 +2024,19 @@ def multigeometries2geometries(vector_input, vector_output, fields_list=[], inpu
         print(cyan + "multigeometries2geometries() : " + endC + "Fichier vecteur tranformé en géométries simples : " + str(vector_output))
     return
 
-
 #########################################################################
 # FONCTION geometries2multigeometries()                                 #
 #########################################################################
-#   Role : Fusionner de geometries de même valeur d'un champs donnée (ou sans condition si auccune colone n'est specifiée) du fichier vecteur d'entrée en geometries multiples
-#   Paramètres :
-#       vector_input : fichier vecteur d'origine avec des geometries à fusionner
-#       vector_output :  fichier vecteur avec geometries simples transformées en geometries fusionnées
-#       column : colonne contenant l'information de valeur à comparer. Par defaut si column est vide toutes les geometries sont fusionnés sans condition
-#       format_vector : format du fichier vecteur
-#   Retour : ret
 def geometries2multigeometries(vector_input, vector_output, column ="", format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fusionner de geometries de même valeur d'un champs donnée (ou sans condition si auccune colone n'est specifiée) du fichier vecteur d'entrée en geometries multiples
+    #   Paramètres en entrée :
+    #       vector_input : fichier vecteur d'origine avec des geometries à fusionner
+    #       vector_output :  fichier vecteur avec geometries simples transformées en geometries fusionnées
+    #       column : colonne contenant l'information de valeur à comparer. Par defaut si column est vide toutes les geometries sont fusionnés sans condition
+    #       format_vector : format du fichier vecteur
+    #   Retour : ret
+    """
 
     if debug >=2:
         print(cyan + "geometries2multigeometries() : " + endC + "Fusion des geometries de même valeur de %s du fichier %s" %(str(column), str(vector_input)))
@@ -1951,6 +2055,9 @@ def geometries2multigeometries(vector_input, vector_output, column ="", format_v
     name_layer_input = layer_input.GetName()
     geometryType = layer_input.GetGeomType()
     feature_input = layer_input.GetNextFeature()
+    if feature_input is None :
+        print(cyan  + "geometries2multigeometries() : " + bold + yellow + "Geometry non valide !" + endC )
+        return False
     geometry_input = feature_input.GetGeometryRef()
     test_geom_input = geometry_input.GetGeometryName()
     output_srs = layer_input.GetSpatialRef()
@@ -2040,7 +2147,6 @@ def geometries2multigeometries(vector_input, vector_output, column ="", format_v
                 field_dico[field_name] = field_value
             geometries_field_dico[ident_element] = field_dico
 
-
     # Ajout des geometries multiples au fichier de sortie
     for label_element,geometry in geometries_dico.items() :
         if debug >=4:
@@ -2068,32 +2174,44 @@ def geometries2multigeometries(vector_input, vector_output, column ="", format_v
     return ret
 
 #########################################################################
-# FONCTION fusionNeighbourPolygonsBySameValue()                         #
+# FONCTION fusionNeighbourGeometryBySameValue()                         #
 #########################################################################
-#   Role : Fusionner de polygones voisin de même valeur défini par un champs donnée du fichier vecteur d'entrée
-#   Paramètres :
-#       vector_input : fichier vecteur d'origine avec des polygones à fusionner
-#       vector_output :  fichier vecteur avec polygones simples transformées en polygones fusionnées
-#       column : colonne contenant l'information de valeur à comparer.
-#       format_vector : format du fichier vecteur
-
-def fusionNeighbourPolygonsBySameValue(vector_input, vector_output, column, format_vector='ESRI Shapefile'):
+def fusionNeighbourGeometryBySameValue(vector_input, vector_output, column, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fusionner de polygones voisin de même valeur défini par un champs donnée du fichier vecteur d'entrée
+    #   Paramètres en entrée :
+    #       vector_input : fichier vecteur d'origine avec des polygones à fusionner
+    #       vector_output :  fichier vecteur avec polygones simples transformées en polygones fusionnées
+    #       column : colonne contenant l'information de valeur à comparer.
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
-        print(cyan + "fusionNeighbourPolygonsBySameValue() : " + endC + "Fusion des geometries de même valeur de %s du fichier %s" %(str(column), str(vector_input)))
+        print(cyan + "fusionNeighbourGeometryBySameValue() : " + endC + "Fusion des geometries de même valeur de %s du fichier %s" %(str(column), str(vector_input)))
 
     # Lecture du fichier en entrée
     driver = ogr.GetDriverByName(format_vector)
     data_source_input = driver.Open(vector_input, 0) # 0 means read-only. 1 means writeable.
 
     if data_source_input is None:
-        print(cyan  + "fusionNeighbourPolygonsBySameValue() : " + bold + red + "Could not open file : " + str(vector_input), file=sys.stderr)
+        print(cyan  + "fusionNeighbourGeometryBySameValue() : " + bold + red + "Could not open file : " + str(vector_input), file=sys.stderr)
         sys.exit(1)
 
     # Récupération des cractéristiques du fichier en entrée (type de géométrie, projection...)
     layer_input = data_source_input.GetLayer()
     name_layer_input = layer_input.GetName()
     output_srs = layer_input.GetSpatialRef()
+    feature_input = layer_input.GetNextFeature()
+    geometry = feature_input.GetGeometryRef()
+    geometry_type = geometry.GetGeometryName()
+
+    # En fonction du type de géometrie
+    if geometry_type == 'POLYGON' or geometry_type == 'MULTIPOLYGON':
+        type_geom_multi = ogr.wkbMultiPolygon
+        type_geom_simple = ogr.wkbPolygon
+    elif geometry_type == 'LINESTRING' or geometry_type == 'MULTILINESTRING':
+        type_geom_multi = ogr.wkbMultiLineString
+        type_geom_simple = ogr.wkbLineString
 
     # Réinitialiser la lecture des géométries
     layer_input.ResetReading()
@@ -2104,7 +2222,7 @@ def fusionNeighbourPolygonsBySameValue(vector_input, vector_output, column, form
 
     # Creation du fichier shape de sortie en écriture
     data_source_output = driver.CreateDataSource(vector_output)
-    layer_output = data_source_output.CreateLayer(name_layer_input, srs=output_srs, geom_type=ogr.wkbPolygon)
+    layer_output = data_source_output.CreateLayer(name_layer_input, srs=output_srs, geom_type=type_geom_simple)
 
     # Ajout des champs du fichier d'entrée au fichier de sortie
     defn_layer_input = layer_input.GetLayerDefn()
@@ -2133,14 +2251,14 @@ def fusionNeighbourPolygonsBySameValue(vector_input, vector_output, column, form
     geometries_field_dico = {}
 
     if debug >=3:
-        print("Nombre total de polygones : " + str(layer_input.GetFeatureCount()))
+        print("Nombre total des elements : " + str(layer_input.GetFeatureCount()))
 
-    # Faites la dissolution réelle basée sur la colonne et ajouter des polygones
+    # Faites la dissolution réelle basée sur la colonne et ajouter des polygone
     # Pour chaque element
     for ident_element in elements_list :
         if debug >=4:
-            print("Element = " + str(ident_element))
-        geometries_dico[ident_element] = ogr.Geometry(ogr.wkbMultiPolygon)
+            print("Valeur groupe elements = " + str(ident_element))
+        geometries_dico[ident_element] = ogr.Geometry(type_geom_multi)
 
     # Pour chaque geometrie
     for feature_input in layer_input:
@@ -2148,7 +2266,7 @@ def fusionNeighbourPolygonsBySameValue(vector_input, vector_output, column, form
         geometry = feature_input.GetGeometryRef()
         if (not geometry is None) and (str(ident_element) != 'None') :
             geometry_multigeom = geometries_dico[ident_element]
-            if geometry.GetGeometryType() == ogr.wkbPolygon :
+            if geometry.GetGeometryType() == type_geom_simple :
                 geometry_multigeom.AddGeometry(geometry)
             else:
                 for geometry_part in geometry:
@@ -2167,13 +2285,20 @@ def fusionNeighbourPolygonsBySameValue(vector_input, vector_output, column, form
     # Pour chaque element
     for ident_element in elements_list :
         geometry_multigeom = geometries_dico[ident_element]
-        geometry_union = geometry_multigeom.UnionCascaded()
+        if geometry_type == 'POLYGON' or geometry_type == 'MULTIPOLYGON':
+            geometry_union = geometry_multigeom.UnionCascaded()  ## Deprecated since GDAL 3.7 => used UnaryUnion()
+            #geometry_union = geometry_multigeom.UnaryUnion()
+        elif geometry_type == 'LINESTRING' or geometry_type == 'MULTILINESTRING':
+            #geometry_union = geometry_multigeom.UnaryUnion()
+            geometry_union = ogr.Geometry(ogr.wkbLineString)
+            for geom_line in geometry_multigeom :
+                geometry_union = geometry_union.Union(geom_line).Clone()
         geometries_dico[ident_element] = geometry_union
 
     # Ajout des geometries simple (simplifiées) au fichier de sortie
     for label_element,geometry in geometries_dico.items() :
         if debug >=4:
-            print("add polygon id value : " + str(label_element))
+            print("Add element id value : " + str(label_element))
 
         if geometry is not None:
             field_dico = geometries_field_dico[label_element]
@@ -2185,8 +2310,12 @@ def fusionNeighbourPolygonsBySameValue(vector_input, vector_output, column, form
             if geometry.GetGeometryName() == 'MULTIPOLYGON' :
                 for geometry_part in geometry:
                     addGeometryToLayer(geometry_part.ExportToWkb(), layer_output, fields_list, values_list)
-            else:
+            elif geometry.GetGeometryName() == 'POLYGON' :
                 addGeometryToLayer(ogr.ForceToPolygon(geometry).ExportToWkb(), layer_output, fields_list, values_list)
+            elif geometry.GetGeometryName() == 'MULTILINESTRING' or  geometry.GetGeometryName() == 'LINESTRING' :
+                addGeometryToLayer(ogr.ForceToLineString(geometry).ExportToWkb(), layer_output, fields_list, values_list)
+            else :
+                print("Geometry non valide !")
 
     # Fermeture des fichiers shape
     layer_output.SyncToDisk()
@@ -2194,26 +2323,326 @@ def fusionNeighbourPolygonsBySameValue(vector_input, vector_output, column, form
     data_source_output.Destroy()
 
     if debug >=2:
-        print(cyan + "fusionNeighbourPolygonsBySameValue() : " + endC + "Fichier vecteur polygones fusionnes : " + str(vector_output))
+        print(cyan + "fusionNeighbourGeometryBySameValue() : " + endC + "Fichier vecteur polygones fusionnes : " + str(vector_output))
+    return
+
+#########################################################################
+# FONCTION fusionNeighbourLineString()                                  #
+#########################################################################
+"""
+fusion2line1()
+"""
+def fusion2line1(line1, line2) :
+    if line1.GetPointCount() > 2 :
+        print(cyan + "fusion2line1() : " + bold + red + "Erreur nb point superieur à 2 : " + str(line1), file=sys.stderr)
+        sys.exit(1)
+    line_merged = ogr.Geometry(ogr.wkbLineString)
+    for i in range(line1.GetPointCount()):
+        point = line1.GetPoint(i)
+        # Vérifier l'existence du point dans line2
+        if not point in line2 :
+            line_merged.AddPoint(*point)
+    for i in range(line2.GetPointCount()):
+        point = line2.GetPoint(i)
+        line_merged.AddPoint(*point)
+    return line_merged
+
+"""
+fusionGeomConnect()
+"""
+def fusionGeomConnect(geometries_connect_dico, geometries_onepice_dico, elements_geom_list, geometries_pass_dico, geom1, geom_parent) :
+    geometry_union = None
+    geometries_pass_dico[geom1] = True
+
+    if (len(geometries_connect_dico[geom1]) == 0) or (geometries_onepice_dico[geom1]) or (geom_parent != None and len(geometries_connect_dico[geom1]) > 2):
+        geometry_union = geom1
+
+    elif len(geometries_connect_dico[geom1]) == 1 :
+        if geom_parent == None or (geom_parent != geometries_connect_dico[geom1][0] and geometries_connect_dico[geom1][0] in elements_geom_list) :
+            res_union_line = fusionGeomConnect(geometries_connect_dico, geometries_onepice_dico, elements_geom_list, geometries_pass_dico, geometries_connect_dico[geom1][0], geom1)
+            ##geometry_union = geom1.Union(res_union_line).Clone()
+            geometry_union = fusion2line1(geom1, res_union_line)
+        else :
+            geometry_union = geom1
+
+    elif len(geometries_connect_dico[geom1]) == 2 :
+        geom_neighbour = None
+        if geom_parent != None and geometries_connect_dico[geom1][0] == geom_parent :
+            geom_neighbour = geometries_connect_dico[geom1][1]
+        elif geom_parent != None and geometries_connect_dico[geom1][1] == geom_parent :
+            geom_neighbour = geometries_connect_dico[geom1][0]
+
+        if geom_neighbour != None and geom_neighbour in elements_geom_list :
+            res_union_line = fusionGeomConnect(geometries_connect_dico, geometries_onepice_dico, elements_geom_list, geometries_pass_dico, geom_neighbour, geom1)
+            ##geometry_union = geom1.Union(res_union_line).Clone()
+            geometry_union = fusion2line1(geom1, res_union_line)
+        else :
+            geometry_union = geom1
+
+    else :
+        # Cas ou le nombre de voisin est superieur à 2
+        pass_test = False
+        if geom_parent == None :
+            for geom_neighbour in geometries_connect_dico[geom1] :
+                if geom_neighbour in elements_geom_list :
+                    if len(geometries_connect_dico[geom_neighbour]) <= 2 :
+                        pass_test = True
+                        break
+
+        if pass_test :
+            res_union_line = fusionGeomConnect(geometries_connect_dico, geometries_onepice_dico, elements_geom_list, geometries_pass_dico, geom_neighbour, geom1)
+            ##geometry_union = geom1.Union(res_union_line).Clone()
+            geometry_union = fusion2line1(geom1, res_union_line)
+        else :
+            #  On arrive ou bout de la ligne
+            geometry_union = geom1
+
+    return geometry_union
+
+"""
+detectLineStart()
+"""
+def detectLineStart(elements_geom_list, geometries_onepice_dico, geometries_connect_dico) :
+    geometries_start_list = []
+    for geom1 in elements_geom_list :
+        # Cas morceau unique
+        if len(geometries_connect_dico[geom1]) == 0 :
+            geometries_start_list.append(geom1)
+            geometries_onepice_dico[geom1] = True
+        # Cas morceau simple avec un voisin
+        elif len(geometries_connect_dico[geom1]) == 1 :
+            geometries_start_list.append(geom1)
+        # Autre cas morceau simple avec plusieurs voisins en fourche
+        else :
+            if geom1.GetPointCount() > 2 :
+                print(cyan + "detectLineStart() : " + bold + red + "Erreur nb point geom1 superieur à 2 : " + str(geom1), file=sys.stderr)
+                sys.exit(1)
+            point1_geom1 = geom1.GetPoint(0)
+            point2_geom1 = geom1.GetPoint(1)
+            pass_connexion_point1 = False
+            pass_connexion_point2 = False
+            for geom2 in geometries_connect_dico[geom1] :
+                if geom2.GetPointCount() > 2 :
+                    print(cyan + "detectLineStart() : " + bold + red + "Erreur nb point geom2 superieur à 2 : " + str(geom2), file=sys.stderr)
+                    sys.exit(1)
+                point1_geom2 = geom2.GetPoint(0)
+                point2_geom2 = geom2.GetPoint(1)
+                if point1_geom1 == point1_geom2 or point1_geom1 == point2_geom2 :
+                    pass_connexion_point1 = True
+                if point2_geom1 == point1_geom2 or point2_geom1 == point2_geom2 :
+                    pass_connexion_point2 = True
+
+            if not pass_connexion_point1 or not pass_connexion_point2 :
+                geometries_start_list.append(geom1)
+                geometries_onepice_dico[geom1] = True
+
+    return geometries_start_list, geometries_onepice_dico
+
+"""
+supressGeomPass()
+"""
+def suppressGeomPass(geometries_pass_dico, elements_geom_list, geometries_connect_dico, start_line) :
+    if geometries_pass_dico :
+        for geom, test in geometries_pass_dico.items() :
+            if test and geom in elements_geom_list :
+                del(elements_geom_list[elements_geom_list.index(geom)])
+                geometries_connect_dico.pop(geom)
+                if start_line :
+                    for geom_single, geom_neighbour_list in geometries_connect_dico.items() :
+                        if geom_neighbour_list != None and geom in geom_neighbour_list :
+                            del(geom_neighbour_list[geom_neighbour_list.index(geom)])
+                            geometries_connect_dico[geom_single] = geom_neighbour_list
+    return elements_geom_list, geometries_connect_dico
+
+def fusionNeighbourLineString(vector_input, vector_output, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fusionner des lignes voisines du fichier vecteur d'entrée
+    #   Paramètres en entrée :
+    #       vector_input : fichier vecteur d'origine avec des lignes à fusionner
+    #       vector_output :  fichier vecteur avec lignes simples transformées en lignes fusionnées
+    #       format_vector : format du fichier vecteur
+    """
+
+    if debug >=1:
+        print(cyan + "fusionNeighbourLineString() : " + endC + "Fusion des lignes voisines du fichier %s" %(str(vector_input)))
+
+    # Lecture du fichier en entrée
+    driver = ogr.GetDriverByName(format_vector)
+    data_source_input = driver.Open(vector_input, 0) # 0 means read-only. 1 means writeable.
+
+    if data_source_input is None:
+        print(cyan  + "fusionNeighbourLineString() : " + bold + red + "Could not open file : " + str(vector_input), file=sys.stderr)
+        sys.exit(1)
+
+    # Récupération des cractéristiques du fichier en entrée (type de géométrie, projection...)
+    layer_input = data_source_input.GetLayer()
+    name_layer_input = layer_input.GetName()
+    output_srs = layer_input.GetSpatialRef()
+    feature_input = layer_input.GetNextFeature()
+    geometry = feature_input.GetGeometryRef()
+    geometry_type = geometry.GetGeometryName()
+
+    # En fonction du type de géometrie
+    if geometry_type == 'LINESTRING' or geometry_type == 'MULTILINESTRING':
+        type_geom_multi = ogr.wkbMultiLineString
+        type_geom_simple = ogr.wkbLineString
+
+    # Réinitialiser la lecture des géométries
+    layer_input.ResetReading()
+
+    # Si le fichier vecteur de sortie existe on le supprime
+    if os.path.exists(vector_output):
+        driver.DeleteDataSource(vector_output)
+
+    # Creation du fichier shape de sortie en écriture
+    data_source_output = driver.CreateDataSource(vector_output)
+    layer_output = data_source_output.CreateLayer(name_layer_input, srs=output_srs, geom_type=type_geom_simple)
+
+    # Ajout des champs du fichier d'entrée au fichier de sortie
+    """
+    defn_layer_input = layer_input.GetLayerDefn()
+    nb_fields = defn_layer_input.GetFieldCount()
+    for i in range(0, nb_fields):
+        field_defn = defn_layer_input.GetFieldDefn(i)
+        layer_output.CreateField(field_defn)
+    """
+
+    # Créer une liste d'element id
+    elements_geom_list = []
+    for feature_input in layer_input:
+        geometry = feature_input.GetGeometryRef()
+        elements_geom_list.append(geometry.Clone())
+
+    if debug >=1:
+        print(cyan + "fusionNeighbourLineString() : " + endC + "Nombre total d'elements : " + str(len(elements_geom_list)))
+
+    # Dico final de toute les lignes fusionnées à integrer dans le fichier de sortie et les liste des morceaux déjà traiter
+    geometries_fusion_list = []
+    geometries_pass_dico = {}
+    geometries_onepice_dico = {}
+
+    # Créer les dico de liste de geometries voisines
+    geometries_connect_dico = {}
+    for i, geom1 in enumerate(elements_geom_list):
+        geometries_pass_dico[geom1] = False
+        geometries_onepice_dico[geom1] = False
+        geometries_connect_dico[geom1] = []
+        for j, geom2 in enumerate(elements_geom_list):
+            if i != j and geom1.Touches(geom2):
+                geometries_connect_dico[geom1].append(geom2)
+
+    # Idenfier tous les bouts de segemnts de départ
+    geometries_start_list, geometries_onepice_dico = detectLineStart(elements_geom_list, geometries_onepice_dico, geometries_connect_dico)
+    if debug >=2:
+        print(cyan + "fusionNeighbourLineString() : " + endC + "elements_geom_list : " + str(len(elements_geom_list)))
+        print(cyan + "fusionNeighbourLineString() : " + endC + "geometries_start_list : " + str(len(geometries_start_list)))
+
+    # Gérer les bouts de lignes
+    if debug >=2:
+        print(cyan + "fusionNeighbourLineString() : " + endC + "Gestion des bouts de lignes")
+
+    for geom in geometries_start_list:
+        geom_connect = fusionGeomConnect(geometries_connect_dico, geometries_onepice_dico, elements_geom_list, geometries_pass_dico, geom, None)
+        #geometries_fusion_list.append(geom_connect)
+    elements_geom_list, geometries_connect_dico = suppressGeomPass(geometries_pass_dico, elements_geom_list, geometries_connect_dico, True)
+
+    # Pour toutes les autres geometries temps d'il y a des sommets
+    while geometries_start_list :
+        geometries_start_list, geometries_onepice_dico = detectLineStart(elements_geom_list, geometries_onepice_dico, geometries_connect_dico)
+
+        for geom in geometries_start_list:
+            geom_connect = fusionGeomConnect(geometries_connect_dico, geometries_onepice_dico, elements_geom_list, geometries_pass_dico, geom, None)
+            geometries_fusion_list.append(geom_connect)
+        elements_geom_list, geometries_connect_dico = suppressGeomPass(geometries_pass_dico, elements_geom_list, geometries_connect_dico, True)
+        if debug >=4:
+            print(cyan + "fusionNeighbourLineString() : " + endC + "While1 : elements_geom_list : " + str(len(elements_geom_list)))
+
+    # Pour les autres geometries cas des boucles
+    if debug >=2:
+        print(cyan + "fusionNeighbourLineString() : " + endC + "Gestion des boucles")
+        print(cyan + "fusionNeighbourLineString() : " + endC + "elements_geom_list : " + str(len(elements_geom_list)))
+
+    while elements_geom_list :
+        if len(elements_geom_list) == 1 :
+            geometries_pass_dico[elements_geom_list[0]] = True
+            geometries_fusion_list.append(elements_geom_list[0])
+        elif len(elements_geom_list) == 2 :
+            if (elements_geom_list[1] in geometries_connect_dico[elements_geom_list[0]]) or (elements_geom_list[0] in geometries_connect_dico[elements_geom_list[1]]) :
+                geometries_pass_dico[elements_geom_list[0]] = True
+                geometries_pass_dico[elements_geom_list[1]] = True
+                geom_connect = fusion2line1(elements_geom_list[0], elements_geom_list[1])
+                geometries_fusion_list.append(geom_connect)
+            else :
+                geometries_pass_dico[elements_geom_list[0]] = True
+                geometries_fusion_list.append(elements_geom_list[0])
+                geometries_pass_dico[elements_geom_list[1]] = True
+                geometries_fusion_list.append(elements_geom_list[1])
+        else :
+            for geom in elements_geom_list :
+                if len(geometries_connect_dico[geom]) > 2 :
+                    break
+            geom_connect = fusionGeomConnect(geometries_connect_dico, geometries_onepice_dico, elements_geom_list, geometries_pass_dico, geom, None)
+            geometries_fusion_list.append(geom_connect)
+
+        elements_geom_list, geometries_connect_dico = suppressGeomPass(geometries_pass_dico, elements_geom_list, geometries_connect_dico, False)
+        if debug >=4:
+            print(cyan + "fusionNeighbourLineString() : " + endC + "While2 : elements_geom_list : " + str(len(elements_geom_list)))
+
+
+    # Ajout des geometries simple (simplifiées) au fichier de sortie
+    fields_list = []
+    values_list = []
+    for geometry in geometries_fusion_list :
+        if geometry is not None:
+            if geometry.GetGeometryName() == 'MULTILINESTRING' or  geometry.GetGeometryName() == 'LINESTRING' :
+                addGeometryToLayer(ogr.ForceToLineString(geometry).ExportToWkb(), layer_output, fields_list, values_list)
+            else :
+                print(cyan  + "fusionNeighbourLineString() : " + bold + yellow + "Geometry non valide !" + endC )
+
+
+    # Fermeture des fichiers shape
+    layer_output.SyncToDisk()
+    data_source_input.Destroy()
+    data_source_output.Destroy()
+
+    if debug >=1:
+        print(cyan + "fusionNeighbourLineString() : " + endC + "geometries_fusion_list : " + str(len(geometries_fusion_list)))
+        print(cyan + "fusionNeighbourLineString() : " + endC + "Fichier vecteur lignes fusionnes : " + str(vector_output))
     return
 
 #########################################################################
 # FONCTION dissolveVector()                                             #
 #########################################################################
-#   Role : La fonction a pour but de fusionner les polygones voisins (connexion) de même valeur
-#   Paramètres :
-#       vector_input : nom du fichier vecteur en entrée
-#       vector_output : nom du fichier vecteur en sortie
-#       column : colonne contenant l'information de valeur a comparer
-#       format_vector : format du fichier vecteur
-
 def dissolveVector(vector_input, vector_output, column, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : La fonction a pour but de fusionner les polygones voisins (connexion) de même valeur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur en entrée
+    #       vector_output : nom du fichier vecteur en sortie
+    #       column : colonne contenant l'information de valeur a comparer
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "dissolveVector() : " + endC + "Fusion des polygones adjacents de meme %s du fichier %s" %(str(column), str(vector_input)))
 
     # Create driver ogr
     driver = ogr.GetDriverByName(format_vector)
+
+    # Récupération des cractéristiques du fichier en entrée (type de géométrie, projection...)
+    data_source_input = driver.Open(vector_input, 0)
+    layer_input = data_source_input.GetLayer()
+    name_layer_input = layer_input.GetName()
+    output_srs = layer_input.GetSpatialRef()
+    feature_input = layer_input.GetNextFeature()
+    geometry = feature_input.GetGeometryRef()
+    geometry_type = geometry.GetGeometryName()
+
+    # En fonction du type de géometrie
+    if geometry_type == 'POLYGON' or geometry_type == 'MULTIPOLYGON':
+        type_geom_str = "MULTIPOLYGON"
+    elif geometry_type == 'LINESTRING' or geometry_type == 'MULTILINESTRING':
+        type_geom_str = "MULTILINESTRING"
 
     # Gestion des noms
     basename = os.path.basename(vector_input)
@@ -2230,7 +2659,8 @@ def dissolveVector(vector_input, vector_output, column, format_vector='ESRI Shap
     # ETAPE 1 : Fusion de tous les polygones d'une meme valeur en un polygone multiple
 
     # ogr2ogr ATTENTION cette version ne marche pas correctement
-    command = "ogr2ogr -f \"%s\" -overwrite %s %s -dialect SQLITE -sql \"SELECT ST_Union(geometry), %s FROM %s GROUP BY %s\"" %(format_vector, tmp_file, vector_input, column, filename, column)
+    command = "ogr2ogr -f \"%s\" -overwrite %s %s -dialect SQLITE -sql \"SELECT ST_Union(geometry), '%s' FROM %s GROUP BY '%s'\"" %(format_vector, tmp_file, vector_input, column, filename, column)
+    #command = "ogr2ogr -f \"%s\" -overwrite %s %s -dialect SQLITE -sql \"SELECT ST_UnaryUnion(geometry), '%s' FROM %s GROUP BY '%s'\"" %(format_vector, tmp_file, vector_input, column, filename, column)
     if debug >=2:
         print(command)
     exit_code = os.system(command)
@@ -2238,7 +2668,7 @@ def dissolveVector(vector_input, vector_output, column, format_vector='ESRI Shap
         print(cyan + "dissolveVector() : " + bold + red + "!!! Une erreur c'est produite au cours de la fusion des polygones du vecteur : " + vector_input + endC, file=sys.stderr)
 
     # ETAPE 2 : Decoupage d'un multipolygones en plusieurs polygones simples
-    multigeometries2geometries(tmp_file, vector_output, [column], 'MULTIPOLYGON', format_vector)
+    multigeometries2geometries(tmp_file, vector_output, [column], type_geom_str, format_vector)
 
     # Nettoyage du fichier temporaire
     if os.path.exists(tmp_file):
@@ -2251,14 +2681,15 @@ def dissolveVector(vector_input, vector_output, column, format_vector='ESRI Shap
 #########################################################################
 # FONCTION filterGeometryVector()                                       #
 #########################################################################
-#   Role : Filter un shape en ne gardant que les élément de type POLYGON (élimination POINT, MULTIPOINT... si ces élémnt existent)
-#   Paramètres :
-#       vector_input : le fichier shape à découper
-#       vector_output:  le fichiers shape résultat découpé
-#       overwrite: si le fichier existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur
-
 def filterGeometryVector(vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Filter un shape en ne gardant que les élément de type POLYGON (élimination POINT, MULTIPOINT... si ces élémnt existent)
+    #   Paramètres en entrée :
+    #       vector_input : le fichier shape à découper
+    #       vector_output:  le fichiers shape résultat découpé
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "filterGeometryVector() : " + endC + "Filtrage du fichier shape (Polygones) : " + str(vector_input))
@@ -2294,20 +2725,92 @@ def filterGeometryVector(vector_input, vector_output, overwrite=True, format_vec
     return
 
 #########################################################################
+# FONCTION joinsSpatialVectors()                                        #
+#########################################################################
+def joinsSpatialVectors(vector1_input, vector2_input, vector_output, fields_vector1_list=[], fields_vector2_list=[], overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Filter un shape en ne gardant que les élément de type POLYGON (élimination POINT, MULTIPOINT... si ces élémnt existent)
+    #   Paramètres en entrée :
+    #       vector1_input : le fichier vecteur principale pour la jointure
+    #       vector2_input : le fichier vecteur secondaire pour la jointure
+    #       vector_output :  le fichier vecteur résultat joins
+    #       fields_vector1_list : liste des champs du vecteur1 à garder
+    #       fields_vector2_list : liste des champs du vecteur2 à garder
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    """
+
+    if debug >=2:
+        print(cyan + "joinsSpatialVectors() : " + endC + "Jointure spatial de vecteur")
+    # Extension du fichier vrt
+    EXT_VRT = ".vrt"
+
+    # test si ecrasement du fichier destination
+    overwrite_str = ""
+    if overwrite:
+        overwrite_str = "-overwrite"
+
+    # Creation d'un fichier VRT
+    repertory_output = os.path.dirname(vector_output)
+    file_merge_vrt = repertory_output + os.sep + os.path.splitext(os.path.basename(vector_output))[0] + EXT_VRT
+    writeTextFile(file_merge_vrt, '<?xml version="1.0" ?>\n')
+    appendTextFileCR(file_merge_vrt, '<OGRVRTDataSource>')
+    appendTextFileCR(file_merge_vrt, '    <OGRVRTLayer name="vector1">')
+    appendTextFileCR(file_merge_vrt, '        <SrcDataSource>%s</SrcDataSource>' %(vector1_input))
+    appendTextFileCR(file_merge_vrt, '        <SrcLayer>%s</SrcLayer>' %(os.path.splitext(os.path.basename(vector1_input))[0]))
+    appendTextFileCR(file_merge_vrt, '    </OGRVRTLayer>')
+    appendTextFileCR(file_merge_vrt, '    <OGRVRTLayer name="vector2">')
+    appendTextFileCR(file_merge_vrt, '        <SrcDataSource>%s</SrcDataSource>' %(vector2_input))
+    appendTextFileCR(file_merge_vrt, '        <SrcLayer>%s</SrcLayer>' %(os.path.splitext(os.path.basename(vector2_input))[0]))
+    appendTextFileCR(file_merge_vrt, '    </OGRVRTLayer>')
+    appendTextFileCR(file_merge_vrt, '</OGRVRTDataSource>')
+
+    # Preparation des champs à concerver
+    fields_keep_list = []
+    fields_keep_str = ""
+    for field in fields_vector1_list :
+        txt = "a." + field
+        fields_keep_list.append(txt)
+    for field in fields_vector2_list :
+        txt = "b." + field
+        fields_keep_list.append(txt)
+
+    for field in fields_keep_list :
+        fields_keep_str += field + ", "
+    if fields_keep_str != "" :
+        fields_keep_str = fields_keep_str[:-2]
+
+    # Jointure spatial des fichiers vecteurs
+    command = "ogr2ogr -f \"%s\" %s %s %s -dialect SQLITE -sql 'SELECT distinct a.geometry, a.geometry, %s from vector1 a, vector2 b WHERE ST_INTERSECTS(a.geometry, b.geometry)'" %(format_vector, overwrite_str, vector_output, file_merge_vrt, fields_keep_str)
+    if debug >=1:
+        print(command)
+    exit_code = os.system(command)
+    if exit_code != 0:
+        print(cyan + "joinsSpatialVectors() : " + bold + red + "!!! Une erreur c'est produite au cours de la jointure spatiale : " + vector_output + endC, file=sys.stderr)
+
+    # Supression du fichier vrt
+    removeFile(file_merge_vrt)
+
+    if debug >=2:
+        print(cyan + "joinsSpatialVectors() : " + endC + "Les fichiers vecteurs " + vector1_input  + " et " + vector2_input + " ont ete joins resultat : " + vector_output)
+    return
+
+#########################################################################
 # FONCTION filterSelectDataVector()                                     #
 #########################################################################
-#   Role : Lit un fichier vecteur et filtre les données à récupérer (colonnes et attributs) selon une expresion donnée pour crée un nouveau vecteur
-#   Paramètres :
-#       vector_input : nom du fichier vecteur en entrée
-#       vector_output : nom du fichier vecteur en sortie
-#       column : colonne à conserver en sortie
-#       expression : exemple "ID = 11000" ou "Type ='AUTOROUTE'"
-#       overwrite: si le fichier existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur
-#   Paramétres de retour :
-#       Return True si l'operataion c'est bien passé, False sinon
-
 def filterSelectDataVector (vector_input, vector_output, column, expression, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Lit un fichier vecteur et filtre les données à récupérer (colonnes et attributs) selon une expresion donnée pour crée un nouveau vecteur
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur en entrée
+    #       vector_output : nom du fichier vecteur en sortie
+    #       column : colonne à conserver en sortie
+    #       expression : exemple "ID = 11000" ou "Type ='AUTOROUTE'"
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    #   Paramétres de retour :
+    #       Return True si l'operataion c'est bien passé, False sinon
+    """
 
     if debug >=2:
         print(cyan + "filterSelectDataVector() : " + endC + "Filtrage des donnees du fichier " + str(vector_input))
@@ -2325,7 +2828,7 @@ def filterSelectDataVector (vector_input, vector_output, column, expression, ove
 
     # Fonction de filtrage de la blibli OGR
     command = "ogr2ogr -f '%s' %s %s -select %s -where \"%s\" %s" % (format_vector, overwrite_str, vector_output, column, expression, vector_input)
-    if debug >=2:
+    if debug >=1:
         print(command)
     exit_code = os.system(command)
     if exit_code != 0:
@@ -2339,13 +2842,14 @@ def filterSelectDataVector (vector_input, vector_output, column, expression, ove
 #########################################################################
 # FONCTION intersectDeletePolygons()                                    #
 #########################################################################
-#   Role : Supprimer les polygones qui s'intersectent entre les deux fichiers vecteurs (suppression dans les 2 fichiers)
-#   Parametres :
-#       vector_input1 : fichier d'entrée et de sortie 1
-#       vector_input2 : fichier d'entrée et de sortie 2
-#       format_vector : format du fichier vecteur
-
 def intersectDeletePolygons(vector_input1, vector_input2, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Supprimer les polygones qui s'intersectent entre les deux fichiers vecteurs (suppression dans les 2 fichiers)
+    #   Paramètres en entrée :
+    #       vector_input1 : fichier d'entrée et de sortie 1
+    #       vector_input2 : fichier d'entrée et de sortie 2
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "intersectDeletePolygons() : " + endC + "Supression des polygones qui s'intersectent des fichiers, vector_input1 =  " + str(vector_input1) + " vector_input2 = " + str(vector_input2))
@@ -2358,23 +2862,29 @@ def intersectDeletePolygons(vector_input1, vector_input2, format_vector='ESRI Sh
     if data_source_input1 is None:
         print(cyan + "intersectDeletePolygons() : " + bold + red + "intersectDeletePolygons() : Could not open file " + str(vector_input1), file=sys.stderr)
         sys.exit(1)
-    layer1 = data_source_input1.GetLayer()
-    feature1 = layer1.GetNextFeature()
 
     # Ouverture en mode écriture du fichier 2(vector_input2, 1)
     data_source_input2 = driver.Open(vector_input2, 1)
     if data_source_input2 is None:
         print(cyan + "intersectDeletePolygons() : " + bold + red + "intersectDeletePolygons() : Could not open file " + str(vector_input2), file=sys.stderr)
         sys.exit(1)
-    layer2 = data_source_input2.GetLayer()
+
+    # Liste des geometry
+    geometry1_list = []
+    geometry2_list = []
 
     # Parcours des éléments du fichier 1
+    layer1 = data_source_input1.GetLayer()
+    layer2 = data_source_input2.GetLayer()
+    layer1.ResetReading()
+    feature1 = layer1.GetFeature(0)
+
     while feature1:
 
         layer2.ResetReading()
+        feature2 = layer2.GetFeature(0)
         # Récupération de la géométrie de l'élément du fichier 1
         geometry1 = feature1.GetGeometryRef()
-        feature2 = layer2.GetNextFeature()
 
         # Parcours des éléments du fichier 2
         while feature2:
@@ -2383,25 +2893,85 @@ def intersectDeletePolygons(vector_input1, vector_input2, format_vector='ESRI Sh
 
             # Si les géométries des éléments des fichiers 1 et 2 se croisent (=1)
             if geometry1.Intersects(geometry2) == 1: #Variante possible avec Overlaps
-                # Suprresion de l'élément du fichier 1 grace à son numéro de FID
-                featureID1 = feature1.GetFID()
-                try:
-                    layer1.DeleteFeature(featureID1)
-                except :
-                    print(cyan + "intersectDeletePolygons() : " + bold + yellow + "Le polygonne est deja detruit " + endC)
-                # Suprresion de l'élément du fichier 2 grace à son numéro de FID
-                featureID2 = feature2.GetFID()
-                try:
-                    layer2.DeleteFeature(featureID2)
-                except :
-                    print(cyan + "intersectDeletePolygons() : " + bold + yellow + "Le polygonne est deja detruit " + endC)
+                geometry1_list.append(feature1.GetFID())
+                geometry2_list.append(feature2.GetFID())
+
             feature2.Destroy()
             feature2 = layer2.GetNextFeature()
 
         feature1.Destroy()
         feature1 = layer1.GetNextFeature()
 
+    """
+    # Parcours des éléments du fichier 2
+    layer1 = data_source_input1.GetLayer()
+    layer2 = data_source_input2.GetLayer()
+    layer2.ResetReading()
+    feature2 = layer2.GetFeature(0)
 
+    while feature2:
+
+        layer1.ResetReading()
+        feature1 = layer1.GetFeature(0)
+        # Récupération de la géométrie de l'élément du fichier 2
+        geometry2 = feature2.GetGeometryRef()
+
+        # Parcours des éléments du fichier 2
+        while feature1:
+            # Récupération de la géométrie de l'élément du fichier 1
+            geometry1 = feature1.GetGeometryRef()
+
+            # Si les géométries des éléments des fichiers 1 et 2 se croisent (=1)
+            if geometry2.Intersects(geometry1) == 1: #Variante possible avec Overlaps
+                geometry2_list.append(feature2.GetFID())
+
+            feature1.Destroy()
+            feature1 = layer1.GetNextFeature()
+
+        feature2.Destroy()
+        feature2 = layer2.GetNextFeature()
+    """
+
+    ## Nettoyage des geometries
+
+    # Parcours des éléments du fichier 1
+    layer1 = data_source_input1.GetLayer()
+    layer1.ResetReading()
+    feature1 = layer1.GetFeature(0)
+
+    while feature1:
+        # Récupération de la géométrie de l'élément du fichier 1
+        featureID1 = feature1.GetFID()
+        if featureID1 in geometry1_list :
+            # Suprresion de l'élément du fichier 1 grace à son numéro de FID
+            try:
+                layer1.DeleteFeature(featureID1)
+            except :
+                print(cyan + "intersectDeletePolygons() : " + bold + yellow + "Le polygonne est deja detruit " + endC)
+
+        feature1.Destroy()
+        feature1 = layer1.GetNextFeature()
+
+    # Parcours des éléments du fichier 2
+    layer2 = data_source_input2.GetLayer()
+    layer2.ResetReading()
+    feature2 = layer2.GetFeature(0)
+
+    while feature2:
+        # Récupération de la géométrie de l'élément du fichier 2
+        featureID2 = feature2.GetFID()
+        if featureID2 in geometry2_list :
+            # Suprresion de l'élément du fichier 2 grace à son numéro de FID
+            try:
+                layer2.DeleteFeature(featureID2)
+            except :
+                print(cyan + "intersectDeletePolygons() : " + bold + yellow + "Le polygonne est deja detruit " + endC)
+
+        feature2.Destroy()
+        feature2 = layer2.GetNextFeature()
+
+    layer1.SyncToDisk()
+    layer2.SyncToDisk()
     data_source_input1.Destroy()
     data_source_input2.Destroy()
 
@@ -2412,16 +2982,17 @@ def intersectDeletePolygons(vector_input1, vector_input2, format_vector='ESRI Sh
 #########################################################################
 # FONCTION withinPolygons()                                             #
 #########################################################################
-#   Role : Filtre un fichier vecteur de polygones par rapport à un fichier vecteur de points ou de lignes
-#          ne sont garder uniquement les polygones contenant des points ou des lignes
-#   Paramètres :
-#       vector_contain : fichier vecteur contenant les points ou lignes
-#       vector_input : le fichier vecteur de polygones à filtrer
-#       vector_output :  le fichiers vecteur résultat filtré
-#       overwrite: si le fichier existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur (par défaut)
-
 def withinPolygons(vector_contain, vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Filtre un fichier vecteur de polygones par rapport à un fichier vecteur de points ou de lignes
+    #          ne sont garder uniquement les polygones contenant des points ou des lignes
+    #   Paramètres en entrée :
+    #       vector_contain : fichier vecteur contenant les points ou lignes
+    #       vector_input : le fichier vecteur de polygones à filtrer
+    #       vector_output :  le fichiers vecteur résultat filtré
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur (par défaut)
+    """
 
     if debug >=2:
         print(cyan + "withinPolygons() : " + endC + "Filtrage par le fichier vecteur contenant : " + str(vector_contain))
@@ -2534,14 +3105,15 @@ def withinPolygons(vector_contain, vector_input, vector_output, overwrite=True, 
 #########################################################################
 # FONCTION deleteClassVector()                                          #
 #########################################################################
-#   Role : Cette fonction permet de supprimer des classes de polygonnes selon une valeur
-#   Parametres :
-#       supp_class_list : liste des valeurs de classes à supprimer
-#       vector_input : fichier vecteur a modifier
-#       field : le champs contenant le label de classe
-#       format_vector : format du fichier vecteur
-
 def deleteClassVector(supp_class_list, vector_input, field, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Cette fonction permet de supprimer des classes de polygonnes selon une valeur
+    #   Paramètres en entrée :
+    #       supp_class_list : liste des valeurs de classes à supprimer
+    #       vector_input : fichier vecteur a modifier
+    #       field : le champs contenant le label de classe
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "deleteClassVector() : " + endC + "Suression de classes du vecteur " + vector_input)
@@ -2633,15 +3205,16 @@ def deleteClassVector(supp_class_list, vector_input, field, format_vector='ESRI 
 #########################################################################
 # FONCTION reallocateClassVector()                                      #
 #########################################################################
-#   Role : Cette fonction permet de réaffecter des valeurs de classes de polygonnes par d'autre valeurs
-#   Parametres :
-#       reaff_class_list : liste des valeurs de classes à réaffecter
-#       macro_reaff_class_list : liste des valeurs de classes de réaffectation
-#       vector_input : fichier vecteur a modifier
-#       field : le champs contenant le label de classe
-#       format_vector : format du fichier vecteur
-
 def reallocateClassVector(reaff_class_list, macro_reaff_class_list, vector_input, field, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Cette fonction permet de réaffecter des valeurs de classes de polygonnes par d'autre valeurs
+    #   Paramètres en entrée :
+    #       reaff_class_list : liste des valeurs de classes à réaffecter
+    #       macro_reaff_class_list : liste des valeurs de classes de réaffectation
+    #       vector_input : fichier vecteur a modifier
+    #       field : le champs contenant le label de classe
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "reallocateClassVector() : " + endC + "Reafectation des classes de polygones du vecteur " + vector_input)
@@ -2689,20 +3262,21 @@ def reallocateClassVector(reaff_class_list, macro_reaff_class_list, vector_input
 #########################################################################
 # FONCTION cleanLabelPolygons()                                         #
 #########################################################################
-#   Role : Fonction qui modifie le label de polygones pour une certaine valeur en fonction du label du polygone le plus proche
-#   Paramètres :
-#       vector_input : nom du fichier vecteur d'entrée
-#       vector_output : nom du fichier vecteur de sortie
-#       col : nom du champs (colonne) à regarder
-#       wrongval_list : listes des valeurs du label à enlever
-#       tol : tolerance pour l'optimisation en mètre
-#       format_vector : format d'entrée et de sortie des fichiers vecteurs. Optionnel, par default : 'ESRI Shapefile'
-#       extension_vector : valeur de l'extention du fichier vecteur en fonction du format, par defaut : '.shp'
-#   En sortie :
-#       retour True si ok
-#  Exemple d'utilisation: cleanLabelPolygons("vectorInput.shape","vectorOutput.shape",65536,'ESRI Shapefile')
-
 def cleanLabelPolygons(vector_input, vector_output, col='label', wrongval_list=[0,65535], tol = 1.0, format_vector='ESRI Shapefile', extension_vector='.shp'):
+    """
+    #   Rôle : Fonction qui modifie le label de polygones pour une certaine valeur en fonction du label du polygone le plus proche
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée
+    #       vector_output : nom du fichier vecteur de sortie
+    #       col : nom du champs (colonne) à regarder
+    #       wrongval_list : listes des valeurs du label à enlever
+    #       tol : tolerance pour l'optimisation en mètre
+    #       format_vector : format d'entrée et de sortie des fichiers vecteurs. Optionnel, par default : 'ESRI Shapefile'
+    #       extension_vector : valeur de l'extention du fichier vecteur en fonction du format, par defaut : '.shp'
+    #   En sortie :
+    #       retour True si ok
+    #  Exemple d'utilisation: cleanLabelPolygons("vectorInput.shape","vectorOutput.shape",65536,'ESRI Shapefile')
+    """
 
     if debug >=2:
         print(cyan + "cleanLabelPolygons() : " + endC + "Modification des polygones de label %s par attribution du label le plus proche du fichier %s" %(str(wrongval_list), str(vector_input)))
@@ -2819,14 +3393,15 @@ def cleanLabelPolygons(vector_input, vector_output, col='label', wrongval_list=[
 #########################################################################
 # FONCTION relabelVectorFromMajorityPixelsRaster()                      #
 #########################################################################
-#   Role : Cette fonction permet de relabeliser un fichier vecteur en fonction de la valeur majoritaire des pixels du fichier raster inclus dans les polygonnes
-#   Parametres :
-#       vector_input : nom du fichier vecteur d'entrée et de sortie
-#       image_raster_input : nom du fichier raster d'entrée
-#       name_column : nom de la colonne à modifier
-#       format_vector : format du fichier vecteur
-
 def relabelVectorFromMajorityPixelsRaster(vector_input, image_raster_input, name_column, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Cette fonction permet de relabeliser un fichier vecteur en fonction de la valeur majoritaire des pixels du fichier raster inclus dans les polygonnes
+    #   Paramètres en entrée :
+    #       vector_input : nom du fichier vecteur d'entrée et de sortie
+    #       image_raster_input : nom du fichier raster d'entrée
+    #       name_column : nom de la colonne à modifier
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "relabelVectorFromMajorityPixelsRaster() : " + endC + "Relabelisation du vecteur par valeur majoritaire " + vector_input)
@@ -2834,12 +3409,12 @@ def relabelVectorFromMajorityPixelsRaster(vector_input, image_raster_input, name
     # Recuperation du driver pour le format shape
     driver = ogr.GetDriverByName(format_vector)
     # Ouverture du fichier shape en lecture-écriture
-    data_source = driver.Open(vector_input, 1) # 1 means writeable
-    if data_source is None:
+    data_source_input = driver.Open(vector_input, 1) # 1 means writeable
+    if data_source_input is None:
         print(cyan + "relabelVectorFromMajorityPixelsRaster() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
         sys.exit(1) # exit with an error code
 
-    layer_input = data_source.GetLayer(0)
+    layer_input = data_source_input.GetLayer(0)
     layer_definition = layer_input.GetLayerDefn()
     if layer_definition.GetFieldIndex(name_column) == -1 :
         stat_classif_field_defn = ogr.FieldDefn(name_column, ogr.OFTString)
@@ -2868,7 +3443,7 @@ def relabelVectorFromMajorityPixelsRaster(vector_input, image_raster_input, name
     # Fermeture du fichier shape
     layer_input.SyncToDisk()
     layer_input = None
-    data_source.Destroy()
+    data_source_input.Destroy()
 
     if debug >=2:
         print(cyan + "relabelVectorFromMajorityPixelsRaster() : " + endC + "Labellisation of %s complete from %s!" %(vector_input, image_raster_input) + endC)
@@ -2877,19 +3452,20 @@ def relabelVectorFromMajorityPixelsRaster(vector_input, image_raster_input, name
 #########################################################################
 # FONCTION mergeVectors()                                               #
 #########################################################################
-#   ATTENTION !!! OBSOLETE utiliser de preference la fonction fusionVectors() beaucoup plus rapide...
-#   Role : Concatener des shapefiles dont les noms sont présents dans une liste
-#   Paramètres :
-#       vectors_input_list : noms des shapefiles à fusionner
-#       vector_output : nom du fichier shape final
-#       format_vector : format du fichier vecteur
-#       projection : code EPSG du fichier en sortie
-#   Ressources :
-#       http://gistncase.blogspot.fr/2012/05/python-shapefile-merger-utility.html
-#       http://eomwandho.wordpress.com/2012/02/25/bash-script-to-merge-shapefiles-in-a-directory-into-one-shapefile/
-#       http://darrencope.com/2010/05/07/merge-a-directory-of-shapefiles-using-ogr/
-
 def mergeVectors(vectors_input_list, vector_output, format_vector='ESRI Shapefile', projection=None):
+    """
+    #   ATTENTION !!! OBSOLETE utiliser de preference la fonction fusionVectors() beaucoup plus rapide...
+    #   Rôle : Concatener des shapefiles dont les noms sont présents dans une liste
+    #   Paramètres en entrée :
+    #       vectors_input_list : noms des shapefiles à fusionner
+    #       vector_output : nom du fichier shape final
+    #       format_vector : format du fichier vecteur
+    #       projection : code EPSG du fichier en sortie
+    #   Ressources :
+    #       http://gistncase.blogspot.fr/2012/05/python-shapefile-merger-utility.html
+    #       http://eomwandho.wordpress.com/2012/02/25/bash-script-to-merge-shapefiles-in-a-directory-into-one-shapefile/
+    #       http://darrencope.com/2010/05/07/merge-a-directory-of-shapefiles-using-ogr/
+    """
 
     if debug >=2:
         print(cyan + "mergeVectors() : " + endC + "Fusion des fichiers vecteurs...")
@@ -2902,7 +3478,7 @@ def mergeVectors(vectors_input_list, vector_output, format_vector='ESRI Shapefil
         layer_input = data_source_input.GetLayer(0)
         geometryType = layer_input.GetGeomType()
         if projection == None :
-            projection = getProjection(vectors_input_list[0], format_vector)
+            projection, _ = getProjection(vectors_input_list[0], format_vector)
             if projection == None :
                 projection = 2154
 
@@ -2958,11 +3534,13 @@ def mergeVectors(vectors_input_list, vector_output, format_vector='ESRI Shapefil
 #########################################################################
 # FONCTION fusionVectors()                                              #
 #########################################################################
-#   Role : Fusionner une liste de vecteurs en un nouveau fichier vecteur
-#   Paramètres :
+"""
+#   Rôle : Fusionner une liste de vecteurs en un nouveau fichier vecteur
+#   Paramètres en entrée :
 #       vectors_input_list : noms des shapefiles à fusionner
 #       vector_output : nom du fichier vecteur en sortie
 #       format_vector : format du fichier vecteur
+"""
 
 def fusionVectors(vectors_input_list, vector_output, format_vector='ESRI Shapefile'):
 
@@ -2996,16 +3574,17 @@ def fusionVectors(vectors_input_list, vector_output, format_vector='ESRI Shapefi
 ########################################################################
 # FONCTION convertePolygon2Polylines()                                 #
 ########################################################################
-# Rôle : cette fonction permet de convertirun fichier shape conenant des polygones, en un fichier shape contenant des polylignes.
-# Paramètres en entrée :
-#       vector_input : vecteur d'entrée, qui contient des les polygones
-#       vector_output : vecteur de sortie, qui sera converti en geometrie MultiLignes
-#       overwrite: si le fichiers existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur
-# Paramètres en sortie :
-#       N.A.
-
 def convertePolygon2Polylines(vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    # Rôle : cette fonction permet de convertirun fichier shape conenant des polygones, en un fichier shape contenant des polylignes.
+    # Paramètres en entrée :
+    #       vector_input : vecteur d'entrée, qui contient des les polygones
+    #       vector_output : vecteur de sortie, qui sera converti en geometrie MultiLignes
+    #       overwrite: si le fichiers existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    # Paramètres en sortie :
+    #       N.A.
+    """
 
     if debug >=2:
         print(cyan + "convertePolygon2Polylines() : " + endC + "conversion du fichier polygones " + vector_input + " en fichier vecteur polylignes : " + vector_output + endC)
@@ -3031,19 +3610,21 @@ def convertePolygon2Polylines(vector_input, vector_output, overwrite=True, forma
 #########################################################################
 # FONCTION mergeAndNewLabel()                                           #
 #########################################################################
-#   Role : Fusionner des shapefiles dont les noms sont présents dans une liste
-#   Paramètres :
-#       vectors_input_list : noms des shapefiles à fusionner
-#       vector_output : nom du fichier shape final
-#       col : nom de la colonne à créer
-#       label : attribut à placer dans le champ ID
-#       projection : code EPSG du fichier en sortie
-#       format_vector : format du fichier vecteur
-#   Ressources :
-#       ftp://ftp.remotesensing.org/pub/gdal/presentations/OpenSource_Weds_Andre_CUGOS.pdf
-#       http://www.forumsig.org/showthread.php/28688-Python-OGR-Ajouter-des-donn%C3%A9es-et-g%C3%A9om%C3%A9trie-a-un-shapefile-vide
-
 def mergeAndNewLabel(vectors_input_list, vector_output, col, label, projection=2154, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Fusionner des shapefiles dont les noms sont présents dans une liste
+    #   Paramètres en entrée :
+    #       vectors_input_list : noms des shapefiles à fusionner
+    #       vector_output : nom du fichier shape final
+    #       col : nom de la colonne à créer
+    #       label : attribut à placer dans le champ ID
+    #       projection : code EPSG du fichier en sortie
+    #       format_vector : format du fichier vecteur
+    #   Ressources :
+    #       ftp://ftp.remotesensing.org/pub/gdal/presentations/OpenSource_Weds_Andre_CUGOS.pdf
+    #       http://www.forumsig.org/showthread.php/28688-Python-OGR-Ajouter-des-donn%C3%A9es-et-g%C3%A9om%C3%A9trie-a-un-shapefile-vide
+    """
+
     if debug >=2:
        print(cyan + "mergeAndNewLabel() : " + endC + "Creation du nouveau vecteur merge et du nouveau champ ...")
 
@@ -3099,23 +3680,94 @@ def mergeAndNewLabel(vectors_input_list, vector_output, col, label, projection=2
     return
 
 #########################################################################
+# FONCTION createEmpriseVector()                                        #
+#########################################################################
+def createEmpriseVector(empr_xmin, empr_ymin, empr_xmax, empr_ymax, vector_output, projection=2154, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Creation d'un vecteur d'emprise a partir de xmin, xmax, ymin, ymax
+    #
+    # Paramètres en entrée :
+    #
+    #    empr_xmin    : L'emprise coordonnée empr_xmin de l'image, rectifié
+    #    empr_xmax    : L'emprise coordonnée empr_xmax de l'image, rectifié
+    #    empr_ymin    : L'emprise coordonnée empr_ymin de l'image, rectifié
+    #    empr_ymax    : L'emprise coordonnée empr_ymax de l'image, rectifié
+    #    vector_output : Le fichier vecteur d'emprise crée
+    #       projection : code EPSG du fichier en sortie
+    #    format_vector : Format du fichier vecteur, par default : 'ESRI Shapefile'
+    #
+    # Paramètres en sortie :
+    #    local_emprise_shape : Le fichier vecteur d'emprise de sortie
+    #
+    """
+
+    if debug >=2:
+        print(cyan + "createEmpriseVector() : " + endC + "Creation d'une couche emprise de type polygone a partir  de coordonnées d'emprise")
+
+    # Initialisation du fichier de sortie
+    driver = ogr.GetDriverByName(format_vector)
+
+    # Création du dossier de sortie s'il n'existe pas
+    if not os.path.exists(os.path.split(vector_output)[0]):
+        os.makedirs(os.path.split(vector_output)[0])
+
+    # Suppression du fichier s'il existe déjà
+    if os.path.exists(vector_output):
+        driver.DeleteDataSource(vector_output)
+
+    # Initialisations pour la création du fichier de sortie
+    data_source_output = driver.CreateDataSource(vector_output)
+    name_layer_output = os.path.splitext(os.path.basename(vector_output))[0]
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(projection)
+    layer_output = data_source_output.CreateLayer(name_layer_output, srs, ogr.wkbPolygon)
+
+    # Création des champs du fichier de sortie
+
+    # Création du polygone d'emprise
+    coord = str(empr_xmin)+ " " + str(empr_ymin) + ","  + str(empr_xmin)+ " " + str(empr_ymax) + ","  + str(empr_xmax)+ " " + str(empr_ymax) + ","  + str(empr_xmax) + " " + str(empr_ymin) + ","  + str(empr_xmin)+ " " + str(empr_ymin)
+    wkt = "POLYGON((" + coord + "))"
+
+    if debug >= 5 :
+        print(cyan + "createEmpriseVector() : " + endC + "Polygone créé : " + wkt)
+    geom_output = ogr.CreateGeometryFromWkt(wkt)
+
+    # Ajout de la géométrie dans la couche de sortie
+    feature_output = ogr.Feature(layer_output.GetLayerDefn())
+    feature_output.SetGeometry(geom_output)
+
+    # Creation de la feature de sortie
+    layer_output.CreateFeature(feature_output)
+
+    # Fermeture du fichier shape
+    layer_output.SyncToDisk()
+    data_source_output.Destroy()
+
+    if debug >=2:
+        print(cyan + "createEmpriseVector() : " + endC + "Le fichier vecteur resultat : " +  str(vector_output))
+
+    return
+
+#########################################################################
 # FONCTION createEmpriseShapeReduced()                                  #
 #########################################################################
-#   Role : Creation d'un vecteur d'emprise pour une image en fonction d'une emprise globale
-#
-# Paramètres en entrée :
-#    vector_input : Fichier vecteur d'emprise globale
-#    empr_xmin    : L'emprise coordonnée empr_xmin de l'image, rectifié
-#    empr_xmax    : L'emprise coordonnée empr_xmax de l'image, rectifié
-#    empr_ymin    : L'emprise coordonnée empr_ymin de l'image, rectifié
-#    empr_ymax    : L'emprise coordonnée empr_ymax de l'image, rectifié
-#    local_emprise_shape : Le fichier vecteur d'emprise crée
-#    format_vector : Format du fichier vecteur, par default : 'ESRI Shapefile'
-#
-# Paramètres en sortie :
-#    local_emprise_shape : Le fictier vecteur d'emprise de sortie
-#
 def createEmpriseShapeReduced(vector_input, empr_xmin, empr_ymin, empr_xmax, empr_ymax, local_emprise_shape, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Creation d'un vecteur d'emprise pour une image en fonction d'une emprise globale
+    #
+    # Paramètres en entrée :
+    #    vector_input : Fichier vecteur d'emprise globale
+    #    empr_xmin    : L'emprise coordonnée empr_xmin de l'image, rectifié
+    #    empr_xmax    : L'emprise coordonnée empr_xmax de l'image, rectifié
+    #    empr_ymin    : L'emprise coordonnée empr_ymin de l'image, rectifié
+    #    empr_ymax    : L'emprise coordonnée empr_ymax de l'image, rectifié
+    #    local_emprise_shape : Le fichier vecteur d'emprise crée
+    #    format_vector : Format du fichier vecteur, par default : 'ESRI Shapefile'
+    #
+    # Paramètres en sortie :
+    #    local_emprise_shape : Le fichier vecteur d'emprise de sortie
+    #
+    """
 
     # Supression du fichier shape local si il existe déjà
     removeVectorFile(local_emprise_shape)
@@ -3136,15 +3788,17 @@ def createEmpriseShapeReduced(vector_input, empr_xmin, empr_ymin, empr_xmax, emp
 #########################################################################
 # FONCTION cutoutVectors()                                              #
 #########################################################################
-#   Role : Découper des fichiers shape par l'emprise d'un autre fichier shape
-#   Paramètres :
-#       vector_cut : fichier shape de découpage
-#       vectors_input_list : liste des fichiers shape à découper
-#       vectors_output_list:  liste des fichiers shape découpés
-#       overwrite: si les fichiers existent ils sont ecrasés (cas par défaut)
-#       format_vector : format du fichier vecteur
-
 def cutoutVectors(vector_cut, vectors_input_list, vectors_output_list, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Découper des fichiers shape par l'emprise d'un autre fichier shape
+    #   Paramètres en entrée :
+    #       vector_cut : fichier shape de découpage
+    #       vectors_input_list : liste des fichiers shape à découper
+    #       vectors_output_list:  liste des fichiers shape découpés
+    #       overwrite: si les fichiers existent ils sont ecrasés (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    """
+
     if debug >=2:
         print(cyan + "cutoutVectors() : " + endC + "Decoupage des echantillons par le masque : " + str(vector_cut))
 
@@ -3171,15 +3825,16 @@ def cutoutVectors(vector_cut, vectors_input_list, vectors_output_list, overwrite
 #########################################################################
 # FONCTION cutVectorAll()                                               #
 #########################################################################
-#   Role : Découper un fichier shape par l'emprise d'un autre fichier shape de tout type de geometrie
-#   Paramètres :
-#       vector_cut : fichier shape de découpage
-#       vector_input : le fichier shape à découper
-#       vector_output:  le fichiers shape résultat découpé
-#       overwrite: si le fichier existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur
-
 def cutVectorAll(vector_cut, vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Découper un fichier shape par l'emprise d'un autre fichier shape de tout type de geometrie
+    #   Paramètres en entrée :
+    #       vector_cut : fichier shape de découpage
+    #       vector_input : le fichier shape à découper
+    #       vector_output:  le fichiers shape résultat découpé
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "cutVectorAll() : " + endC + "Decoupage par le fichier shape : " + str(vector_cut))
@@ -3207,17 +3862,18 @@ def cutVectorAll(vector_cut, vector_input, vector_output, overwrite=True, format
 #########################################################################
 # FONCTION cutVector()                                                  #
 #########################################################################
-#   Role : Découper un fichier shape par l'emprise d'un autre fichier shape (polygone)
-#   Paramètres :
-#       vector_cut : fichier shape de découpage
-#       vector_input : le fichier shape à découper
-#       vector_output:  le fichier shape résultat découpé
-#       overwrite: si le fichier existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur
-#   Paramétre de retour :
-#       Return True si au moins un polygon du fichier vector_output à intersecter avec le fichier vector_cut, False sinon
-
 def cutVector(vector_cut, vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Découper un fichier shape par l'emprise d'un autre fichier shape (polygone)
+    #   Paramètres en entrée :
+    #       vector_cut : fichier shape de découpage
+    #       vector_input : le fichier shape à découper
+    #       vector_output:  le fichier shape résultat découpé
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    #   Paramétre de retour :
+    #       Return True si au moins un polygon du fichier vector_output à intersecter avec le fichier vector_cut, False sinon
+    """
 
     if debug >=2:
         print(cyan + "cutVector() : " + endC + "Decoupage par le fichier shape : " + str(vector_cut))
@@ -3285,11 +3941,12 @@ def cutVector(vector_cut, vector_input, vector_output, overwrite=True, format_ve
                 # Récupération de la géométrie de l'élément du fichier de découpage
                 geometry_cut = feature_cut.GetGeometryRef()
 
-                # Si les géométries des éléments des fichiers d'entrée et de découpage se croisent (=1)
-                if geometry_input.Intersects(geometry_cut) == 1: # Variante possible avec Overlaps
-                    # Il y a au moins un polygone qui intersects
-                    ret = True
-                    if geometry_input != 0 and geometry_input is not None and geometry_cut != 0 and geometry_cut is not None :
+                # Si les géométries sont valides
+                if geometry_input != 0 and geometry_input is not None and geometry_cut != 0 and geometry_cut is not None :
+                    # Si les géométries des éléments des fichiers d'entrée et de découpage se croisent (=1)
+                    if geometry_input.Intersects(geometry_cut) == 1: # Variante possible avec Overlaps
+                        # Il y a au moins un polygone qui intersects
+                        ret = True
 
                         try: # si geometry invalide!!!
 
@@ -3299,7 +3956,8 @@ def cutVector(vector_cut, vector_input, vector_output, overwrite=True, format_ve
                             if geom_output.GetGeometryName() == 'POLYGON' or geom_output.GetGeometryName() == 'MULTIPOLYGON' or geom_output.GetGeometryName() == 'GEOMETRYCOLLECTION':
 
                                 # Si c'est une GEOMETRYCOLLECTION
-                                print(geom_output.GetGeometryName())
+                                if debug>=2:
+                                    print(geom_output.GetGeometryName())
                                 if geom_output.GetGeometryName() == 'GEOMETRYCOLLECTION' :
                                     # Nettoyage de la géometrie
                                     geom_wkt = geom_output.ExportToWkt()
@@ -3346,17 +4004,18 @@ def cutVector(vector_cut, vector_input, vector_output, overwrite=True, format_ve
     return ret
 
 #########################################################################
-# FONCTION intersectVector()                                                  #
+# FONCTION intersectVector()                                            #
 #########################################################################
-#   Role : Récupère les entités d'un fichier shape dans l'emprise d'un autre fichier shape (polygone)
-#   Paramètres :
-#       vector_emprise : fichier shape d'emprise
-#       vector_input : le fichier shape à intersecter
-#       vector_output:  le fichiers shape résultat intersecté
-#       overwrite: si le fichier existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur
-
 def intersectVector(vector_emprise, vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Récupère les entités d'un fichier shape dans l'emprise d'un autre fichier shape (polygone)
+    #   Paramètres en entrée :
+    #       vector_emprise : fichier shape d'emprise
+    #       vector_input : le fichier shape à intersecter
+    #       vector_output:  le fichiers shape résultat intersecté
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "intersectVector() : " + endC + "Intersect par le fichier shape : " + str(vector_emprise))
@@ -3367,13 +4026,6 @@ def intersectVector(vector_emprise, vector_input, vector_output, overwrite=True,
     else:
         # Récupération du driver
         driver = ogr.GetDriverByName(format_vector)
-
-        # Tenter de supprimer le fichier
-        try:
-            driver.DeleteDataSource(vector_output)
-        except Exception:
-            # Ignore l'exception levee si le fichier n'existe pas (et ne peut donc pas être supprime)
-            pass
 
         # Ouverture en mode lecture du fichier d'entrée (vector_input, 0)
         data_source_input = driver.Open(vector_input, 0)
@@ -3397,7 +4049,11 @@ def intersectVector(vector_emprise, vector_input, vector_output, overwrite=True,
 
         # Verification si le le fichier de sortie existe déjà (si oui le supprimer)
         if os.path.exists(vector_output):
-            driver.DeleteDataSource(vector_output)
+            try:
+                driver.DeleteDataSource(vector_output)
+            except Exception:
+                # Ignore l'exception levee si le fichier n'existe pas (et ne peut donc pas être supprime)
+                pass
 
         # Création du fichier "DataSource"
         data_source_output = driver.CreateDataSource(vector_output)
@@ -3483,15 +4139,16 @@ def intersectVector(vector_emprise, vector_input, vector_output, overwrite=True,
 #########################################################################
 # FONCTION differenceVector()                                           #
 #########################################################################
-#   Role : Différencier un fichier shape par un autre fichier shape (polygone)
-#   Paramètres :
-#       vector_diff : fichier shape de différenciation
-#       vector_input : le fichier shape à découper
-#       vector_output:  le fichiers shape résultat découpé
-#       overwrite: si le fichier existe il est ecrasé (cas par défaut)
-#       format_vector : format du fichier vecteur
-
 def differenceVector(vector_diff, vector_input, vector_output, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Différencier un fichier shape par un autre fichier shape (polygone)
+    #   Paramètres en entrée :
+    #       vector_diff : fichier shape de différenciation
+    #       vector_input : le fichier shape à découper
+    #       vector_output:  le fichiers shape résultat découpé
+    #       overwrite: si le fichier existe il est ecrasé (cas par défaut)
+    #       format_vector : format du fichier vecteur
+    """
 
     if debug >=2:
         print(cyan + "differenceVector() : " + endC + "Difference par le fichier shape : " + str(vector_diff))
@@ -3614,19 +4271,20 @@ def differenceVector(vector_diff, vector_input, vector_output, overwrite=True, f
 #########################################################################
 # FONCTION splitVector()                                                #
 #########################################################################
-#   Role : créer un nouveau vecteur pour chaque objet du vecteur en entrée
-#   Paramètres en entrée :
-#       vector_input : vecteur à diviser
-#       dir_output : repertoire dans lequel mettre les nouveaux vecteurs
-#       field : optionnel : nom du champ dont on veut recupérer la valeur dans chaque nom de vecteur créé
-#               si non renseigné, il prendra comme valeur les premiers entiers (0, 1, 2, ...)
-#       projection : code EPSG du fichier en sortie
-#       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#       extension_vector : valeur de l'extention du fichier vecteur en fonction du format, par defaut : '.shp'
-#   En sortie :
-#       retour la liste des chemins des fichiers shapes créés
-
 def splitVector(vector_input, dir_output, field="", projection=2154, format_vector='ESRI Shapefile', extension_vector='.shp') :
+    """
+    #   Rôle : créer un nouveau vecteur pour chaque objet du vecteur en entrée
+    #   Paramètres en entrée :
+    #       vector_input : vecteur à diviser
+    #       dir_output : repertoire dans lequel mettre les nouveaux vecteurs
+    #       field : optionnel : nom du champ dont on veut recupérer la valeur dans chaque nom de vecteur créé
+    #               si non renseigné, il prendra comme valeur les premiers entiers (0, 1, 2, ...)
+    #       projection : code EPSG du fichier en sortie
+    #       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #       extension_vector : valeur de l'extention du fichier vecteur en fonction du format, par defaut : '.shp'
+    #   En sortie :
+    #       retour la liste des chemins des fichiers shapes créés
+    """
 
     if debug >=2:
         print(cyan + "splitVector() : " + endC + "Vecteur à diviser pour chaque polygones: " + vector_input)
@@ -3668,6 +4326,7 @@ def splitVector(vector_input, dir_output, field="", projection=2154, format_vect
         geometry = feature_input.GetGeometryRef()
 
         # Création d'un shape par entité de input_layer
+        entite = entite.replace("-", "_").replace("â", "a").replace("î", "i").replace("ê", "e").replace("è", "e").replace("é", "e").replace("ç", "c")
         new_shape = dir_output + os.sep + os.path.splitext(os.path.basename(vector_input))[0] + "_" + str(entite) + extension_vector
         path_list.append(str(new_shape))
 
@@ -3697,28 +4356,68 @@ def splitVector(vector_input, dir_output, field="", projection=2154, format_vect
     return path_list
 
 #########################################################################
+# FONCTION saveVectorFromDataframe()                                    #
+#########################################################################
+def saveVectorFromDataframe(vector_output, dataframe, epsg, prj, overwrite=True, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction permet de créer un fichier vecteur à partir de donnée de coordonnée de polygonnes contenu dans un DataFrame
+    #   paramètres :
+    #       vector_output : fichier vecteur de sortie contenant les polygones
+    #       dataframe : Dataframe contenant les données des coordonnée des polygones à creer
+    #       overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #       epsg : l'epsg de la projection du vecteur sortie
+    #       projection : les donnes de projection du vecteur de sortie
+    #       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #   Paramétres de retour :
+    #       N.A
+    #
+    """
+
+    if debug >=2:
+        print(cyan + "saveVectorFromDataframe() : " + endC + "Création d'un vecteur à partir de donnée de DataFrame : " + vector_output)
+
+    # Set same epsg as source data
+    name_vector =  os.path.splitext(os.path.basename(vector_output))[0]
+    path = os.path.dirname(vector_output)
+    if debug >=3:
+        print("vector_output = "  + vector_output)
+        print("name_vector = "  + name_vector)
+        print("epsg = " + str(epsg))
+        print("prj = " + str(prj))
+    check = os.path.isfile(vector_output)
+    if check and not overwrite :
+        print(cyan + "saveVectorFromDataframe() : " + bold + yellow + "Output file " + str(vector_output) + " already exists." + '\n' + endC)
+    else :
+        dataframe.crs = 'epsg:' + str(epsg)
+        dataframe.to_file(vector_output, driver=format_vector, layer=name_vector, crs=str(prj))
+        if debug >=2:
+            print(cyan + "saveVectorFromDataframe() : " + endC + "Le fichier vecteur " + vector_output  + " a ete creer")
+    return
+
+#########################################################################
 # FONCTION createGridVector()                                           #
 #########################################################################
-#   Rôle : Cette fonction permet de créer une couche vecteur de type grille contenant des polygones dont les coordonnées sont spécifiées dans une liste
-#   paramètres :
-#       vector_input : fichier vecteur définissant la zone de travail
-#       vector_output : fichier vecteur de sortie contenant la grille de polygones
-#       dim_grid_x : taille en x de la grille en mêtre (colonnes)
-#       dim_grid_y : taille en y de la grille en mêtre (lignes)
-#       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInterger, ogr.OFTReal..., par defaut a None
-#       overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
-#       projection : Optionnel : par défaut 2154
-#       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#   Paramétres de retour :
-#       le nombre de polygone créer
-#
-
 def createGridVector(vector_input, vector_output, dim_grid_x, dim_grid_y, attribute_dico=None, overwrite=True, projection=2154, format_vector='ESRI Shapefile') :
+    """
+    #   Rôle : Cette fonction permet de créer une couche vecteur de type grille contenant des polygones dont les coordonnées sont spécifiées dans une liste
+    #   paramètres :
+    #       vector_input : fichier vecteur définissant la zone de travail
+    #       vector_output : fichier vecteur de sortie contenant la grille de polygones
+    #       dim_grid_x : taille en x de la grille en mêtre (colonnes)
+    #       dim_grid_y : taille en y de la grille en mêtre (lignes)
+    #       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInterger, ogr.OFTReal..., par defaut a None
+    #       overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #       projection : Optionnel : par défaut 2154
+    #       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #   Paramétres de retour :
+    #       le nombre de ligne et de colonne
+    #
+    """
 
     if debug >=2:
         print(cyan + "createGridVector() : " + endC + "Création d'un vecteur grille à partir de coordonnées sur la zone du vecteur : " + vector_input)
 
-    poly_index = 0
+    poly_number = 0
 
     # Certains champs sont obligatoires
     if attribute_dico is None:
@@ -3748,7 +4447,7 @@ def createGridVector(vector_input, vector_output, dim_grid_x, dim_grid_y, attrib
         print(cyan + "createGridVector() : " + bold + green + "Create grid vector..." + '\n' + endC)
 
         # Récupération de l'emprise du vecteur de la d'étude
-        xmin, xmax, ymin, ymax = getEmpriseFile(vector_input, format_vector)
+        xmin, xmax, ymin, ymax = getEmpriseVector(vector_input, format_vector)
 
         if debug >= 4:
             print(bold + "Emprise du fichier '%s' :" % (vector_input) + endC)
@@ -3800,34 +4499,34 @@ def createGridVector(vector_input, vector_output, dim_grid_x, dim_grid_y, attrib
                 x4 = x                                         #    ---------------
                 y4 = y_next                                    # x4,y4          x3,y3
                 coord_list = [x1,y1,x2,y2,x3,y3,x4,y4]
-                poly_index = i + (j * (len(x_list)-1)) + 1
-                poly_attr_dico = {"id":poly_index,"x_origin":x1,"y_origin":y1,"id_ligne":id_ligne,"id_colonne":id_colonne,"sub_name":sub_name}
+                poly_number = i + (j * (len(x_list)-1)) + 1
+                poly_attr_dico = {"id":poly_number,"x_origin":x1,"y_origin":y1,"id_ligne":id_ligne,"id_colonne":id_colonne,"sub_name":sub_name}
                 poly_info_list = [coord_list, poly_attr_dico]
-                polygons_attr_coord_dico[str(poly_index)] = poly_info_list
+                polygons_attr_coord_dico[str(poly_number)] = poly_info_list
 
         # Create file
         createPolygonsFromCoordList(attribute_dico, polygons_attr_coord_dico, vector_output, projection=projection, format_vector=format_vector)
 
         if debug >=2:
             print(cyan + "createGridVector() : " + endC + "Le fichier grille vecteur " + vector_output  + " a ete creer sur la zone : " + vector_input)
-    if poly_index > 0 :
-        poly_index += 1
-    return poly_index
+
+    return id_ligne, id_colonne
 
 #########################################################################
 # FONCTION createPolygonsFromCoordList()                                #
 #########################################################################
-#   Rôle : Cette fonction permet de créer une couche vecteur contenant des polygones dont les coordonnées sont spécifiées dans une liste
-#   paramètres :
-#       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInteger, ogr.OFTReal...
-#       polygons_attr_coord_dico : dictionaire contenent pour chaque polygonne la liste des valeurs des attributs et la de liste des coordonnées x, y
-#                                  de la forme {1:[[x1,y1,x2,y2,x3,y3,...],{attr11:val11,attr12:val12,...}],2:[[x1,y1,x2,y2,x3,y3,...],{attr21:val21,attr22:val22,...}],...} (pas nécessaire de "fermer" les polygones)
-#       vector_output : fichier vecteur de sortie contenant les polygones
-#       projection : Optionnel : par défaut 2154
-#       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#
-
 def createPolygonsFromCoordList(attribute_dico, polygons_attr_coord_dico, vector_output, projection=2154, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction permet de créer une couche vecteur contenant des polygones dont les coordonnées sont spécifiées dans une liste
+    #   paramètres :
+    #       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInteger, ogr.OFTReal...
+    #       polygons_attr_coord_dico : dictionaire contenent pour chaque polygonne la liste des valeurs des attributs et la de liste des coordonnées x, y
+    #                                  de la forme {1:[[x1,y1,x2,y2,x3,y3,...],{attr11:val11,attr12:val12,...}],2:[[x1,y1,x2,y2,x3,y3,...],{attr21:val21,attr22:val22,...}],...} (pas nécessaire de "fermer" les polygones)
+    #       vector_output : fichier vecteur de sortie contenant les polygones
+    #       projection : Optionnel : par défaut 2154
+    #       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #
+    """
 
     if debug >=2:
         print(cyan + "createPolygonsFromCoordList() : " + endC + "Creation d'une couche de polygones à partir d'une liste de coordonnées")
@@ -3904,17 +4603,18 @@ def createPolygonsFromCoordList(attribute_dico, polygons_attr_coord_dico, vector
 #########################################################################
 # FONCTION createPolygonsFromGeometryList()                             #
 #########################################################################
-#   Rôle : Cette fonction permet de créer une couche vecteur contenant des polygones dont les géometries sont spécifiées dans une liste
-#   paramètres :
-#       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInteger, ogr.OFTReal...
-#       polygons_attr_geom_dico : dictionaire contenent pour chaque polygonne la liste des valeurs des attributs et la de liste des géometries
-#                                 de la forme {1:[geom1,{attr11:val11,attr12:val12,...}],2:[geom2,{attr21:val21,attr22:val22,...}],...}
-#       vector_output : fichier vecteur de sortie contenant les polygones
-#       projection : Optionnel : par défaut 2154
-#       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#
-
 def createPolygonsFromGeometryList(attribute_dico, polygons_attr_geom_dico, vector_output, projection=2154, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction permet de créer une couche vecteur contenant des polygones dont les géometries sont spécifiées dans une liste
+    #   paramètres :
+    #       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInteger, ogr.OFTReal...
+    #       polygons_attr_geom_dico : dictionaire contenent pour chaque polygonne la liste des valeurs des attributs et la de liste des géometries
+    #                                 de la forme {1:[geom1,{attr11:val11,attr12:val12,...}],2:[geom2,{attr21:val21,attr22:val22,...}],...}
+    #       vector_output : fichier vecteur de sortie contenant les polygones
+    #       projection : Optionnel : par défaut 2154
+    #       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #
+    """
 
     if debug >=2:
         print(cyan + "createPolygonsFromGeometryList() : " + endC + "Creation d'une couche de polygones à partir d'une liste de géometrie")
@@ -3978,16 +4678,17 @@ def createPolygonsFromGeometryList(attribute_dico, polygons_attr_geom_dico, vect
 #########################################################################
 # FONCTION createPointsFromCoordList()                                  #
 #########################################################################
-#   Rôle : Cette fonction permet de créer une couche vecteur contenant des points dont les coordonnées et leurs valeurs sont spécifiées dans une liste de type dico
-#   paramètres :
-#       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInteger, ogr.OFTReal...
-#       points_attr_coord_dico : dictionaire contenent pour chaque point la liste des coordonnées x, y et la liste des valeurs de chaque attributs de la forme {1:[x1,y1],{"ValClass:val1},2:[[x2,y2],{"ValClass:val2}],3:[[x3,y3],{"ValClass:val3}]...}
-#       vector_output : fichier vecteur de sortie contenant les points
-#       projection : Optionnel : par défaut 2154
-#       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#
-
 def createPointsFromCoordList(attribute_dico, points_attr_coord_dico, vector_output, projection=2154, format_vector='ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction permet de créer une couche vecteur contenant des points dont les coordonnées et leurs valeurs sont spécifiées dans une liste de type dico
+    #   paramètres :
+    #       attribute_dico : dictionaire contenent la liste des noms des attributs et leur type sous forme ogr.OFTString, ogr.OFTInteger, ogr.OFTReal...
+    #       points_attr_coord_dico : dictionaire contenent pour chaque point la liste des coordonnées x, y et la liste des valeurs de chaque attributs de la forme {1:[x1,y1],{"ValClass:val1},2:[[x2,y2],{"ValClass:val2}],3:[[x3,y3],{"ValClass:val3}]...}
+    #       vector_output : fichier vecteur de sortie contenant les points
+    #       projection : Optionnel : par défaut 2154
+    #       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #
+    """
 
     if debug >=2:
         print(cyan + "createPointsFromCoordList() : " + endC + "Creation d'une couche de points à partir d'une liste de coordonnées")

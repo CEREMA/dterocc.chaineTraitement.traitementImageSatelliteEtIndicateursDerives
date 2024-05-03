@@ -2,7 +2,7 @@
 #!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,10 +10,13 @@
 # FONCTIONS POUR L'APPEL À DES FONCTIONS SNAP                               #
 #                                                                           #
 #############################################################################
-
+"""
+  Ce module contient un certain nombre de fonctions pour la connexion et l'execution des applications de l'outil SNAP de l'ESA.
+"""
 import sys,os
 import numpy as np
 import gc
+
 import snappy
 from snappy import ProductIO
 from snappy import Product
@@ -54,9 +57,10 @@ debug = 3
 #########################################################################
 # FONCTION testJavaMemory()                                             #
 #########################################################################
-#   Rôle : outil de test verification de la taille max de ma memoire aloué par la jvm
-
 def testJavaMemory():
+    """
+    #   Rôle : outil de test verification de la taille max de ma memoire aloué par la jvm
+    """
 
     Runtime = jpy.get_type('java.lang.Runtime')
     max_memory = Runtime.getRuntime().maxMemory()
@@ -71,15 +75,16 @@ def testJavaMemory():
 #########################################################################
 # FONCTION readDim()                                                    #
 #########################################################################
-#   Rôle : import de données rasters (au format .dim) pour extraire des informations
-#   Paramètres In:
-#       input_dim : entête de fichiers raster à importer
-#   Paramètres Out:
-#     Return :
-#       product : descipteur sur les données charger dans SNAP
-#       band_names_list : liste des noms des bandes de la donnée chargée
-
 def readDim(input_dim):
+    """
+    #   Rôle : import de données rasters (au format .dim) pour extraire des informations
+    #   Paramètres In:
+    #       input_dim : entête de fichiers raster à importer
+    #   Paramètres Out:
+    #     Return :
+    #       product : descipteur sur les données charger dans SNAP
+    #       band_names_list : liste des noms des bandes de la donnée chargée
+    """
 
     if debug >= 2:
         print(cyan + "readDim() : " + bold + green + "Import Dim to SNAP : " + endC + str(input_dim ))
@@ -90,14 +95,16 @@ def readDim(input_dim):
 #########################################################################
 # FONCTION writeDataSnap()                                              #
 #########################################################################
-#   Rôle : Ecrit dans un fichier des données rasters au format snap en format raster (.dim ou .tif ou ...)
-#   Paramètres In:
-#       product : données SNAP
-#       output_file : fichier de sortie
-#       type_file : type du fichier de sortie par default : 'BEAM-DIMAP'  or 'GeoTIFF'
-#     Return :
-
 def writeDataSnap(product, output_file, type_file='BEAM-DIMAP'):
+    """
+    #   Rôle : Ecrit dans un fichier des données rasters au format snap en format raster (.dim ou .tif ou ...)
+    #   Paramètres In:
+    #       product : données SNAP
+    #       output_file : fichier de sortie
+    #       type_file : type du fichier de sortie par default : 'BEAM-DIMAP'  or 'GeoTIFF'
+    #     Return :
+    """
+
     ProductIO.writeProduct(product, output_file, type_file)
     if debug >= 2:
         print(cyan + "writeDataSnap() : " + bold + green + "Writing Done : " + endC + str(output_file))
@@ -106,16 +113,17 @@ def writeDataSnap(product, output_file, type_file='BEAM-DIMAP'):
 #########################################################################
 # FONCTION convertDim2Tiff()                                            #
 #########################################################################
-#   Rôle : convertit des données rasters au format snap (.dim) en format raster (.tif)
-#   Paramètres In:
-#       input_dim : entête de fichiers raster à importer
-#       output_file : fichier de sortie
-#       name_file : nom du fichier à extraire du .dim
-#       format_file : format du fichier de sortie par default : 'float32'
-#       type_file : type du fichier de sortie par default : 'GeoTIFF'
-#     Return :
-
 def convertDim2Tiff(input_dim, output_file, name_file, format_file='float32', type_file='GeoTIFF'):
+    """
+    #   Rôle : convertit des données rasters au format snap (.dim) en format raster (.tif)
+    #   Paramètres In:
+    #       input_dim : entête de fichiers raster à importer
+    #       output_file : fichier de sortie
+    #       name_file : nom du fichier à extraire du .dim
+    #       format_file : format du fichier de sortie par default : 'float32'
+    #       type_file : type du fichier de sortie par default : 'GeoTIFF'
+    #     Return :
+    """
 
     if debug >= 2:
         print(cyan + "convertDim2Tiff() : " + bold + green + "Import Dim to SNAP : " + endC + input_dim )
@@ -157,14 +165,15 @@ def convertDim2Tiff(input_dim, output_file, name_file, format_file='float32', ty
 #########################################################################
 # FONCTION topsarSplit()                                                #
 #########################################################################
-#   Rôle : Split file de données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       product : donnée snap d'entrée
-#   Paramètres Out:
-#     Return :
-#       result : resultat de l'operation au format data snap
-
 def topsarSplit(product):
+    """
+    #   Rôle : Split file de données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       product : donnée snap d'entrée
+    #   Paramètres Out:
+    #     Return :
+    #       result : resultat de l'operation au format data snap
+    """
 
     if debug >= 2:
         print(cyan + "applyingOrbitFile() : " + bold + green + "Run to SNAP... " + endC )
@@ -200,14 +209,15 @@ def topsarSplit(product):
 #########################################################################
 # FONCTION applyingOrbitFile()                                          #
 #########################################################################
-#   Rôle : Orbit file de données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       product : donnée snap d'entrée
-#   Paramètres Out:
-#     Return :
-#       result : resultat de l'operation au format data snap
-
 def applyingOrbitFile(product):
+    """
+    #   Rôle : Orbit file de données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       product : donnée snap d'entrée
+    #   Paramètres Out:
+    #     Return :
+    #       result : resultat de l'operation au format data snap
+    """
 
     if debug >= 2:
         print(cyan + "applyingOrbitFile() : " + bold + green + "Run to SNAP... " + endC )
@@ -249,14 +259,15 @@ def applyingOrbitFile(product):
 #########################################################################
 # FONCTION backGeocoding()                                              #
 #########################################################################
-#   Rôle : back geocoding de données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       product : donnée snap d'entrée
-#   Paramètres Out:
-#     Return :
-#       result : resultat de l'operation au format data snap
-
 def backGeocoding(product):
+    """
+    #   Rôle : back geocoding de données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       product : donnée snap d'entrée
+    #   Paramètres Out:
+    #     Return :
+    #       result : resultat de l'operation au format data snap
+    """
 
     if debug >= 2:
         print(cyan + "backGeocoding() : " + bold + green + "Run to SNAP... " + endC )
@@ -290,14 +301,15 @@ def backGeocoding(product):
 #########################################################################
 # FONCTION interferogram()                                              #
 #########################################################################
-#   Rôle : interferogram de données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       product : donnée snap d'entrée
-#   Paramètres Out:
-#     Return :
-#       result : resultat de l'operation au format data snap
-
 def interferogram(product):
+    """
+    #   Rôle : interferogram de données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       product : donnée snap d'entrée
+    #   Paramètres Out:
+    #     Return :
+    #       result : resultat de l'operation au format data snap
+    """
 
     if debug >= 2:
         print(cyan + "interferogram() : " + bold + green + "Run to SNAP... " + endC )
@@ -335,14 +347,15 @@ def interferogram(product):
 #########################################################################
 # FONCTION topsarDeburst()                                              #
 #########################################################################
-#   Rôle : topsar deburst de données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       product : donnée snap d'entrée
-#   Paramètres Out:
-#     Return :
-#       result : resultat de l'operation au format data snap
-
 def topsarDeburst(product):
+    """
+    #   Rôle : topsar deburst de données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       product : donnée snap d'entrée
+    #   Paramètres Out:
+    #     Return :
+    #       result : resultat de l'operation au format data snap
+    """
 
     if debug >= 2:
         print(cyan + "topsarDeburst() : " + bold + green + "Run to SNAP... " + endC )
@@ -372,13 +385,15 @@ def topsarDeburst(product):
 #########################################################################
 # FONCTION topophaseRemoval()                                           #
 #########################################################################
-#   Rôle : topophase removal de données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       product : donnée snap d'entrée
-#   Paramètres Out:
-#     Return :
-#       result : resultat de l'operation au format data snap
 def topophaseRemoval(product):
+    """
+    #   Rôle : topophase removal de données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       product : donnée snap d'entrée
+    #   Paramètres Out:
+    #     Return :
+    #       result : resultat de l'operation au format data snap
+    """
 
     if debug >= 2:
         print(cyan + "topophaseRemoval() : " + bold + green + "Run to SNAP... " + endC )
@@ -412,14 +427,15 @@ def topophaseRemoval(product):
 #########################################################################
 # FONCTION goldsteinPhasefiltering()                                    #
 #########################################################################
-#   Rôle : goldstein phasefiltering de données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       product : donnée snap d'entrée
-#   Paramètres Out:
-#     Return :
-#       result : resultat de l'operation au format data snap
-
 def goldsteinPhasefiltering(product):
+    """
+    #   Rôle : goldstein phasefiltering de données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       product : donnée snap d'entrée
+    #   Paramètres Out:
+    #     Return :
+    #       result : resultat de l'operation au format data snap
+    """
 
     if debug >= 2:
         print(cyan + "goldsteinPhasefiltering() : " + bold + green + "Run to SNAP... " + endC )
@@ -453,14 +469,15 @@ def goldsteinPhasefiltering(product):
 #########################################################################
 # FONCTION bandMathSnap()                                               #
 #########################################################################
-#   Rôle : BandMath pour données rasters (au format .dim) dans l'outil SNAP
-#   Paramètres In:
-#       input_dim : entête de fichiers raster à importer
-#       output_file : fichier de sortie
-#       expression_list : liste d'expression BandMath à exécuter : exemple ['(radiance_10 - radiance_7) / (radiance_10 + radiance_7)', '(radiance_9 - radiance_6) / (radiance_9 + radiance_6)']
-#       format_file : format du fichier de sortie par default : 'float32'
-
 def bandMathSnap(input_dim, output_file, expression_list, format_file='float32'):
+    """
+    #   Rôle : BandMath pour données rasters (au format .dim) dans l'outil SNAP
+    #   Paramètres In:
+    #       input_dim : entête de fichiers raster à importer
+    #       output_file : fichier de sortie
+    #       expression_list : liste d'expression BandMath à exécuter : exemple ['(radiance_10 - radiance_7) / (radiance_10 + radiance_7)', '(radiance_9 - radiance_6) / (radiance_9 + radiance_6)']
+    #       format_file : format du fichier de sortie par default : 'float32'
+    """
 
     if debug >= 2:
         print(cyan + "bandmathSnap() : " + bold + green + "Import Dim to SNAP : " + endC + input_dim )
@@ -511,13 +528,14 @@ def bandMathSnap(input_dim, output_file, expression_list, format_file='float32')
 #########################################################################
 # FONCTION plot2Snap()                                                  #
 #########################################################################
-#   Rôle : tacer de données rasters (au format .dim) avec mathplotlib
-#   Paramètres In:
-#       input_dim : entête de fichiers raster à importer
-#       name_file : nom du fichier à extraire du .dim
-#       output_png_plot : fichier png de sorte
-
 def plot2Snap(input_dim, name_file, output_png_plot):
+    """
+    #   Rôle : tacer de données rasters (au format .dim) avec mathplotlib
+    #   Paramètres In:
+    #       input_dim : entête de fichiers raster à importer
+    #       name_file : nom du fichier à extraire du .dim
+    #       output_png_plot : fichier png de sorte
+    """
 
     if debug >= 2:
         print(cyan + "plot2Snap() : " + bold + green + "Plot band : " + endC + name_file + bold + green + " from Dim file..." + endC)

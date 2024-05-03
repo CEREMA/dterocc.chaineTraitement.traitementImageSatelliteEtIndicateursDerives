@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,8 +10,9 @@
 # FONCTIONS EN LIEN AVEC L'AFFICHAGE D'INFORMATIONS                         #
 #                                                                           #
 #############################################################################
-
-# DEFINITION DES FONCTIONS D'AFFICHAGE UTILES A LA CHAINE
+"""
+Ce module défini des fonctions d'affichage utiles a la chaine.
+"""
 
 import os, platform, subprocess, threading
 from Lib_operator import terminateThread, killTreeProcess
@@ -104,29 +105,29 @@ elif 'Linux' in osSystem :
 ########################################################################
 # FONCTION matplotlibGraphic()                                         #
 ########################################################################
-#   Rôle : Cette fonction de génération d'un graphique à partir de données csv.
-#   Paramètres :
-#       input_csv_file : fichier CSV en entrée
-#       output_png_file : fichier PNG en sortie
-#       graph_title : titre du graphique
-#       x_col : nom du champ X
-#       x_title : titre de l'axe X
-#       y_col_list : nom du (des) champ(s) Y
-#       y_title : titre de l'axe Y
-#       y_legend_list : légende(s) du (des) champ(s) Y
-#       encoding_file : encodage du fichier CSV en entrée. Par défaut : 'latin-1'
-#       separator_file : séparateur de champ du fichier CSV en entrée. Par défaut : ';'
-#       label_col : nom du champ contenant les étiquettes. Par défaut : ""
-#       y_col_list_bis : nom du (des) champ(s) Y de l'axe secondaire. Par défaut : []
-#       y_title_bis : titre de l'axe Y secondaire. Par défaut : ""
-#       y_legend_list_bis : légende(s) du (des) champ(s) Y de l'axe secondaire. Par défaut : []
-#       axhline : affiche une ligne horizontale sur le graphique. Par défaut : None
-#       axvline : affiche une ligne verticale sur le graphique. Par défaut : None
-#       fontsize : taille de police générale du graphique (fontsize*1.5 pour le titre, fontsize/1.5 pour les étiquettes). Par défaut : 20
-#   Retour : 0 si tout ok
-
 def matplotlibGraphic(input_csv_file, output_png_file, graph_title, x_col, x_title, y_col_list, y_title, y_legend_list, encoding_file='latin-1', separator_file=';', label_col="", y_col_list_bis=[], y_title_bis="", y_legend_list_bis=[], axhline=None, axvline=None, fontsize=20):
-
+    """
+    #   Rôle : Cette fonction de génération d'un graphique à partir de données csv.
+    #   Paramètres :
+    #       input_csv_file : fichier CSV en entrée
+    #       output_png_file : fichier PNG en sortie
+    #       graph_title : titre du graphique
+    #       x_col : nom du champ X
+    #       x_title : titre de l'axe X
+    #       y_col_list : nom du (des) champ(s) Y
+    #       y_title : titre de l'axe Y
+    #       y_legend_list : légende(s) du (des) champ(s) Y
+    #       encoding_file : encodage du fichier CSV en entrée. Par défaut : 'latin-1'
+    #       separator_file : séparateur de champ du fichier CSV en entrée. Par défaut : ';'
+    #       label_col : nom du champ contenant les étiquettes. Par défaut : ""
+    #       y_col_list_bis : nom du (des) champ(s) Y de l'axe secondaire. Par défaut : []
+    #       y_title_bis : titre de l'axe Y secondaire. Par défaut : ""
+    #       y_legend_list_bis : légende(s) du (des) champ(s) Y de l'axe secondaire. Par défaut : []
+    #       axhline : affiche une ligne horizontale sur le graphique. Par défaut : None
+    #       axvline : affiche une ligne verticale sur le graphique. Par défaut : None
+    #       fontsize : taille de police générale du graphique (fontsize*1.5 pour le titre, fontsize/1.5 pour les étiquettes). Par défaut : 20
+    #   Retour : 0 si tout ok
+    """
     if debug >= 3:
         print(cyan + "Variables dans la fonction :" + endC)
         print(cyan + "matplotlibGraphic() : " + endC + "input_csv_file : " + str(input_csv_file))
@@ -339,18 +340,19 @@ def matplotlibGraphic(input_csv_file, output_png_file, graph_title, x_col, x_tit
 ##############################################################
 # FONCTION progressBar()                                     #
 ##############################################################
-#   Rôle : Cette fonction met à jour l'affichage de l'avancement d'une barre de chargement, sur la même ligne
-#   Paramètres :
-#       current_value : valeur courante de la progression
-#       max_value : valeur maximale de la progression
-#       ext : texte affiché avant la barre de progression
-#       line_count : Indique la ligne ou sera affichée la barre de progression
-#          si  =0 : nouvelle ligne
-#          si  =1 : ligne courante
-#          si  >1 : lignes précédentes
-#   Retour : N.A.
-
 def progressBar(current_value,max_value,text = "Progression: ",line_count = 1):
+    """
+    #   Rôle : Cette fonction met à jour l'affichage de l'avancement d'une barre de chargement, sur la même ligne
+    #   Paramètres :
+    #       current_value : valeur courante de la progression
+    #       max_value : valeur maximale de la progression
+    #       ext : texte affiché avant la barre de progression
+    #       line_count : Indique la ligne ou sera affichée la barre de progression
+    #          si  =0 : nouvelle ligne
+    #          si  =1 : ligne courante
+    #          si  >1 : lignes précédentes
+    #   Retour : N.A.
+    """
 
     # Calcul de la progression sur une echelle de 50 (dans le but d'afficher 50 étoiles dans la barre de progression)
     percentage = int(100*float(current_value)/max_value)
@@ -367,14 +369,16 @@ def progressBar(current_value,max_value,text = "Progression: ",line_count = 1):
 #####################################################################
 # FONCTION plotResults()                                            #
 #####################################################################
-#   Rôle : Cette fonction qui affiche un graphe en barre pour visualiser les résultats des calculs de la qualité de une ou plusieurs classifications (une barre par classification)
-#   Paramètres :
-#       class_list : Liste des classes présentes
-#       global_precision : Liste de la precision globale pour chaque classification différente
-#       precision_list : Liste où chaque élément est une liste du score de précision de chaque classe pour une classification
-#   Retour : Pas de retour boucle infinie sur l'affichage!
-
 def plotResults(class_list,global_precision,precision_list):
+    """
+    #   Rôle : Cette fonction qui affiche un graphe en barre pour visualiser les résultats des calculs de la qualité de une ou plusieurs classifications (une barre par classification)
+    #   Paramètres :
+    #       class_list : Liste des classes présentes
+    #       global_precision : Liste de la precision globale pour chaque classification différente
+    #       precision_list : Liste où chaque élément est une liste du score de précision de chaque classe pour une classification
+    #   Retour : Pas de retour boucle infinie sur l'affichage!
+    """
+
     class_count = len(class_list)
     precision_listScale = []
     xaxis = []
@@ -434,18 +438,20 @@ def plotResults(class_list,global_precision,precision_list):
 #############################################################################################################
 # FONCTION D'AFFICHAGE D'UN GRAPHIQUE DE QUALITE DE CLASSIFICATIONS : QUALITE GLOBALE ET QUALITE PAR CLASSE #
 #############################################################################################################
-#   Rôle : Cette fonction d'affichage d'un graphique de qualite de classifications : qualite globale et qualite par classe.
-#   Paramètres :
-#       class_list : Liste des classes présentes
-#       global_precision : Liste de la precision globale pour chaque classification différente
-#       precision_list : Liste où chaque élément est une liste du score de précision de chaque classe pour une classification
-#   Retour : Pas de retour boucle infinie sur l'affichage!
-#
-#   Exemples :
-#       plotResultsMulti([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],[60,80,95,50,50,50,50,50,50,50,50,50,50,50,50],[[30,20,40,20,20,30,50,10,30,20,30,50,10,30,20]])
-#       plotResultsMulti(["Urbain","Sols nus","Eau","Vegetation ligneuse","Herbaces"],[60,90,80],[[30,60,96,50,65],[95,75,98,93,90],[65,80,95,90,45]])
-
 def plotResultsMulti(class_list,global_precision,precision_list):
+    """
+    #   Rôle : Cette fonction d'affichage d'un graphique de qualite de classifications : qualite globale et qualite par classe.
+    #   Paramètres :
+    #       class_list : Liste des classes présentes
+    #       global_precision : Liste de la precision globale pour chaque classification différente
+    #       precision_list : Liste où chaque élément est une liste du score de précision de chaque classe pour une classification
+    #   Retour : Pas de retour boucle infinie sur l'affichage!
+    #
+    #   Exemples :
+    #       plotResultsMulti([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],[60,80,95,50,50,50,50,50,50,50,50,50,50,50,50],[[30,20,40,20,20,30,50,10,30,20,30,50,10,30,20]])
+    #       plotResultsMulti(["Urbain","Sols nus","Eau","Vegetation ligneuse","Herbaces"],[60,90,80],[[30,60,96,50,65],[95,75,98,93,90],[65,80,95,90,45]])
+    """
+
     class_count = len(class_list)
     precision_listScale = []
     xaxis = []
@@ -510,14 +516,16 @@ def plotResultsMulti(class_list,global_precision,precision_list):
 #########################################################################
 # FONCTION displayImage()                                               #
 #########################################################################
-#   Rôle : Cette fonction permet d'afficher dans une fenetre indepandante une image
-#   Paramètres :
-#       imageFile : le chemin complet du fichier contenant l'image
-#       commentImage : le commantaire de titre de la fenetre
-#       debug : niveau de debug
-#   Retour : N.A.
-
 def displayImage(process, imageFile, commentImage, debug):
+    """
+    #   Rôle : Cette fonction permet d'afficher dans une fenetre indepandante une image
+    #   Paramètres :
+    #       imageFile : le chemin complet du fichier contenant l'image
+    #       commentImage : le commantaire de titre de la fenetre
+    #       debug : niveau de debug
+    #   Retour : N.A.
+    """
+
     process, root = displayImage1(process, imageFile, commentImage, debug)
     #process, root = displayImage2(process, imageFile, commentImage, debug)
 
@@ -526,13 +534,14 @@ def displayImage(process, imageFile, commentImage, debug):
 #########################################################################
 # FONCTION endDisplayImage()                                            #
 #########################################################################
-#   Rôle : Cette fonction permet d'arreter afficher d'une fenetre indepandante une image
-#   Paramètres :
-#       process : le process ou le thread a arreter
-#       root : ihm de la fenetre d'affichage
-#   Retour : N.A.
-
 def endDisplayImage(process, root):
+    """
+    #   Rôle : Cette fonction permet d'arreter afficher d'une fenetre indepandante une image
+    #   Paramètres :
+    #       process : le process ou le thread a arreter
+    #       root : ihm de la fenetre d'affichage
+    #   Retour : N.A.
+    """
 
     if root == None : # si c'est un process => cas displayImage2
         try :
@@ -560,6 +569,17 @@ def endDisplayImage(process, root):
 # FONCTION displayImage1()                                              #
 #########################################################################
 def displayImage1(process, imageFile, commentImage, debug):
+    """
+    #   Rôle : Cette fonction permet d'afficher une image
+    #   Paramètres :
+    #       process : le process ou le thread utilisé (retour)
+    #       imageFile : le chemin complet du fichier contenant l'image
+    #       commentImage : le commantaire de titre de la fenetre
+    #       debug : niveau de debug
+    #
+    #   Retour : N.A.
+    """
+
     global root
 
     if process == None :
@@ -576,6 +596,16 @@ def displayImage1(process, imageFile, commentImage, debug):
 # FONCTION displayImage2()                                              #
 #########################################################################
 def displayImage2(process, imageFile, commentImage, debug):
+    """
+    #   Rôle : Cette fonction permet d'afficher une image
+    #   Paramètres :
+    #       process : le process ou le thread utilisé (retour)
+    #       imageFile : le chemin complet du fichier contenant l'image
+    #       commentImage : le commantaire de titre de la fenetre
+    #       debug : niveau de debug
+    #
+    #   Retour : N.A.
+    """
 
     if process == None :
         command = "eog %s" %(imageFile)
@@ -588,17 +618,19 @@ def displayImage2(process, imageFile, commentImage, debug):
 #########################################################################
 # FONCTION displayImageRoot()                                           #
 #########################################################################
-#   Rôle : Cette fonction permet d'afficher dans une fenetre indepandante une image premier lancement
-#   Paramètres :
-#       imageFile : le chemin complet du fichier contenant l'image
-#       commentImage : le commantaire de titre de la fenetre
-#       debug : niveau de debug
-#   Retour : pas de retour la fonction reste en boucle sur l'affichage!!!
-
 root = None
 mainframe = None
 img_widget = None
 def displayImageRoot(imageFile, commentImage, debug):
+    """
+    #   Rôle : Cette fonction permet d'afficher dans une fenetre indepandante une image premier lancement
+    #   Paramètres :
+    #       imageFile : le chemin complet du fichier contenant l'image
+    #       commentImage : le commantaire de titre de la fenetre
+    #       debug : niveau de debug
+    #   Retour : pas de retour la fonction reste en boucle sur l'affichage!!!
+    """
+
     global root
     global mainframe
     global img_widget
@@ -634,14 +666,16 @@ def displayImageRoot(imageFile, commentImage, debug):
 #########################################################################
 # FONCTION displayImageUpdate()                                         #
 #########################################################################
-#   Rôle : Cette fonction permet de mettre a jour l'affichage d'une image dans la fenetre
-#   Paramètres :
-#       imageFile : le chemin complet du fichier contenant l'image
-#       commentImage : le commantaire de titre de la fenetre
-#       debug : niveau de debug
-#   Retour : N.A.
-
 def displayImageUpdate(imageFile, commentImage, debug):
+    """
+    #   Rôle : Cette fonction permet de mettre a jour l'affichage d'une image dans la fenetre
+    #   Paramètres :
+    #       imageFile : le chemin complet du fichier contenant l'image
+    #       commentImage : le commantaire de titre de la fenetre
+    #       debug : niveau de debug
+    #   Retour : N.A.
+    """
+
     global root
     global mainframe
     global img_widget
@@ -675,13 +709,15 @@ def displayImageUpdate(imageFile, commentImage, debug):
 #########################################################################
 # FONCTION displayIHM()                                                 #
 #########################################################################
-#   Rôle : Cette fonction permet d'appeler les applications version IHM plutôt qu'en ligne de commande
-#   Paramètres :
-#       gui : boolen active ou desactive la version IHM (activé = True)
-#       parser : le parseur argpase
-#   Retour : args (les arguments)
-
 def displayIHM(gui, parser):
+    """
+    #   Rôle : Cette fonction permet d'appeler les applications version IHM plutôt qu'en ligne de commande
+    #   Paramètres :
+    #       gui : boolen active ou desactive la version IHM (activé = True)
+    #       parser : le parseur argpase
+    #   Retour : args (les arguments)
+    """
+
     args = None
     if gui and six.PY2 :
         app = QtGui.QApplication(sys.argv)

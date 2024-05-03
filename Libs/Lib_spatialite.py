@@ -1,8 +1,8 @@
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (Â©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,6 +10,9 @@
 # FONCTIONS EN LIEN AVEC DES REQUETES SQL SPATIALITE                        #
 #                                                                           #
 #############################################################################
+"""
+ Ce module defini des fonctions permettant des requetes SQL vers l'outil SPATIALITE.
+"""
 
 # IMPORTS UTILES
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
@@ -24,7 +27,6 @@ def sqlInsertTable(file_imput_name, table_name_db, data_base_name, epsg=2154, ge
 
     return requete_cmd
 
-
 #########################################################################
 # FONCTION sqlExportShape()                                             #
 #########################################################################
@@ -35,13 +37,12 @@ def sqlExportShape(file_output_name, table_name_db, data_base_name, epsg=2154, g
 
 
 #########################################################################
-# FONCTION sqlExecuteQuery()                                             #
+# FONCTION sqlExecuteQuery()                                            #
 #########################################################################
 def sqlExecuteQuery(data_base_name, query):
     requete_cmd = "spatialite %s %s" %(data_base_name, query)
 
     return requete_cmd
-
 
 #########################################################################
 # FONCTION sqlDeleteOneLine()                                           #
@@ -56,7 +57,6 @@ def sqlDeleteOneLine(table_name, field_name, value, data_base_name):
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlMaxValue()                                                #
 #########################################################################
@@ -68,7 +68,6 @@ def sqlMaxValue(table_input_name, field_name_cond, exp_cond, value_cond, data_ba
     requete_spat = "spatialite %s %s" %(data_base_name, requete)
 
     return requete_spat
-
 
 #########################################################################
 # FONCTION sqlModifyOneLine()                                           #
@@ -84,7 +83,6 @@ def sqlModifyOneLine(table_input_name, field_name_cond, value_cond, field_name_m
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlCreateTable()                                             #
 #########################################################################
@@ -98,7 +96,6 @@ def sqlCreateTable(table_input_name, table_output_name, field_name, value_cond, 
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlComputeNumberOfField()                                    #
 #########################################################################
@@ -111,7 +108,6 @@ def sqlComputeNumberOfField(table_input_name, field_name, value, data_base_name)
     requete_spat = "spatialite %s %s" %(data_base_name, requete)
 
     return requete_spat
-
 
 #########################################################################
 # FONCTION sqlGroupGeometry()                                           #
@@ -129,7 +125,6 @@ def sqlGroupGeometry(table_inprogress_name, table_micro_name, table_output_name,
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlDeleteGeometry()                                          #
 #########################################################################
@@ -143,7 +138,6 @@ def sqlDeleteGeometry(table_inprogress_name, table_group_name, table_diff_name, 
     requete_spat = "spatialite %s %s" %(data_base_name, requete)
 
     return requete_spat
-
 
 #########################################################################
 # FONCTION sqlCreateMaskEnd()                                           #
@@ -162,7 +156,6 @@ def sqlCreateMaskEnd(table_inprogress_name, table_supp_name, table_end_name, dat
     requete_spat = "spatialite %s %s" %(data_base_name, requete)
 
     return requete_spat
-
 
 #########################################################################
 # FONCTION sqlCreateTableGeometryEmpty()                                #
@@ -192,7 +185,6 @@ def sqlFillTableGeometry(table_orig_name, table_dest_name, data_base_name):
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlDeleteTable()                                             #
 #########################################################################
@@ -202,7 +194,6 @@ def sqlDeleteTable(table_name, data_base_name):
     displaySQL(requete_spat)
 
     return requete_spat
-
 
 #########################################################################
 # FONCTION sqlRenameTable()                                             #
@@ -229,7 +220,6 @@ def sqlRemoveMinSurface(table_name, table_new_name, fSurf, data_base_name):
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlJoinTables()                                              #
 #########################################################################
@@ -243,7 +233,6 @@ def sqlJoinTables(table_name1, table_name2, table_new_name, data_base_name):
     displaySQL(requete_spat)
 
     return requete_spat
-
 
 #########################################################################
 # FONCTION sqlSurfaceAverageMacro()                                     #
@@ -260,7 +249,6 @@ def sqlSurfaceAverageMacro(table_name, field_name, macro, data_base_name):
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlSurfaceMicro()                                            #
 #########################################################################
@@ -274,7 +262,6 @@ def sqlSurfaceMicro(table_name, field_name, micro, data_base_name):
 
     return requete_spat
 
-
 #########################################################################
 # FONCTION sqlCreatetableQuery()                                        #
 #########################################################################
@@ -283,7 +270,6 @@ def sqlCreatetableQuery(table_output_name):
     displaySQL(query)
 
     return query
-
 
 #########################################################################
 # FONCTION sqlSimplifyBufferPolyQuery()                                 #
@@ -294,7 +280,6 @@ def sqlSimplifyBufferPolyQuery(query_input, input_table, buffer_size, simplifica
 
     return query_output
 
-
 #########################################################################
 # FONCTION sqlSingleSidedBuffer()                                       #
 #########################################################################
@@ -303,7 +288,6 @@ def sqlSingleSidedBuffer(query_input, input_table, buffer_size, buffer_side, id_
     query_output = query_input + query + " UNION"
 
     return query_output
-
 
 #########################################################################
 # FONCTION displaySQL()                                                 #
@@ -316,20 +300,20 @@ def displaySQL(requete):
 #########################################################################
 # FONCTION CopyTableStrucureTypeAndCreateTable()                        #
 #########################################################################
-
-#   cette fonction :
-#  1 se connecte à une base sqlite de reference
-#    Recupere informations relatives aux colonnes de la table : name, types, notnull, default value
-#
-#  2 ouvre la base destination dans laquelle on souhaite creer une nouvelle table a l'identique
-#    ou
-#    !!!! Reste a faire !!!!
-#    ouvre la base reference dans laquelle on souhaite creer une nouvelle table a l'identique.
-#    NB Dans ce cas il faut proposer un nom pour la nouvelle table
-#
-#  3 crée une table et les colonnes associées et renseigne les name, types, notnull, default value conformement a la table de reference
-
-def CopyTableStrucureTypeAndCreateTable ( example_database , Table, DestDatabase ):
+def CopyTableStrucureTypeAndCreateTable ( example_database, Table, DestDatabase ):
+    """
+    #  Cette fonction :
+    #  1: Se connecte a une base sqlite de reference
+    #     Recupere informations relatives aux colonnes de la table : name, types, notnull, default value
+    #
+    #  2: Ouvre la base destination dans laquelle on souhaite creer une nouvelle table a l'identique
+    #     ou
+    #     Reste a faire
+    #     Ouvre la base reference dans laquelle on souhaite creer une nouvelle table a l'identique.
+    #     NB Dans ce cas il faut proposer un nom pour la nouvelle table
+    #
+    #  3: Cree une table et les colonnes associees et renseigne les name, types, notnull, default value conformement a la table de reference
+    """
 
     # Connection a la base de reference
     # Recuperation des donnees relatives a la table de reference sous forme de CREATE TABLE AS ...
@@ -340,7 +324,7 @@ def CopyTableStrucureTypeAndCreateTable ( example_database , Table, DestDatabase
   # On recupere les informations relatives aux colonnes de la table : name, types, notnull, default value
     for row in c.execute("SELECT * FROM sqlite_master;"):
         if row[1] == Table :
-      # on selectionne la requête de création des colonnes
+      # on selectionne la requÃªte de crÃ©ation des colonnes
             requete_creation_table = row[4]
 
     c.close
@@ -358,7 +342,7 @@ def CopyTableStrucureTypeAndCreateTable ( example_database , Table, DestDatabase
 
     DestDatabaseName = os.path.basename(DestDatabase)
     if check == 0:
-        # si elle n exsite pas on la crée
+        # si elle n exsite pas on la cree
 
         print("creation de la table " , Table, " dans la base " , DestDatabaseName)
         c.execute("%s" % (requete_creation_table))
@@ -370,21 +354,19 @@ def CopyTableStrucureTypeAndCreateTable ( example_database , Table, DestDatabase
 
     return
 
-
 #########################################################################
 # FONCTION listTableCondition()                                         #
 #########################################################################
-
-#    Cette fonction se connecte à une base sqlite, et retourne une liste de lignes d'une table en fonction des champs selectionnes et d'une condition
-#    la fonction retourne une liste comprenant toute les lignes repondant au criteres de condition
-#    Exemples de paramétrage :
-#    base_de_donne = "/base_test/Base.db"
-#    Table = "Temperature"
-#    Champs = 'DeviceRowID , Temperature , Date'
-#    Condition = ' Temperature < 0 '
-
 def listTableCondition ( database , Table , Fields , Condition = "") :
-
+    """
+    #    Cette fonction se connecte a une base sqlite, et retourne une liste de lignes d'une table en fonction des champs selectionnes et d'une condition
+    #    la fonction retourne une liste comprenant toute les lignes repondant au criteres de condition
+    #    Exemples de parametrage :
+    #    base_de_donne = '/base_test/Base.db'
+    #    Table = 'Temperature'
+    #    Champs = 'DeviceRowID , Temperature , Date'
+    #    Condition = 'Temperature < 0'
+    """
 
     conn = sqlite3.connect( database)
     c = conn.cursor()
@@ -399,21 +381,19 @@ def listTableCondition ( database , Table , Fields , Condition = "") :
     conn.close()
     return List
 
-
 #########################################################################
 # FONCTION lister_table()                                               #
 #########################################################################
-
-#    Cette fonction se connecte à une base sqlite, puis liste les lignes d'une table en fonction des champs selectionnes
-#    la fonction retourne une liste comprenant toute les lignes de la table
-#    exemples :
-#    base_de_donne = "/base_test/Base.db"
-#    Table = "Temperature"
-#    Champs = 'DeviceRowID , Temperature , Date'
-#    Champs = '*'
-
 def lister_table ( database , Table , Fields ):
-
+    """
+    #    Cette fonction se connecte a une base sqlite, puis liste les lignes d'une table en fonction des champs selectionnes
+    #    la fonction retourne une liste comprenant toute les lignes de la table
+    #    exemples :
+    #    base_de_donne = '/base_test/Base.db'
+    #    Table = 'Temperature'
+    #    Champs = 'DeviceRowID , Temperature , Date'
+    #    Champs = '*'
+    """
 
     conn = sqlite3.connect(database)
     c = conn.cursor()
@@ -425,18 +405,17 @@ def lister_table ( database , Table , Fields ):
     conn.close()
     return List
 
-
 #########################################################################
 # FONCTION listFieldsTable()                                            #
 #########################################################################
-
-#    Cette fonction se connecte à une base sqlite, puis liste les champs d'une table
-#    la fonction retourne une liste comprenant toute les champs de la table, leur type etc..
-#    exemples :
-#    base_de_donne = "/base_test/Base.db"
-#    Table = "Temperature"
-
 def listFieldsTable( database , Table ):
+    """
+    #    Cette fonction se connecte a une base sqlite, puis liste les champs d'une table
+    #    la fonction retourne une liste comprenant toute les champs de la table, leur type etc...
+    #    exemples :
+    #    base_de_donne = '/base_test/Base.db'
+    #    Table = 'Temperature'
+    """
 
     conn = sqlite3.connect(database)
     c = conn.cursor()
@@ -450,20 +429,19 @@ def listFieldsTable( database , Table ):
     conn.close()
     return List
 
-
 #########################################################################
 # FONCTION PopulateTableFromList()                                      #
 #########################################################################
-
-#    Cette fonction se connecte à une base sqlite, puis injecte les valeur d'une liste
-#    La liste doit être compatible avec la table destination nombre champs et type (en particulier s'il y a une contrainte sur le champ
-
 def PopulateTableFromList ( database , Table , List ):
+    """
+    #    Cette fonction se connecte a une base sqlite, puis injecte les valeur d'une liste.
+    #    La liste doit etre compatible avec la table destination nombre champs et type (en particulier s'il y a une contrainte sur le champ).
+    """
 
     conn = sqlite3.connect(database)
     c = conn.cursor()
 
-    # on prepare la variable nbr de champs à inserer dans la requette
+    # on prepare la variable nbr de champs a inserer dans la requette
     # Exemple : (?,?,?) pour trois champs par exemple
     NbrFields = len(List[0])
     NbrFields2 = "(?"
@@ -483,10 +461,10 @@ def PopulateTableFromList ( database , Table , List ):
 #########################################################################
 # FONCTION EraseDuplicate()                                             #
 #########################################################################
-
-#    Cette fonction se connecte à une base sqlite, puis efface tous les enregistrements en double
-
 def EraseDuplicate ( database , Table ):
+    """
+    #  Cette fonction se connecte a une base sqlite, puis efface tous les enregistrements en double
+    """
 
     TableTemp = ""
 
@@ -503,14 +481,13 @@ def EraseDuplicate ( database , Table ):
     conn.close()
     return
 
-
 #########################################################################
 # FONCTION ExportQueryToCsv()                                           #
 #########################################################################
-'''
-En chantier fonction a valider
-'''
 def ExportQueryToCsv ( database , Table , Fields , File , Condition ):
+    """
+    # Cette fonction est en chantier fonction a valider
+    """
 
     if os.path.isfile(File):
         os.remove(File)
@@ -522,7 +499,7 @@ def ExportQueryToCsv ( database , Table , Fields , File , Condition ):
     # connect to your database
     c = conn.cursor()
 
-    # comptage du nombre de colonnes & et preparation en tete du csv aevc les noms de colones
+    # comptage du nombre de colonnes et preparation en tete du csv aevc les noms de colones
     nbrCol = 0
     Entete = ""
     for row in c.execute("PRAGMA table_info(%s);" % (Table)):
@@ -544,3 +521,4 @@ def ExportQueryToCsv ( database , Table , Fields , File , Condition ):
 
     fichier.close()
     return
+

@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
- 
+
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,9 +10,12 @@
 # FONCTIONS DE BASE GENERAL                                                 #
 #                                                                           #
 #############################################################################
+"""
+ Ce module défini des fonctions générales systèmes réseaux et langage.
+"""
 
 # IMPORTS DIVERS
-import os, subprocess, platform, psutil, threading ,ctypes, re, inspect
+import os, subprocess, platform, psutil, multiprocessing, threading ,ctypes, re, inspect
 import six
 if six.PY2:
     from urllib import urlopen
@@ -20,17 +23,16 @@ if six.PY2:
 #########################################################################
 # FONCTION ping()                                                       #
 #########################################################################
-# ROLE :
-#   La fonction réalise un ping pour verifier si une machine est presente
-#
-# ENTREES :
-#   hostname : adresse ip du calculateur à tester
-#   timeout : temps d'attente de réponse (en secondes)
-#
-# SORTIES :
-#   Return "True" si le calculateur répond "False" sinon
-
 def ping(hostname, timeout=1):
+    """
+    # ROLE :
+    #   La fonction réalise un ping pour verifier si une machine est presente
+    # ENTREES :
+    #   hostname : adresse ip du calculateur à tester
+    #   timeout : temps d'attente de réponse (en secondes)
+    # SORTIES :
+    #   Return "True" si le calculateur répond "False" sinon
+    """
 
     if platform.system() == "Windows":
         command = "ping " + hostname + " -n 1 -w " + str(timeout*1000)
@@ -49,32 +51,32 @@ def ping(hostname, timeout=1):
 #########################################################################
 # FONCTION getPublicIp()                                                #
 #########################################################################
-# ROLE :
-#   La fonction retourne l'adresse IP de la machine vue de l'exterieur du site
-#
-# ENTREES :
-#
-# SORTIES :
-#   Return l'adresse IP
 if six.PY2:
   def getPublicIp():
+    """
+    # ROLE :
+    #   La fonction retourne l'adresse IP de la machine vue de l'exterieur du site
+    # ENTREES :
+    # SORTIES :
+    #   Return l'adresse IP
+    """
+
     data = str(urlopen('http://checkip.dyndns.com/').read())
     return re.compile(r'Address: (\d+\.\d+\.\d+\.\d+)').search(data).group(1)
 
 #########################################################################
 # FONCTION getLocalIp()                                                 #
 #########################################################################
-# ROLE :
-#   La fonction retourne l'adresse IP local de la machine pour windows
-#
-# ENTREES :
-#   version : defini le type d'adresse IP ('IPv4' ou 'IPv6')
-#   link : defini le port ethernet ('eth0' ou 'eth1' ou 'lo' ou...)
-#
-# SORTIES :
-#   Return l'adresse IP
-
 def getLocalIp(version = 'IPv4', link = 'eth0'):
+    """
+    # ROLE :
+    #   La fonction retourne l'adresse IP local de la machine pour windows
+    # ENTREES :
+    #   version : defini le type d'adresse IP ('IPv4' ou 'IPv6')
+    #   link : defini le port ethernet ('eth0' ou 'eth1' ou 'lo' ou...)
+    # SORTIES :
+    #   Return l'adresse IP
+    """
 
     if platform.system() == "Windows":
         my_ip = getWinIp(version)
@@ -86,16 +88,16 @@ def getLocalIp(version = 'IPv4', link = 'eth0'):
 #########################################################################
 # FONCTION getWinIp()                                                   #
 #########################################################################
-# ROLE :
-#   La fonction retourne l'adresse IP local de la machine pour windows
-#
-# ENTREES :
-#   version : defini le type d'adresse IP ('IPv4' ou 'IPv6')
-#
-# SORTIES :
-#   Return l'adresse IP
-
 def getWinIp(version = 'IPv4'):
+    """
+    # ROLE :
+    #   La fonction retourne l'adresse IP local de la machine pour windows
+    # ENTREES :
+    #   version : defini le type d'adresse IP ('IPv4' ou 'IPv6')
+    # SORTIES :
+    #   Return l'adresse IP
+    """
+
     if version not in ['IPv4', 'IPv6']:
         print('error - protocol version must be "IPv4" or "IPv6"')
         return None
@@ -113,17 +115,17 @@ def getWinIp(version = 'IPv4'):
 #########################################################################
 # FONCTION getLinuxIp()                                                 #
 #########################################################################
-# ROLE :
-#   La fonction retourne l'adresse IP local de la machine pour linux
-#
-# ENTREES :
-#   version : defini le type d'adresse IP ('IPv4' ou 'IPv6')
-#   link : defini le port ethernet ('eth0' ou 'eth1' ou 'lo' ou...)
-#
-# SORTIES :
-#   Return l'adresse IP
-
 def getLinuxIp(version = 'IPv4', link = 'eth0'):
+    """
+    # ROLE :
+    #   La fonction retourne l'adresse IP local de la machine pour linux
+    # ENTREES :
+    #   version : defini le type d'adresse IP ('IPv4' ou 'IPv6')
+    #   link : defini le port ethernet ('eth0' ou 'eth1' ou 'lo' ou...)
+    # SORTIES :
+    #   Return l'adresse IP
+    """
+
     if version not in ['IPv4', 'IPv6']:
         print('error - protocol version must be "IPv4" or "IPv6"')
         return None
@@ -166,29 +168,45 @@ def getLinuxIp(version = 'IPv4', link = 'eth0'):
 #########################################################################
 # FONCTION clearAllMemory()                                             #
 #########################################################################
-# ROLE :
-#   La fonction nettoie les variables pour libérer la memoire utilisée par celles ci
-#
-# ENTREES :
-#
-# SORTIES :
-#
-
 def clearAllMemory():
+    """
+    # ROLE :
+    #   La fonction nettoie les variables pour libérer la memoire utilisée par celles ci
+    # ENTREES :
+    # SORTIES :
+    """
+
     allMemory = [var for var in globals() if var[0] != "_"]
     for var in allMemory:
         del globals()[var]
     return
 
 #########################################################################
+# FONCTION getNumberCPU()                                               #
+#########################################################################
+def getNumberCPU():
+    """
+    # ROLE :
+    #   La fonction renvoie le nombre de cpu de la machine hote
+    # ENTREES :
+    # SORTIES :
+    """
+
+    nb_cpu = 0
+    nb_cpu = multiprocessing.cpu_count()
+    return nb_cpu
+
+#########################################################################
 # FONCTION killTreeProcess()                                            #
 #########################################################################
-#   Role : Arret des processus fils
-#   Paramètres :
-#      pid : identité du processus dont on veut arreter les fils
-#      including_parent=True : on arrete le processus en même temps que ses fils
-
 def killTreeProcess(pid, including_parent=True):
+    """
+    #   Role : Arret des processus fils
+    #   Paramètres :
+    #      pid : identité du processus dont on veut arreter les fils
+    #      including_parent=True : on arrete le processus en même temps que ses fils
+    """
+
     parent = psutil.Process(pid)
     childrenList = []
     try :
@@ -206,18 +224,18 @@ def killTreeProcess(pid, including_parent=True):
 #############################################################################################
 # FONCTION terminateThread()                                                                #
 #############################################################################################
-# ROLE :
-#   La fonction stop l'execution d'un thread
-#
-# ENTREES :
-#   thread: Le threading.Thread instance
-#
-# SORTIES :
-#   N.A.
-
 def terminateThread(thread):
+    """
+    # ROLE :
+    #   La fonction stop l'execution d'un thread
+    # ENTREES :
+    #   thread: Le threading.Thread instance
+    # SORTIES :
+    #   N.A.
+    """
 
-    if not thread.isAlive():
+    #if not thread.isAlive():
+    if not thread.is_alive():
         return
 
     exc = ctypes.py_object(SystemExit)
@@ -235,16 +253,16 @@ def terminateThread(thread):
 #########################################################################
 # FONCTION getExtensionApplication()                                    #
 #########################################################################
-# ROLE :
-#   La fonction retourne le type d'extension approprier pour certaines applications
-#   en fonction du systeme d'environement
-#
-# ENTREES :
-#
-# SORTIES :
-#   Return l'extension
-
 def getExtensionApplication():
+    """
+    # ROLE :
+    #   La fonction retourne le type d'extension approprier pour certaines applications
+    #   en fonction du systeme d'environement
+    # ENTREES :
+    # SORTIES :
+    #   Return l'extension
+    """
+
     extend_cmd = ""
     os_system = platform.system()
     if 'Windows' in os_system :
@@ -258,14 +276,15 @@ def getExtensionApplication():
 #########################################################################
 # FONCTION printv()                                                     #
 #########################################################################
-# ROLE :
-#   La fonction print le nom d'une variable
-#
-# ENTREES :
-#   var : la variable à printer
-# SORTIES :
-#
 def printv ( var ):
+    """
+    # ROLE :
+    #   La fonction print le nom d'une variable
+    # ENTREES :
+    #   var : la variable à printer
+    # SORTIES :
+    """
+
     command = str(inspect.stack()[1][4]).split('(')[1].split(')')[0]
     print(command)
     return
@@ -273,28 +292,30 @@ def printv ( var ):
 #########################################################################
 # CLASSE QUI SIMULE UN SWITCH CASE                                      #
 #########################################################################
-# switch :
-# case :
-# Exemple d'utilisation:
-#       while switch(ident):
-#         if case(0):
-#            print("Autre : ")
-#            break
-#         if case(11000):
-#            print("Antropise : ")
-#            break
-#         if case(12200):
-#            print("Eau : ")
-#            break
-#         if case(21000):
-#            print("Ligneux : ")
-#            break
-#         if case(22000):
-#            print("NonLigneux : ")
-#            break
-#         break
-
 class switch( object ):
+    """
+    # switch :
+    # case :
+    # Exemple d'utilisation:
+    #       while switch(ident):
+    #         if case(0):
+    #            print("Autre : ")
+    #            break
+    #         if case(11000):
+    #            print("Antropise : ")
+    #            break
+    #         if case(12200):
+    #            print("Eau : ")
+    #            break
+    #         if case(21000):
+    #            print("Ligneux : ")
+    #            break
+    #         if case(22000):
+    #            print("NonLigneux : ")
+    #            break
+    #         break
+    """
+
     value = None
     def __new__( class_, value ):
          class_.value = value

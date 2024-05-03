@@ -1,8 +1,8 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 
 #############################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################
 
 #############################################################################
@@ -10,6 +10,9 @@
 # FONCTIONS EN LIEN AVEC LA MANIPULATION DE FICHIERS TEXTES OU BINAIRES     #
 #                                                                           #
 #############################################################################
+"""
+ Ce module défini des fonctions de modification de fichiers textes ou binaires.
+"""
 
 # IMPORTS UTILES
 import sys, os, glob, datetime, re
@@ -40,14 +43,15 @@ debug = 2
 #########################################################################
 # FONCTION readTextFileBySeparator()                                    #
 #########################################################################
-#   Role : Fonction qui lit un fichier texte
-#   Entrées :
-#       text_file_name : Nom du fichier texte que l'on souhaite transformer en liste. Exemple : "Test.txt"
-#       separator : Identification du séparateur de découpage du texte. Exemple : separator = " "
-#   Sortie :
-#       Text_List : Liste de strings tel que Text_List (2,3) = 3ème groupe de mots (au regard du séparateur) de la ligne 2 de text_file_name
-
 def readTextFileBySeparator(text_file_name, separator):
+    """
+    #   Role : Fonction qui lit un fichier texte
+    #   Entrées :
+    #       text_file_name : Nom du fichier texte que l'on souhaite transformer en liste. Exemple : "Test.txt"
+    #       separator : Identification du séparateur de découpage du texte. Exemple : separator = " "
+    #   Sortie :
+    #       Text_List : Liste de strings tel que Text_List (2,3) = 3ème groupe de mots (au regard du séparateur) de la ligne 2 de text_file_name
+    """
 
     Text_List = []
 
@@ -94,18 +98,19 @@ def readTextFileBySeparator(text_file_name, separator):
 #########################################################################
 # FONCTION readReallocationTable()                                      #
 #########################################################################
-#   Role : Fonction qui lit une table de reaffectation en txt et qui en sort la liste des micro-classes àsuprimer,
-#          à reaffecter, sous echantilloner, à reaffecter, sous echantilloner et les macroclasses de reaffectation
-#   Entrées :
-#       reallocation_table : Nom du fichier de la table de réallocation
-#   Sortie :
-#       supp_class_list : liste des classes supprimées
-#       reaff_class_list : liste des classes réaffectées
-#       macro_reaff_class_list : liste des macro classes réaffectées
-#       sub_sampling_class_list : list des classes à sous echantilloner
-#       sub_sampling_number_list : list des valeurs du nombre de sous echantillons pour le cas du sous echantillonage
-
 def readReallocationTable(reallocation_table, sub_sampling_defaut_number = 3) :
+    """
+    #   Role : Fonction qui lit une table de reaffectation en txt et qui en sort la liste des micro-classes àsuprimer,
+    #          à reaffecter, sous echantilloner, à reaffecter, sous echantilloner et les macroclasses de reaffectation
+    #   Entrées :
+    #       reallocation_table : Nom du fichier de la table de réallocation
+    #   Sortie :
+    #       supp_class_list : liste des classes supprimées
+    #       reaff_class_list : liste des classes réaffectées
+    #       macro_reaff_class_list : liste des macro classes réaffectées
+    #       sub_sampling_class_list : list des classes à sous echantilloner
+    #       sub_sampling_number_list : list des valeurs du nombre de sous echantillons pour le cas du sous echantillonage
+    """
 
     # Définition des variables de sortie
     supp_class_list = []
@@ -137,13 +142,15 @@ def readReallocationTable(reallocation_table, sub_sampling_defaut_number = 3) :
 #########################################################################
 # FONCTION readTextFile()                                               #
 #########################################################################
-#   Role : Fonction qui lit un fichier texte
-#   Entrées :
-#       text_file_name :  Nom du fichier texte que l'on souhaite lire. Exemple : "Test.txt"
-#   Sortie :
-#       le contenu text du fichier
-
 def readTextFile(text_file_name):
+    """
+    #   Role : Fonction qui lit un fichier texte
+    #   Entrées :
+    #       text_file_name :  Nom du fichier texte que l'on souhaite lire. Exemple : "Test.txt"
+    #   Sortie :
+    #       le contenu text du fichier
+    """
+
     try:
         textFile = open(text_file_name,"r")
     except Exception:
@@ -155,12 +162,14 @@ def readTextFile(text_file_name):
 #########################################################################
 # FONCTION writeTextFile()                                              #
 #########################################################################
-#   Role : Fonction qui ecrit un fichier texte
-#   Entrées :
-#       text_file_name : Nom du fichier texte que l'on souhaite créer. Exemple : "Test.txt". Attention, si le fichier existe déjà, il sera écrasé
-#       text : Texte que l'on souhaite inclure dans text_file_name. Exemple : text = "Exemple de Texte"
-
 def writeTextFile(text_file_name, text):
+    """
+    #   Role : Fonction qui ecrit un fichier texte
+    #   Entrées :
+    #       text_file_name : Nom du fichier texte que l'on souhaite créer. Exemple : "Test.txt". Attention, si le fichier existe déjà, il sera écrasé
+    #       text : Texte que l'on souhaite inclure dans text_file_name. Exemple : text = "Exemple de Texte"
+    """
+
     try:
         textFile = open(text_file_name,"w")
     except Exception:
@@ -174,12 +183,14 @@ def writeTextFile(text_file_name, text):
 #########################################################################
 # FONCTION appendTextFile()                                             #
 #########################################################################
-#   Role : Fonction qui concatene du texte a un fichier texte
-#   Entrées :
-#       text_file_name : Nom du fichier texte. Exemple : "Test.txt". Si le fichier n'existe pas, il sera créé
-#       text : Texte que l'on souhaite inclure à la fin de text_file_name. Exemple : text = "Exemple de Texte"
-
 def appendTextFile(text_file_name, text):
+    """
+    #   Role : Fonction qui concatene du texte a un fichier texte
+    #   Entrées :
+    #       text_file_name : Nom du fichier texte. Exemple : "Test.txt". Si le fichier n'existe pas, il sera créé
+    #       text : Texte que l'on souhaite inclure à la fin de text_file_name. Exemple : text = "Exemple de Texte"
+    """
+
     try:
         textFile = open(text_file_name,"a")
     except Exception:
@@ -193,12 +204,14 @@ def appendTextFile(text_file_name, text):
 #########################################################################
 # FONCTION appendTextFileCR()                                           #
 #########################################################################
-#   Role : Fonction qui concatene du texte a un fichier texte avec CR en fin de ligne
-#   Entrées :
-#       text_file_name : Nom du fichier texte. Exemple : "Test.txt". Si le fichier n'existe pas, il sera créé
-#       text : Texte que l'on souhaite inclure à la fin de text_file_name. Exemple : text = "Exemple de Texte"
-
 def appendTextFileCR(text_file_name, text):
+    """
+    #   Role : Fonction qui concatene du texte a un fichier texte avec CR en fin de ligne
+    #   Entrées :
+    #       text_file_name : Nom du fichier texte. Exemple : "Test.txt". Si le fichier n'existe pas, il sera créé
+    #       text : Texte que l'on souhaite inclure à la fin de text_file_name. Exemple : text = "Exemple de Texte"
+    """
+
     appendTextFile(text_file_name, text + "\n")
 
     return
@@ -206,12 +219,13 @@ def appendTextFileCR(text_file_name, text):
 #########################################################################
 # FONCTION convertDbf2Csv()                                             #
 #########################################################################
-#   Role : Conversion de format de fichier DBF en format CSV (passe tous les noms des colonnes en majuscule)
-#   Paramètres :
-#      dbf_file : Nom du fichier DBF d'entrée
-#      csv_file : Nom du fichier CSV de sortie
-
 def convertDbf2Csv(dbf_file, csv_file):
+    """
+    #   Role : Conversion de format de fichier DBF en format CSV (passe tous les noms des colonnes en majuscule)
+    #   Paramètres :
+    #      dbf_file : Nom du fichier DBF d'entrée
+    #      csv_file : Nom du fichier CSV de sortie
+    """
 
     if os.path.exists(dbf_file):
 
@@ -246,15 +260,16 @@ def convertDbf2Csv(dbf_file, csv_file):
 #########################################################################
 # FONCTION convertDbf2CsvBis()                                          #
 #########################################################################
-#   Role : Conversion de format de fichier DBF en format CSV en passant par les dataframes
-#          AVANTAGE concerve les minuscule majuscule sur les noms des colonnes
-#   Paramètres :
-#      dbf_file : Nom du fichier DBF d'entrée
-#      csv_file : Nom du fichier CSV de sortie
-#      sep : caractere sparateur du fichier csv, par defaut : ","
-#      encoding : encodage du fichier DBF, par defaut : "cp1252"
-
 def convertDbf2CsvBis(dbf_file, csv_file, sep=",", encoding="cp1252"):
+    """
+    #   Role : Conversion de format de fichier DBF en format CSV en passant par les dataframes
+    #          AVANTAGE concerve les minuscule majuscule sur les noms des colonnes
+    #   Paramètres :
+    #      dbf_file : Nom du fichier DBF d'entrée
+    #      csv_file : Nom du fichier CSV de sortie
+    #      sep : caractere sparateur du fichier csv, par defaut : ","
+    #      encoding : encodage du fichier DBF, par defaut : "cp1252"
+    """
 
     if os.path.exists(dbf_file):
         dbf_data = Dbf5(dbf_file, codec=encoding)
@@ -290,15 +305,16 @@ def convertDbf2CsvBis(dbf_file, csv_file, sep=",", encoding="cp1252"):
     return
 
 #########################################################################
-# FONCTION saveDataFrame2Dbf()                                             #
+# FONCTION saveDataFrame2Dbf()                                          #
 #########################################################################
-#   Role : Sauve garde une dataframe en fichier au format DBF
-#   Paramètres :
-#      data_frame_input : La dataframe d'entrée
-#      dbf_file : Nom du fichier DBF de sortie
-#      sep : caractere sparateur du fichier csv, par defaut : ","
-
 def saveDataFrame2Dbf(data_frame_input, dbf_file, sep=","):
+    """
+    #   Role : Sauve garde une dataframe en fichier au format DBF
+    #   Paramètres :
+    #      data_frame_input : La dataframe d'entrée
+    #      dbf_file : Nom du fichier DBF de sortie
+    #      sep : caractere sparateur du fichier csv, par defaut : ","
+    """
 
     if six.PY2:
         type2spec = {int: ('N', 20, 0),
@@ -327,7 +343,7 @@ def saveDataFrame2Dbf(data_frame_input, dbf_file, sep=","):
             db_desc = pysal.lib.io.fileio.FileIO.open(dbf_file, 'w')
     db_desc.header = list(data_frame_input.columns)
     db_desc.field_spec = specs
-    for i, row in data_frame_input.T.iteritems():
+    for i, row in data_frame_input.T.items():
         db_desc.write(row)
     db_desc.close()
 
@@ -336,13 +352,14 @@ def saveDataFrame2Dbf(data_frame_input, dbf_file, sep=","):
 #########################################################################
 # FONCTION convertCsv2Dbf()                                             #
 #########################################################################
-#   Role : Conversion de format de fichier CSV en format DBF
-#   Paramètres :
-#      csv_file : Nom du fichier CSV d'entrée
-#      dbf_file : Nom du fichier DBF de sortie
-#      sep : caractere sparateur du fichier csv, par defaut : ","
-
 def convertCsv2Dbf(csv_file, dbf_file, sep=","):
+    """
+    #   Role : Conversion de format de fichier CSV en format DBF
+    #   Paramètres :
+    #      csv_file : Nom du fichier CSV d'entrée
+    #      dbf_file : Nom du fichier DBF de sortie
+    #      sep : caractere sparateur du fichier csv, par defaut : ","
+    """
 
     if os.path.exists(csv_file):
 
@@ -364,11 +381,15 @@ def convertCsv2Dbf(csv_file, dbf_file, sep=","):
 #########################################################################
 # FONCTION readQueryFile()                                              #
 #########################################################################
-#   Role : Fonction de lecture de requetes dans un fichier texte
-#   Entrées :
-#       query_file_name : nom du fichier que l'on souhaite lire
-
 def readQueryFile(query_file_name):
+    """
+    #   Role : Fonction de lecture de requetes dans un fichier texte
+    #   Entrées :
+    #       query_file_name : nom du fichier que l'on souhaite lire
+    #   Sortie : :
+    #       queryList : la liste de requetes
+    """
+
     queryList = []
     try:
         queryFile = open(query_file_name,"r+")
@@ -391,15 +412,17 @@ def readQueryFile(query_file_name):
 #########################################################################
 # FONCTION readConfusionMatrix()                                        #
 #########################################################################
-#   Role : Permet de lire un fichier de matrice de confusion
-#   Entrées :
-#       matrix_file : Nom du fichier de matrice de confusion que l'on souhaite lire
-#   Sortie : :
-#       matrix : La matrice lu
-#       class_ref_list : La liste des micro classes de référence
-#       class_pro_list : La liste des micro classes produites
-
 def readConfusionMatrix(matrix_file) :
+    """
+    #   Role : Permet de lire un fichier de matrice de confusion
+    #   Entrées :
+    #       matrix_file : Nom du fichier de matrice de confusion que l'on souhaite lire
+    #   Sortie : :
+    #       matrix : La matrice lu
+    #       class_ref_list : La liste des micro classes de référence
+    #       class_pro_list : La liste des micro classes produites
+    """
+
     if debug >=3:
         print(cyan + "readConfusionMatrix() : " + bold + green + "Confusion matrix reading..." + '\n' + endC)
 
@@ -445,23 +468,24 @@ def readConfusionMatrix(matrix_file) :
 #########################################################################
 # FONCTION correctMatrix()                                              #
 #########################################################################
-# Role : Verifier le nombre de microclasses en entree et le nombre de microclasses en sortie
-# Par defaut, l'entree et la sortie sont de même taille. Mais dans les tests,
-# on trouve des cas dans lesquel le nombre d'entree et de sortie ne sont pas de même taille.
-# Dans certains cas, quelque microclasses ont disparu apres la classification,
-# dans ce cas, on ne peut pas calculer les indicateurs de la qualite.
-# Il faut alors remplir les donnees pour les microclasses disparues (a zero).
-# le nombre d'entree et de sortie sont alors de même taille.
-# ENTREES
-#     class_ref_list : La liste des micro classes de référence
-#     class_pro_list : La liste des micro classes produites
-#     matrix : La matrice que l'on souhaite corrigé
-#     no_data_value : Valeur de  pixel du no data par défaut = 0
-# PARAMETRES DE RETOUR
-#     correct_matrix : La matrice corrigé
-#     class_missing_list : La liste des micro classes manquantes
-
 def correctMatrix(class_ref_list, class_pro_list, matrix, no_data_value=0):
+    """
+    # Role : Verifier le nombre de microclasses en entree et le nombre de microclasses en sortie
+    # Par defaut, l'entree et la sortie sont de même taille. Mais dans les tests,
+    # on trouve des cas dans lesquel le nombre d'entree et de sortie ne sont pas de même taille.
+    # Dans certains cas, quelque microclasses ont disparu apres la classification,
+    # dans ce cas, on ne peut pas calculer les indicateurs de la qualite.
+    # Il faut alors remplir les donnees pour les microclasses disparues (a zero).
+    # le nombre d'entree et de sortie sont alors de même taille.
+    # ENTREES
+    #     class_ref_list : La liste des micro classes de référence
+    #     class_pro_list : La liste des micro classes produites
+    #     matrix : La matrice que l'on souhaite corrigé
+    #     no_data_value : Valeur de  pixel du no data par défaut = 0
+    # PARAMETRES DE RETOUR
+    #     correct_matrix : La matrice corrigé
+    #     class_missing_list : La liste des micro classes manquantes
+    """
 
     if debug >=3:
         print(cyan + "correctMatrix() : " + bold + green + "Confusion matrix correcting..." + '\n' + endC)
@@ -513,17 +537,18 @@ def correctMatrix(class_ref_list, class_pro_list, matrix, no_data_value=0):
         print(cyan + "correctMatrix() : " + bold + green + "Confusion matrix corrected" + '\n' + endC)
     return correct_matrix, class_missing_list
 
-
 #########################################################################
 # FONCTION cleanSpaceText()                                             #
 #########################################################################
-#   Role : Fonction qui nettoye les espaces en debut et fin de chaine
-#   Entrées :
-#       text_input : le text en entrée pouvant contenir des espaces en début et/ou en fin de chaineExemple : text = "  Exemple de Texte "
-#   Sortie : :
-#       return text_output : Le texte netoyé des espaces de debut et fin. Exemple : text = "Exemple de Texte"
-
 def cleanSpaceText(text_input):
+    """
+    #   Role : Fonction qui nettoye les espaces en debut et fin de chaine
+    #   Entrées :
+    #       text_input : le text en entrée pouvant contenir des espaces en début et/ou en fin de chaineExemple : text = "  Exemple de Texte "
+    #   Sortie : :
+    #       return text_output : Le texte netoyé des espaces de debut et fin. Exemple : text = "Exemple de Texte"
+    """
+
     text_temp = cleanBeginSpaceText(text_input[::-1])
     text_output = cleanBeginSpaceText(text_temp[::-1])
 
@@ -532,13 +557,15 @@ def cleanSpaceText(text_input):
 #########################################################################
 # FONCTION cleanBeginSpaceText()                                        #
 #########################################################################
-#   Role : Fonction qui nettoye les espaces en debut uniquement
-#   Entrées :
-#       text_input : le text en entrée pouvant contenir des espaces en début et/ou en fin de chaineExemple : text = "  Exemple de Texte"
-#   Sortie : :
-#       return text_output : Le texte netoyé des espaces de debut et fin. Exemple : text = "Exemple de Texte"
-
 def cleanBeginSpaceText(text_input):
+    """
+    #   Role : Fonction qui nettoye les espaces en debut uniquement
+    #   Entrées :
+    #       text_input : le text en entrée pouvant contenir des espaces en début et/ou en fin de chaineExemple : text = "  Exemple de Texte"
+    #   Sortie : :
+    #       return text_output : Le texte netoyé des espaces de debut et fin. Exemple : text = "Exemple de Texte"
+    """
+
     text_output = ""
     begin = False
     for char in str(text_input) :
@@ -551,13 +578,15 @@ def cleanBeginSpaceText(text_input):
 #########################################################################
 # FONCTION extractDico()                                                #
 #########################################################################
-#   Role : Fonction particuliere qui transforme une liste en sortie : de parser en dictionaire utilisable
-#   Entrées :
-#       strings_list : Liste de strings dont le contenu concaténé forme la liste que l'on souhaite récupérer
-#   Sortie : :
-#       dico_output : dictonaire résultat
-
 def extractDico(strings_list):
+    """
+    #   Role : Fonction particuliere qui transforme une liste en sortie : de parser en dictionaire utilisable
+    #   Entrées :
+    #       strings_list : Liste de strings dont le contenu concaténé forme la liste que l'on souhaite récupérer
+    #   Sortie : :
+    #       dico_output : dictonaire résultat
+    """
+
     if debug >= 4:
         print("DEBUG_dico_1 : " , strings_list)
     dico_output = {}
@@ -585,16 +614,18 @@ def extractDico(strings_list):
 #########################################################################
 # FONCTION replaceEndName()                                             #
 #########################################################################
-#   Role : Fonction qui modifie la fin d'un string
-#          Exemple d'application : modification de la fin du nom d'une image
-#   Entrées :
-#       text : text (string) que l'on souhaite modifier. Exemple : "Image_01_raw.tif"
-#       previous_end : texte que l'on souhaite remplacer dans le string. Exemple : "raw.tif"
-#       new_end : texte que l'on souhaite mettre à la place dans le string. Exemple : "merged.tif"
-#   Exemple :
-#       replaceEndName("Image_01.raw_tif", "raw.tif", "merged.tif") donne "Image_01.merged_tif"
-
 def replaceEndName(text, previous_end, new_end):
+    """
+    #   Role : Fonction qui modifie la fin d'un string
+    #          Exemple d'application : modification de la fin du nom d'une image
+    #   Entrées :
+    #       text : text (string) que l'on souhaite modifier. Exemple : "Image_01_raw.tif"
+    #       previous_end : texte que l'on souhaite remplacer dans le string. Exemple : "raw.tif"
+    #       new_end : texte que l'on souhaite mettre à la place dans le string. Exemple : "merged.tif"
+    #   Exemple :
+    #       replaceEndName("Image_01.raw_tif", "raw.tif", "merged.tif") donne "Image_01.merged_tif"
+    """
+
     length = len(text)
     if previous_end != None:
         l=len(previous_end)
@@ -607,19 +638,55 @@ def replaceEndName(text, previous_end, new_end):
 #########################################################################
 # FONCTION regExReplace()                                               #
 #########################################################################
-#   Rôle : Remplace les caractères spéciaux
-#   Entrées :
-#       text : chaîne de caractère en entrée, pouvant contenir des caractères spéciaux
-#       regex : liste des caractères autorisés (au format re). Par défaut : '[a-zA-Z0-9_]'
-#       regex_replace : caractère de remplacement pour les caractères spéciaux non-autorisés. Par défaut : '_'
-#   Sortie :
-#       text : nouvelle chaîne de caractères, sans caractères spéciaux
-
 def regExReplace(text, regex='[a-zA-Z0-9_]', regex_replace='_'):
+    """
+    #   Rôle : Remplace les caractères spéciaux
+    #   Entrées :
+    #       text : chaîne de caractère en entrée, pouvant contenir des caractères spéciaux
+    #       regex : liste des caractères autorisés (au format re). Par défaut : '[a-zA-Z0-9_]'
+    #       regex_replace : caractère de remplacement pour les caractères spéciaux non-autorisés. Par défaut : '_'
+    #   Sortie :
+    #       text : nouvelle chaîne de caractères, sans caractères spéciaux
+    """
 
     for letter in text:
         if re.match(regex, letter) is None:
             text = re.sub(letter, regex_replace, text)
 
     return text
+
+#########################################################################
+# FONCTION fillTableFiles()                                             #
+#########################################################################
+def fillTableFiles(split_tile_vector, input_table, repertory_data_train_temp, name_file , extension):
+    """
+    # ROLE:
+    #    Remplir la matrice contenant les chemins vers l'ensemble des imagettes
+    #
+    # ENTREES DE LA FONCTION :
+    #    split_tile_vector (string) : vecteur de découpe
+    #    input_table (string list list) : matrice dans laquelle on va stocker la donnée de sortie
+    #    repertory_data_train_temp (string) : dossier contenant les données d aprentissage
+    #    name_file (string) : nom de base du fichier
+    #    extension (string) : extension de fichier d'entrainement
+    #
+    # SORTIES DE LA FONCTION :
+    #    Renvoie le chemin de l'imagette
+    #
+    """
+
+    # Récupération du numéro de ligne et de colonne
+    sub_name = split_tile_vector.split(".")[0].split("_")[-1]
+    find_ligne = sub_name.find("l")
+    find_colonne = sub_name.find("c")
+    id_ligne = int(sub_name[find_ligne+1:find_colonne]) - 1
+    id_colonne = int(sub_name[find_colonne+1:]) - 1
+
+    # Création de l'imge de sortie
+    output_image = repertory_data_train_temp + os.sep + name_file + sub_name + extension
+
+    # Remplis la matrice
+    input_table[id_ligne].append(output_image)
+
+    return output_image
 
