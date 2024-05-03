@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,11 +10,12 @@
 # CE SCRIPT PERMET DE FAIRE UNE ESTIMATION DE LA QUALITE D'UN MNS PAR COMPARAISON AVEC DES DONNEES DE LA BD TOPO                            #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : QualityMnsEstimation.py
 Description :
-    Objectif : Estimer la qualiter d'une image de MNS par comparaison à des données de la BD topo
-    Rq : utilisation des OTB Applications : none
+-------------
+Objectif : Estimer la qualiter d'une image de MNS par comparaison à des données de la BD topo
+Rq : utilisation des OTB Applications : none
 
 Date de creation : 30/11/2016
 ----------
@@ -29,7 +30,7 @@ Modifications
 A Reflechir/A faire
  -
  -
-'''
+"""
 
 from __future__ import print_function
 import os,sys,glob,argparse,string,csv
@@ -49,31 +50,32 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION estimateQualityMns()                                                                                                           #
 ###########################################################################################################################################
-# ROLE:
-#     Estimer la qualiter d'un MNS valeur de hauteur en comparaison à des données issue de la BD TOPO de l'IGN
-#
-# ENTREES DE LA FONCTION :
-#     image_input : l'image MNS d'entrée qui sera estimé
-#     vector_cut_input: le vecteur pour le découpage (zone d'étude)
-#     vector_sample_input_list : Liste des vecteurs d'échantillon de référence
-#     vector_sample_points_input : le vecteur d'échantillon de points !!! si non null remplace vector_sample_input_list
-#     raster_input_dico : Dico  contenant les fichiers raster d'autres données et les valeurs min et max de filtrage
-#     vector_output : le fichier de sortie contenant les points de controle
-#     no_data_value : Valeur de  pixel du no data
-#     path_time_log : le fichier de log de sortie
-#     epsg : Optionnel : par défaut 2154
-#     format_raster : Format de l'image de sortie, par défaut : GTiff
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
-#
-# SORTIES DE LA FONCTION :
-#    un fichier vecteur contenant les points de controles avec en attributs la valeurs de références (issu de la BD) et la valeur du MNS
-#
-
 def estimateQualityMns(image_input, vector_cut_input, vector_sample_input_list, vector_sample_points_input, raster_input_dico, vector_output, no_data_value, path_time_log, format_raster='GTiff', epsg=2154, format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #     Estimer la qualiter d'un MNS valeur de hauteur en comparaison à des données issue de la BD TOPO de l'IGN
+    #
+    # ENTREES DE LA FONCTION :
+    #     image_input : l'image MNS d'entrée qui sera estimé
+    #     vector_cut_input: le vecteur pour le découpage (zone d'étude)
+    #     vector_sample_input_list : Liste des vecteurs d'échantillon de référence
+    #     vector_sample_points_input : le vecteur d'échantillon de points !!! si non null remplace vector_sample_input_list
+    #     raster_input_dico : Dico  contenant les fichiers raster d'autres données et les valeurs min et max de filtrage
+    #     vector_output : le fichier de sortie contenant les points de controle
+    #     no_data_value : Valeur de  pixel du no data
+    #     path_time_log : le fichier de log de sortie
+    #     epsg : Optionnel : par défaut 2154
+    #     format_raster : Format de l'image de sortie, par défaut : GTiff
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #
+    # SORTIES DE LA FONCTION :
+    #    un fichier vecteur contenant les points de controles avec en attributs la valeurs de références (issu de la BD) et la valeur du MNS
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "estimateQualityMns() : Masks creation starting : "
@@ -179,7 +181,7 @@ def estimateQualityMns(image_input, vector_cut_input, vector_sample_input_list, 
             removeFile(image_cut)
 
         # Commande de découpe
-        if not cutImageByVector(vector_study, image_input, image_cut, pixel_size_x, pixel_size_y, no_data_value, 0, format_raster, format_vector) :
+        if not cutImageByVector(vector_study, image_input, image_cut, pixel_size_x, pixel_size_y, False, no_data_value, 0, format_raster, format_vector) :
             print(cyan + "estimateQualityMns() : " + bold + red + "Une erreur c'est produite au cours du decoupage de l'image : " + image_input + endC, file=sys.stderr)
             raise
 
@@ -193,7 +195,7 @@ def estimateQualityMns(image_input, vector_cut_input, vector_sample_input_list, 
     # Decoupage de chaque raster de la liste des rasters
     for raster_input in raster_input_dico :
         raster_cut = raster_cut_dico[raster_input]
-        if not cutImageByVector(vector_study, raster_input, raster_cut, pixel_size_x, pixel_size_y, no_data_value, 0, format_raster, format_vector) :
+        if not cutImageByVector(vector_study, raster_input, raster_cut, pixel_size_x, pixel_size_y, False, no_data_value, 0, format_raster, format_vector) :
             raise NameError(cyan + "estimateQualityMns() : " + bold + red + "Une erreur c'est produite au cours du decoupage du raster : " + raster_input + endC)
 
     # Gémotrie de l'image

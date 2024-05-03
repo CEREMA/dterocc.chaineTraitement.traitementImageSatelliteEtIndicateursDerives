@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,11 +10,12 @@
 # CE SCRIPT PERMET DE FAIRE UNE ESTIMATION DE LA QUALITE D'UNE IMAGE DE CLASSIFICATION PAR GRILLE                                           #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : QualityClassificationGridQualification.py
 Description :
-    Objectif : Estimer la qualiter d'une image de classifition par zone d'une grille
-    Rq : utilisation des OTB Applications : otbcli_BandMath
+-------------
+Objectif : Estimer la qualiter d'une image de classifition par zone d'une grille
+Rq : utilisation des OTB Applications : otbcli_BandMath
 
 Date de creation : 04/07/2016
 ----------
@@ -29,7 +30,7 @@ Modifications
 A Reflechir/A faire
  -
  -
-'''
+"""
 
 from __future__ import print_function
 import os,sys,glob,argparse,string,shutil,copy
@@ -50,34 +51,35 @@ debug = 1
 ###########################################################################################################################################
 # FONCTION comparareClassificationToReferenceGrid()                                                                                       #
 ###########################################################################################################################################
-# ROLE:
-#     Estimer la qualiter d'une image de classifition par zone d'une grille. La grille peut être créer ou donner en fichier d'entrée.
-#     La comparaison se fait avec un fichier shape de référence contant des données de controles (par exemple la bd topo bati de l'IGN).
-#     Le résultat est enregistré dans un ficher grille dans la table attibutaire une valeur de qualité par polygone de la grille.
-#
-# ENTREES DE LA FONCTION :
-#     image_input : l'image d'entrée qui sera découpé
-#     vector_cut_input: le vecteur pour le découpage (zone d'étude)
-#     vector_sample_input : le vecteur d'échantillon de référence
-#     vector_grid_input : le fichier de grille d'entrée vecteur contenant la grille d'étude déja créee
-#     vector_grid_output : le fichier de sortie vecteur contenant les résulats sous forme de grille
-#     size_grid : taille de la grille en mêtre (lignes = colonnes)
-#     field_value_verif : valeur du champs classif à comparer (exemple : 11100 pour le bati)
-#     no_data_value : Valeur de  pixel du no data
-#     path_time_log : le fichier de log de sortie
-#     epsg : Optionnel : par défaut 2154
-#     format_raster : Format de l'image de sortie, par défaut : GTiff
-#     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
-#
-# SORTIES DE LA FONCTION :
-#    un fichier vecteur grille (polygones) contenant les résulats d'indicateurs de qualité
-#
-
 def comparareClassificationToReferenceGrid(image_input, vector_cut_input, vector_sample_input, vector_grid_input, vector_grid_output, size_grid, field_value_verif, no_data_value, path_time_log, epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #     Estimer la qualiter d'une image de classifition par zone d'une grille. La grille peut être créer ou donner en fichier d'entrée.
+    #     La comparaison se fait avec un fichier shape de référence contant des données de controles (par exemple la bd topo bati de l'IGN).
+    #     Le résultat est enregistré dans un ficher grille dans la table attibutaire une valeur de qualité par polygone de la grille.
+    #
+    # ENTREES DE LA FONCTION :
+    #     image_input : l'image d'entrée qui sera découpé
+    #     vector_cut_input: le vecteur pour le découpage (zone d'étude)
+    #     vector_sample_input : le vecteur d'échantillon de référence
+    #     vector_grid_input : le fichier de grille d'entrée vecteur contenant la grille d'étude déja créee
+    #     vector_grid_output : le fichier de sortie vecteur contenant les résulats sous forme de grille
+    #     size_grid : taille de la grille en mêtre (lignes = colonnes)
+    #     field_value_verif : valeur du champs classif à comparer (exemple : 11100 pour le bati)
+    #     no_data_value : Valeur de  pixel du no data
+    #     path_time_log : le fichier de log de sortie
+    #     epsg : Optionnel : par défaut 2154
+    #     format_raster : Format de l'image de sortie, par défaut : GTiff
+    #     format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #
+    # SORTIES DE LA FONCTION :
+    #    un fichier vecteur grille (polygones) contenant les résulats d'indicateurs de qualité
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "comparareClassificationToReferenceGrid() : starting : "
@@ -187,7 +189,8 @@ def comparareClassificationToReferenceGrid(image_input, vector_cut_input, vector
         # Si il n'existe pas de fichier grille on en créer un avec la valeur de size_grid
 
         # Creer le fichier grille
-        nb_polygon = createGridVector(vector_study, vector_grid_temp, size_grid, size_grid, attribute_dico, overwrite, epsg, format_vector)
+        ligne, colonne = createGridVector(vector_study, vector_grid_temp, size_grid, size_grid, attribute_dico, overwrite, epsg, format_vector)
+        nb_polygon = (ligne * colonne) + 1
 
         # Découper la grille avec le shape zone d'étude
         cutVectorAll(vector_study, vector_grid_temp, vector_grid_output, format_vector)
@@ -310,38 +313,39 @@ def comparareClassificationToReferenceGrid(image_input, vector_cut_input, vector
 ###########################################################################################################################################
 # FONCTION computeQualityIndiceRateQuantity()                                                                                             #
 ###########################################################################################################################################
-# ROLE:
-#     Calcul la matrice de confusion et les indicateurs de qualitées pour un carreau de la grille
-#
-# ENTREES DE LA FONCTION :
-#     raster_input : l'image d'entrée qui sera verifié
-#     vector_sample_input : le vecteur d'échantillon de référence
-#     vector_grid_input : le fichier de grille d'entrée vecteur contenant la grille d'étude déja créee
-#     repertory_output : répertoire de sortie pour ecrire les fichier temporaire
-#     base_name : le nom de base pour l'ecriture des fichiers temporaires
-#     geom : la géometrie du carreau à étudier
-#     size_grid : taille de la grille en mêtre (lignes = colonnes)
-#     pixel_size_x : taille d'un pixel en X du raster d'entrée
-#     pixel_size_y : taille d'un pixel en Y du raster d'entrée
-#     field_value_verif : valeur du champs classif à comparer (exemple : 11100 pour le bati)
-#     no_data_value : Valeur de  pixel du no data
-#     epsg : Optionnel : par défaut 2154
-#     format_raster :  format des images raster, const : "GTiff"
-#     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#     extension_raster : extension des fichiers rasteur , const : '.tif'
-#     extension_vector : extension des fichiers vecteur, const : '.shp'
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
-#     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-#
-# SORTIES DE LA FONCTION :
-#      class_ref_list : la liste des valeur de nomenclature des elements de réfrence
-#      class_pro_list : la liste des valeur de nomenclature des elements de produit
-#      rate_quantity_list : la liste des valeurs de taux pour la valeur etudiées et pour le reste
-#      kappa : la valeur de l'indicateur kappa pour carreau étudié
-#      overall_accuracy : la valeur de l'indicateur overall_accuracy pour carreau étudié
-#      matrix : la matrice de confusion pour carreau étudié
-
 def computeQualityIndiceRateQuantity(raster_input, vector_sample_input, repertory_output, base_name, geom, size_grid, pixel_size_x, pixel_size_y, field_value_verif, field_value_other, no_data_value, epsg, format_raster, format_vector, extension_raster, extension_vector, overwrite=True, save_results_intermediate=False) :
+    """
+    # ROLE:
+    #     Calcul la matrice de confusion et les indicateurs de qualitées pour un carreau de la grille
+    #
+    # ENTREES DE LA FONCTION :
+    #     raster_input : l'image d'entrée qui sera verifié
+    #     vector_sample_input : le vecteur d'échantillon de référence
+    #     vector_grid_input : le fichier de grille d'entrée vecteur contenant la grille d'étude déja créee
+    #     repertory_output : répertoire de sortie pour ecrire les fichier temporaire
+    #     base_name : le nom de base pour l'ecriture des fichiers temporaires
+    #     geom : la géometrie du carreau à étudier
+    #     size_grid : taille de la grille en mêtre (lignes = colonnes)
+    #     pixel_size_x : taille d'un pixel en X du raster d'entrée
+    #     pixel_size_y : taille d'un pixel en Y du raster d'entrée
+    #     field_value_verif : valeur du champs classif à comparer (exemple : 11100 pour le bati)
+    #     no_data_value : Valeur de  pixel du no data
+    #     epsg : Optionnel : par défaut 2154
+    #     format_raster :  format des images raster, const : "GTiff"
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers rasteur , const : '.tif'
+    #     extension_vector : extension des fichiers vecteur, const : '.shp'
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    #
+    # SORTIES DE LA FONCTION :
+    #      class_ref_list : la liste des valeur de nomenclature des elements de réfrence
+    #      class_pro_list : la liste des valeur de nomenclature des elements de produit
+    #      rate_quantity_list : la liste des valeurs de taux pour la valeur etudiées et pour le reste
+    #      kappa : la valeur de l'indicateur kappa pour carreau étudié
+    #      overall_accuracy : la valeur de l'indicateur overall_accuracy pour carreau étudié
+    #      matrix : la matrice de confusion pour carreau étudié
+    """
 
     # Définition des constantes
     EXT_TXT = '.txt'
@@ -401,7 +405,7 @@ def computeQualityIndiceRateQuantity(raster_input, vector_sample_input, repertor
     fusionVectors (input_shape_list, vector_local_cut)
 
     # Découpe sur zone local d'étude du fichier rasteur de classification
-    if not cutImageByVector(vector_local_study, raster_input, raster_local_cut, pixel_size_x, pixel_size_y, no_data_value, 0, format_raster, format_vector) :
+    if not cutImageByVector(vector_local_study, raster_input, raster_local_cut, pixel_size_x, pixel_size_y, False, no_data_value, 0, format_raster, format_vector) :
         return class_ref_list, class_pro_list, rate_quantity_list, kappa, overall_accuracy, matrix_origine
 
     # Calcul de la matrice de confusion

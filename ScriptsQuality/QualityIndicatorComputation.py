@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,14 +10,16 @@
 # SCRIPT QUI CALCUL LES INDICATEURS DE QUALITE PAR MATRICE DE CONFUSION                                                                     #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : QualityIndicatorComputation.py
 Description :
-    Objectif : generer une matrice de confusion et analyser la matrice
-    Rq : utilisation des OTB Applications :   otbcli_ComputeConfusionMatrix
-         Documentation sur le kappa : http://theses.ulaval.ca/archimede/fichiers/23448/ape.html
-         Documentation sur les indicateurs de qualité issus d'une matrice de confusion : http://en.wikipedia.org/wiki/Confusion_matrix
-                                                                                         http://www2.cs.uregina.ca/~dbd/cs831/notes/confusion_matrix/confusion_matrix.html
+-------------
+Objectif : generer une matrice de confusion et analyser la matrice
+Rq : utilisation des OTB Applications :   otbcli_ComputeConfusionMatrix
+Documentation sur le kappa : http://theses.ulaval.ca/archimede/fichiers/23448/ape.html
+Documentation sur les indicateurs de qualité issus d'une matrice de confusion :
+http://en.wikipedia.org/wiki/Confusion_matrix
+http://www2.cs.uregina.ca/~dbd/cs831/notes/confusion_matrix/confusion_matrix.html
 
 Date de creation : 31/07/2014
 ----------
@@ -32,10 +34,10 @@ Modifications
 01/10/2014 : refonte du fichier harmonisation des régles de qualitées des niveaux de boucles et des paramétres dans args
 21/05/2015 : simplification des parametres en argument plus de liste d'image en emtrée à traiter uniquement une image
 ------------------------------------------------------
-A Reflechir/A faire
-- traduire le docstring en anglais
-- generer un graphique a partir de la matrice obtenue? --> implementer plotResults,plotResultsMulti ? (historiquement importe de Chain_Auxiliaries.py) et ajouter class_list (liste des classes) en paramètres
-'''
+A Reflechir/A faire :
+traduire le docstring en anglais
+generer un graphique a partir de la matrice obtenue? --> implementer plotResults,plotResultsMulti ? (historiquement importe de Chain_Auxiliaries.py) et ajouter class_list (liste des classes) en paramètres
+"""
 
 from __future__ import print_function
 import os,sys,glob,string,argparse,getopt
@@ -53,30 +55,32 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION computeQualityIndicator()                                                                                                      #
 ###########################################################################################################################################
-# ROLE:
-#     Generer une matrice de confusion avec l'application otb otbcli_ComputeConfusionMatrix
-#   et analyser cette matrice pour en sortir les indicateurs de qualité
-#
-# ENTREES DE LA FONCTION :
-#     classif_image_file : image classée en plusieurs classes au format.tif
-#     validation_input_vector : echantillons de validation au format.shp
-#     validation_input_raster : echantillons de validation au format.tif
-#     validation_id_field : nom du champ id class (exmple "id")
-#     matrix_output_file : fichier de sortie contenant la matrice de confusuion
-#     indicators_output_file : fichier de sortie contenant les indicateurs de qualité
-#     textures_list : info texture a ecrire en titre des indicateurs de qualités dans le fichier résultat
-#     no_data_value : Valeur de  pixel du no data
-#     path_time_log : le fichier de log de sortie
-#     overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    auccun
-#    Elements utilises par la fonction :
-#        - image classee et idealement avec microclasses fusionnees en macroclasses et sur lequel un filtre majoritaire a aussi ete applique (exmple : "nomImage_merged_filtered.tif"),
-#        - echantillons de validation (exple : "nomImage_validation.shp")
-#    Eléments générés par la fonction : fichiers textes contenant les résultats de la matrice de confusion (exmple : "nomImage_confusion_matrix.txt")
-#
 def computeQualityIndicator(classif_image_file, validation_input_vector, validation_input_raster, matrix_output_file, indicators_output_file, validation_id_field, textures_list, no_data_value, path_time_log, overwrite=True):
+    """
+    # ROLE:
+    #     Generer une matrice de confusion avec l'application otb otbcli_ComputeConfusionMatrix
+    #   et analyser cette matrice pour en sortir les indicateurs de qualité
+    #
+    # ENTREES DE LA FONCTION :
+    #     classif_image_file : image classée en plusieurs classes au format.tif
+    #     validation_input_vector : echantillons de validation au format.shp
+    #     validation_input_raster : echantillons de validation au format.tif
+    #     validation_id_field : nom du champ id class (exmple "id")
+    #     matrix_output_file : fichier de sortie contenant la matrice de confusuion
+    #     indicators_output_file : fichier de sortie contenant les indicateurs de qualité
+    #     textures_list : info texture a ecrire en titre des indicateurs de qualités dans le fichier résultat
+    #     no_data_value : Valeur de  pixel du no data
+    #     path_time_log : le fichier de log de sortie
+    #     overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    auccun
+    #    Elements utilises par la fonction :
+    #        - image classee et idealement avec microclasses fusionnees en macroclasses et sur lequel un filtre majoritaire a aussi ete applique (exmple : "nomImage_merged_filtered.tif"),
+    #        - echantillons de validation (exple : "nomImage_validation.shp")
+    #    Eléments générés par la fonction : fichiers textes contenant les résultats de la matrice de confusion (exmple : "nomImage_confusion_matrix.txt")
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "computeQualityIndicator() : Compute quality indicator starting : "
@@ -158,6 +162,24 @@ def computeQualityIndicator(classif_image_file, validation_input_vector, validat
 # FONCTION computeConfusionMatrix()                                                                                                       #
 ###########################################################################################################################################
 def computeConfusionMatrix(classif_image_file, validation_input_vector, validation_input_raster, validation_id_field, output, no_data_value, overwrite) :
+    """
+    # ROLE:
+    #   Calcul la matrice de confusion avec l'application otb otbcli_ComputeConfusionMatrix
+    #
+    # ENTREES DE LA FONCTION :
+    #     classif_image_file : image classée en plusieurs classes au format.tif
+    #     validation_input_vector : echantillons de validation au format.shp
+    #     validation_input_raster : echantillons de validation au format.tif
+    #     validation_id_field : nom du champ id class (exmple "id")
+    #     output : fichier de sortie contenant la matrice de confusuion
+    #     no_data_value : Valeur de  pixel du no data
+    #     overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    auccun
+    #
+    """
+
     # calcul de la matrice de confusion
     check = os.path.isfile(output)
     if check and not overwrite :
@@ -175,10 +197,10 @@ def computeConfusionMatrix(classif_image_file, validation_input_vector, validati
         # Test si on entre avec des echantillons de controles au format vecteur ou au format raster
         if validation_input_vector != None:
             # Cas d'echantillons vecteur
-            command = "otbcli_ComputeConfusionMatrix -in %s -ref vector -ref.vector.in %s -ref.vector.field %s -no_data_value %s -ref.vector.nodata %s -out %s" %(classif_image_file, validation_input_vector, validation_id_field, str(no_data_value),  str(no_data_value), output)
+            command = "otbcli_ComputeConfusionMatrix -in %s -ref vector -ref.vector.in %s -ref.vector.field %s -nodatalabel %s -ref.vector.nodata %s -out %s" %(classif_image_file, validation_input_vector, validation_id_field, str(no_data_value),  str(no_data_value), output)
         else :
             # Cas d'echantillons raster
-            command = "otbcli_ComputeConfusionMatrix -in %s -ref raster -ref.raster.in %s -no_data_value %s -ref.raster.nodata %s -out %s" %(classif_image_file, validation_input_raster, str(no_data_value), str(no_data_value), output)
+            command = "otbcli_ComputeConfusionMatrix -in %s -ref raster -ref.raster.in %s -nodatalabel %s -ref.raster.nodata %s -out %s" %(classif_image_file, validation_input_raster, str(no_data_value), str(no_data_value), output)
         if debug >= 3 :
             print(command)
         exitCode = os.system(command)
@@ -192,10 +214,20 @@ def computeConfusionMatrix(classif_image_file, validation_input_vector, validati
 # FONCTION ComputeIndicators()                                                                                                            #
 ###########################################################################################################################################
 def computeIndicators (class_count, matrix, class_ref_list, class_missing_list) :
-
-     # class_ref_list : liste des classes des échantillons de vérification
-     # class_missing_list : liste des classes qui sont dans les échantillons de vérifications mais pas dans la sortie de classification
-
+    """
+    # ROLE:
+    #    Calcul les indicateurs de qualité :
+    #     - rappel
+    #     - overall_rappel
+    #     - précision
+    #     - overall_fscore
+    #     - precision globale
+    #     - kappa
+    #
+    # ENTREES DE LA FONCTION :
+    #     class_ref_list : liste des classes des échantillons de vérification
+    #     class_missing_list : liste des classes qui sont dans les échantillons de vérifications mais pas dans la sortie de classification
+    """
     if debug >=2:
         print(cyan + "computeIndicators() : " + bold + green + "Quality indicator computing..." + '\n' + endC)
 
@@ -447,7 +479,32 @@ def computeIndicators (class_count, matrix, class_ref_list, class_missing_list) 
 # FONCTION writeQualityIndicatorsToCsvFile()                                                                                              #
 ###########################################################################################################################################
 def writeQualityIndicatorsToCsvFile(class_count, precision_list, recall_list, fscore_list, performance_list, TFP_class_list, TFN_class_list, quantity_rate_list, class_list, overall_accuracy, overall_fscore, overall_performance, kappa, indicators_output_file, overwrite, textures_list) :
-
+    """
+    # ROLE:
+    #  Ecrit le résultat des indicateurs de qualités dans un fichier csv
+    #
+    # ENTREES DE LA FONCTION :
+    #     class_count : nombre de classes
+    #     precision_list : liste precision
+    #     recall_list : liste recall
+    #     fscore_list : liste fscore
+    #     performance_list : liste performance
+    #     TFP_class_list : liste  de faux positif
+    #     TFN_class_list : liste de faux negatif
+    #     quantity_rate_list : liste quantity_rate
+    #     class_list : liste des classes
+    #     overall_accuracy : indicateur de overall accuracy
+    #     overall_fscore : indicateur de overall fscore
+    #     overall_performance: indicateur de overall performance
+    #     kappa : indicateur  kappa
+    #     indicators_output_file : non du fichier csv de sortie contenant les indicateurs
+    #     overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #     textures_list : liste des textures
+    #
+    # SORTIES DE LA FONCTION :
+    #    auccun
+    #
+    """
     check = os.path.isfile(indicators_output_file)
     if check and not overwrite :
         print(cyan + "writeQualityIndicatorsToCsvFile() : " + bold + yellow + "Result file quality indicators exists." + '\n' + endC)

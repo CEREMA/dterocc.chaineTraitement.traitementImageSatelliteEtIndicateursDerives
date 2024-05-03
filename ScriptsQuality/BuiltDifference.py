@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,13 +10,14 @@
 # SCRIPT D'IDENTIFICATION DE LA DIFFERENCE DU BATI                                                                                          #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : BuiltDifference.py
 Description :
-    Objectif : Réaliser identifier des différences entre la BT topo partie Bâtie et un MNS
-    Cela permet de préparer (copier, découper) des shapefiles(.shp) issues des BD Exogènes et les ajouter à un MNT pour en faire la différence à un MNS
-    Rq : utilisation des OTB Applications :   otbcli_BandMath, otbcli_BinaryMorphologicalOperation, otbcli_Rasterization
-    Doc : voir  Indentification_difference_batiBDtopo.odp
+-------------
+Objectif : Réaliser identifier des différences entre la BT topo partie Bâtie et un MNS
+Cela permet de préparer (copier, découper) des shapefiles(.shp) issues des BD Exogènes et les ajouter à un MNT pour en faire la différence à un MNS
+Rq : utilisation des OTB Applications :   otbcli_BandMath, otbcli_BinaryMorphologicalOperation, otbcli_Rasterization
+Doc : voir  Indentification_difference_batiBDtopo.odp
 
 Date de creation : 23/02/2015
 ----------
@@ -31,7 +32,7 @@ Modifications
 A Reflechir/A faire
  -
  -
-'''
+"""
 
 # Import des bibliothèques python
 from __future__ import print_function
@@ -51,40 +52,41 @@ from CrossingVectorRaster import statisticsVectorRaster
 debug = 3
 
 ###########################################################################################################################################
-# FONCTION createDifference()                                                                                                           #
+# FONCTION createDifference()                                                                                                             #
 ###########################################################################################################################################
-# ROLE:
-#    Traiter les BD exogènes
-#
-# ENTREES DE LA FONCTION :
-#    image_ortho_input : image ortho d'entrée brute
-#    image_mns_input : image du mns d'entrée
-#    image_mnt_input : image du mnt d'entrée
-#    bd_vector_input_list : liste des vecteurs de la bd exogene
-#    zone_buffer_dico : dictionaire de zone contenant les BD et les buffers à appliquer
-#    departments_list : liste des départements choisi
-#    image_difference_output :  image de différence en sortie
-#    vector_difference_output : vecteur de sortie contenant la difference
-#    fileld_bd_raster : parametre de définition du champ utiliser pour la valeur de rasterisation des données BD
-#    simplifie_param : parmetre de simplification des polygones
-#    threshold_ndvi : parametre de seuillage du NDVI
-#    threshold_difference : parametre de seuillage de la difference des MNS
-#    filter_difference_0 : parametre de filtrage du fichier de difference pour les zones à 0
-#    filter_difference_1 : parametre de filtrage du fichier de difference pour les zones à 1
-#    path_time_log : le fichier de log de sortie
-#    format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut à False
-#    channel_order : identifiant des canaux de l'image ortho, example : {"Red":1,"Green":2,"Blue":3,"Red_edge":4,"NIR":5}, defaut=[Red,Green,Blue,NIR]
-#    overwrite : boolen ecrasement ou non des fichiers ayant un nom similaire, par defaut à True
-#
-# SORTIES DE LA FONCTION :
-#    auccun
-#    Eléments générés par la fonction : vecteur de differnce entre les MNS
-#
-
 def createDifference(image_ortho_input, image_mns_input, image_mnt_input, bd_vector_input_list, zone_buffer_dico, departments_list, image_difference_output, vector_difference_output, fileld_bd_raster, simplifie_param, threshold_ndvi, threshold_difference, filter_difference_0, filter_difference_1, path_time_log, format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, channel_order=['Red','Green','Blue','NIR'], overwrite=True) :
+    """
+    # ROLE:
+    #    Traiter les BD exogènes
+    #
+    # ENTREES DE LA FONCTION :
+    #    image_ortho_input : image ortho d'entrée brute
+    #    image_mns_input : image du mns d'entrée
+    #    image_mnt_input : image du mnt d'entrée
+    #    bd_vector_input_list : liste des vecteurs de la bd exogene
+    #    zone_buffer_dico : dictionaire de zone contenant les BD et les buffers à appliquer
+    #    departments_list : liste des départements choisi
+    #    image_difference_output :  image de différence en sortie
+    #    vector_difference_output : vecteur de sortie contenant la difference
+    #    fileld_bd_raster : parametre de définition du champ utiliser pour la valeur de rasterisation des données BD
+    #    simplifie_param : parmetre de simplification des polygones
+    #    threshold_ndvi : parametre de seuillage du NDVI
+    #    threshold_difference : parametre de seuillage de la difference des MNS
+    #    filter_difference_0 : parametre de filtrage du fichier de difference pour les zones à 0
+    #    filter_difference_1 : parametre de filtrage du fichier de difference pour les zones à 1
+    #    path_time_log : le fichier de log de sortie
+    #    format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut à False
+    #    channel_order : identifiant des canaux de l'image ortho, example : {"Red":1,"Green":2,"Blue":3,"Red_edge":4,"NIR":5}, defaut=[Red,Green,Blue,NIR]
+    #    overwrite : boolen ecrasement ou non des fichiers ayant un nom similaire, par defaut à True
+    #
+    # SORTIES DE LA FONCTION :
+    #    auccun
+    #    Eléments générés par la fonction : vecteur de differnce entre les MNS
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "createDifference() : create macro samples starting : "
@@ -374,6 +376,7 @@ def main(gui=False):
     parser.add_argument('-fdif0','--filter_difference_0',default=5,help="Parameter of filter clean 0 value, result difference. By default : 5", type=int, required=False)
     parser.add_argument('-fdif1','--filter_difference_1',default=15,help="Parameter of filter clean 1 value, result difference. By default : 15", type=int, required=False)
     parser.add_argument('-chao','--channel_order',nargs="+", default=['Red','Green','Blue','NIR'],help="Type of multispectral image : rapideye or spot6 or pleiade. By default : [Red,Green,Blue,NIR]",type=str,required=False)
+    parser.add_argument('-ndv','--no_data_value', default=0, help="Option : Value of the pixel no data. By default : 0", type=int, required=False)
     parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output file.", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-vee','--extension_vector',default=".shp",help="Option : Extension file for vector. By default : '.shp'", type=str, required=False)
@@ -443,6 +446,10 @@ def main(gui=False):
     if args.channel_order != None:
         channel_order = args.channel_order
 
+    # Parametres de valeur du nodata
+    if args.no_data_value!= None:
+        no_data_value = args.no_data_value
+
     # Récupération du format du fichier de sortie
     if args.format_vector != None :
         format_vector = args.format_vector
@@ -488,6 +495,7 @@ def main(gui=False):
         print(cyan + "BuiltDifference : " + endC + "filter_difference_0 : " + str(filter_difference_0) + endC)
         print(cyan + "BuiltDifference : " + endC + "filter_difference_1 : " + str(filter_difference_1) + endC)
         print(cyan + "BuiltDifference : " + endC + "channel_order : " + str(channel_order) + endC)
+        print(cyan + "BuiltDifference : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "BuiltDifference : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "BuiltDifference : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "BuiltDifference : " + endC + "extension_vector : " + str(extension_vector) + endC)
@@ -509,7 +517,7 @@ def main(gui=False):
     # execution de la fonction pour une image
     createDifference(image_input, image_mns, image_mnt, bd_vector_input_list, zone_buffer_dico, departments_list, image_output, vector_output, fileld_bd_raster, simplifie_param, threshold_ndvi, threshold_difference, filter_difference_0, filter_difference_1, path_time_log, format_vector, extension_raster, extension_vector, save_results_intermediate, channel_order, overwrite)
     # ajouter les valeurs des hauteurs en champs suplementaire au shape
-    statisticsVectorRaster(image_output, vector_output, "", 1, False, False, True, [], [], {}, path_time_log, True, format_vector, save_results_intermediate, overwrite)
+    statisticsVectorRaster(image_output, vector_output, "", 1, False, False, True, [], [], {}, True, no_data_value, format_vector, path_time_log, save_results_intermediate, overwrite)
 
 # ================================================
 

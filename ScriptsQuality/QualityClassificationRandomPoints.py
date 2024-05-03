@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,11 +10,12 @@
 # CE SCRIPT PERMET DE FAIRE UNE ESTIMATION DE LA QUALITE D'UNE IMAGE DE CLASSIFICATION PAR TIRAGE DE POINTS ALEATOIRES                      #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : QualityClassificationRandomPoints.py
 Description :
-    Objectif : Estimer la qualiter d'une image de classifition par tirage aléatoire de points
-    Rq : utilisation des OTB Applications : ...
+-------------
+Objectif : Estimer la qualiter d'une image de classifition par tirage aléatoire de points
+Rq : utilisation des OTB Applications : ...
 
 Date de creation : 04/07/2016
 ----------
@@ -29,10 +30,11 @@ Modifications
 A Reflechir/A faire
  -
  -
-'''
+"""
 
 from __future__ import print_function
 import os,sys,glob,argparse,string,random
+from scipy.stats import chi2
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_log import timeLine
 from osgeo import ogr
@@ -46,36 +48,83 @@ from Lib_file import removeVectorFile, copyVectorFile, removeFile, renameVectorF
 debug = 3
 
 ###########################################################################################################################################
+# FONCTION computeNumberPointsToShoot()                                                                                                   #
+###########################################################################################################################################
+def computeNumberPointsToShoot(k_class, percent_class_near_fifty, l_khi=1, alpha=0.05, error=0.05) :
+    """
+    # ROLE:
+    #     Permet de donne le chiffre de point à tirer pour échantilloner les points de controle.
+    #
+    # ENTREES DE LA FONCTION :
+    #     k_class (int) : Nombre de classes
+    #     percent_class_near_fifty (float) : Proportion de la classe la plus proche de 50 %
+    #     l_khi (int) : Loi de khi deux à un degré de liberté, (par défaut : 1)
+    #     alpha (float) : Seuil d'erreur choisi, (par défaut : 0.05)
+    #     error (float) : Erreur maximale tolérée, (par défaut : 0.05)
+    #
+    # SORTIES DE LA FONCTION :
+    #    number_random_points : le nombre de points aléatoires à tirer
+    #
+    """
+
+    # Définir les paramètres initiaux (exemple)
+    # k_class = 9                      # Nombre de classes
+    # percent_class_near_fifty = 33.27 # Proportion de la classe la plus proche de 50 %
+    # l_khi = 1                        # Loi de khi deux à un degré de liberté
+    # alpha = 0.05                     # Seuil d'erreur choisi
+    # error = 0.05                     # Erreur maximale tolérée
+
+
+    # Calculer le chi carré en utilisant la fonction chi2.ppf
+    # Cette fonction retourne la valeur de chi carré correspondant au seuil de confiance spécifié et au nombre de dégrés de liberté
+    chi_square = chi2.ppf(1 - alpha / k_class, l_khi)
+
+    # Afficher le chi carré calculé
+    print(cyan + "computeNumberPointsToShoot() : " + endC +"Chi carré calculé :", chi_square)
+
+    # Pourcentage de la classe qui se rapproche le plus de 50%
+    percent_class_near_fifty = percent_class_near_fifty / 100 # Convertir en décimal
+
+    # Calcul du nombre de points aléatoires à tirer en utilisant la formule spécifiée
+    number_random_points = (chi_square * percent_class_near_fifty * (1 - percent_class_near_fifty)) / (error * error)
+
+    # Afficher le nombre de points aléatoires à tirer
+    print(cyan + "computeNumberPointsToShoot() : " + endC + "Nombre de points aléatoires à tirer :", number_random_points)
+
+    return number_random_points
+
+###########################################################################################################################################
 # FONCTION estimateQualityClassification()                                                                                                #
 ###########################################################################################################################################
-# ROLE:
-#     Estimer la qualiter d'une image de classifition par tirage aléatoire de points dans une zone d'étude d'une image de classification
-#     et récupération de valeur des points de test dans l'image de classification
-#
-# ENTREES DE LA FONCTION :
-#     image_input : l'image d'entrée qui sera découpé
-#     vector_cut_input: le vecteur pour le découpage (zone d'étude)
-#     vector_sample_input : le vecteur d'échantillon de points
-#     vector_output : le fichier de sortie contenant les points du tirage aléatoire, ou issus du vecteur d'échantillon
-#     nb_dot : nombre de points du tirage aléatoire
-#     no_data_value : Valeur de  pixel du no data
-#     column_name_vector : champ du fichier vecteur d'entrée contenant l'information de classe (= référence)
-#     column_name_ref : champ du fichier vecteur de sortie contenant l'information de classe de référence (issu du fichier d'entrée, ou pour validation a posteriori)
-#     column_name_class : champ du fichier vecteur de sortie contenant l'information de classe issue du raster d'entrée
-#     path_time_log : le fichier de log de sortie
-#     epsg : Optionnel : par défaut 2154
-#     format_raster : Format de l'image de sortie, par défaut : GTiff
-#     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
-#
-# SORTIES DE LA FONCTION :
-#    un fichier vecteur contenant les points de controles avec en attributs la valeurs de références (par photo interpretation) et la valeur de la classification
-#
-
 def estimateQualityClassification(image_input, vector_cut_input, vector_sample_input, vector_output, nb_dot, no_data_value, column_name_vector, column_name_ref, column_name_class, path_time_log, epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #     Estimer la qualiter d'une image de classifition par tirage aléatoire de points dans une zone d'étude d'une image de classification
+    #     et récupération de valeur des points de test dans l'image de classification
+    #
+    # ENTREES DE LA FONCTION :
+    #     image_input : l'image d'entrée qui sera découpé
+    #     vector_cut_input: le vecteur pour le découpage (zone d'étude)
+    #     vector_sample_input : le vecteur d'échantillon de points
+    #     vector_output : le fichier de sortie contenant les points du tirage aléatoire, ou issus du vecteur d'échantillon
+    #     nb_dot : nombre de points du tirage aléatoire
+    #     no_data_value : Valeur de  pixel du no data
+    #     column_name_vector : champ du fichier vecteur d'entrée contenant l'information de classe (= référence)
+    #     column_name_ref : champ du fichier vecteur de sortie contenant l'information de classe de référence (issu du fichier d'entrée, ou pour validation a posteriori)
+    #     column_name_class : champ du fichier vecteur de sortie contenant l'information de classe issue du raster d'entrée
+    #     path_time_log : le fichier de log de sortie
+    #     epsg : Optionnel : par défaut 2154
+    #     format_raster : Format de l'image de sortie, par défaut : GTiff
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #
+    # SORTIES DE LA FONCTION :
+    #    un fichier vecteur contenant les points de controles avec en attributs la valeurs de références (par photo interpretation) et la valeur de la classification
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "estimateQualityClassification() : Masks creation starting : "
@@ -154,7 +203,7 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
             removeFile(raster_cut)
 
         # Commande de découpe
-        if not cutImageByVector(vector_study, image_input, raster_cut, pixel_size_x, pixel_size_y, no_data_value, 0, format_raster, format_vector) :
+        if not cutImageByVector(vector_study, image_input, raster_cut, pixel_size_x, pixel_size_y, False, no_data_value, 0, format_raster, format_vector) :
             raise NameError(cyan + "estimateQualityClassification() : " + bold + red + "Une erreur c'est produite au cours du decoupage de l'image : " + image_input + endC)
         if debug >=2:
             print(cyan + "estimateQualityClassification() : " + bold + green + "DECOUPAGE DU RASTER %s AVEC LE VECTEUR %s" %(image_input, vector_study) + endC)
@@ -345,11 +394,13 @@ def main(gui=False):
                                                           -o /mnt/hgfs/Data_Image_Saturn/CUB_zone_test_NE_1/Macro/CUB_zone_test_NE_Bati_mask.shp \n\
                                                           -log /mnt/hgfs/Data_Image_Saturn/CUB_zone_test_NE_1/fichierTestLog.txt")
 
-    parser.add_argument('-i','--image_input',default="",help="Image input to qualify", type=str, required=True)
-    parser.add_argument('-v','--vector_cut_input',default=None,help="Vector input define the study area.", type=str, required=False)
-    parser.add_argument('-p','--vector_sample_input',default=None,help="Vector input of sample for comparaison.", type=str, required=False)
-    parser.add_argument('-o','--vector_output',default="",help="Vector output contain dots from the random draw, or from input sample vector, into study area.", type=str, required=True)
-    parser.add_argument('-nb','--nb_dot',default=1000,help="Number of points drawn randomly.", type=int, required=False)
+    parser.add_argument('-i','--image_input',default="", help="Image input to qualify", type=str, required=True)
+    parser.add_argument('-v','--vector_cut_input',default=None, help="Vector input define the study area.", type=str, required=False)
+    parser.add_argument('-p','--vector_sample_input',default=None, help="Vector input of sample for comparaison.", type=str, required=False)
+    parser.add_argument('-o','--vector_output',default="", help="Vector output contain dots from the random draw, or from input sample vector, into study area.", type=str, required=True)
+    parser.add_argument('-nc','--nb_class',default=0, help="Number of class.", type=int, required=False)
+    parser.add_argument('-cnf','--class_near_fifty',default=0.0, help="Value of class near fifty in percent.", type=float, required=False)
+    parser.add_argument('-nb','--nb_dot',default=1000, help="Number of points drawn randomly.", type=int, required=False)
     parser.add_argument('-ndv','--no_data_value', default=0, help="Option: Value of the pixel no data. By default : 0", type=int, required=False)
     parser.add_argument('-col','--column_name_vector', default="ValRef", help="Option: Column name in the input vector with the reference information.", type=str, required=False)
     parser.add_argument('-colr','--column_name_ref', default="ValRef", help="Option: Output column name for the reference information (from the input sample vector, or to check after if no input sample vector).", type=str, required=False)
@@ -392,6 +443,11 @@ def main(gui=False):
         vector_output = args.vector_output
 
     # Récupération du parametre de nombre de tirage aléatoire
+    if args.nb_class != None:
+        nb_class = args.nb_class
+    if args.class_near_fifty != None:
+        class_near_fifty = args.class_near_fifty
+
     if args.nb_dot != None:
         nb_dot = args.nb_dot
 
@@ -453,6 +509,8 @@ def main(gui=False):
         print(cyan + "QualityClassificationRandomPoints : " + endC + "vector_cut_input : " + str(vector_cut_input) + endC)
         print(cyan + "QualityClassificationRandomPoints : " + endC + "vector_sample_input : " + str(vector_sample_input) + endC)
         print(cyan + "QualityClassificationRandomPoints : " + endC + "vector_output : " + str(vector_output) + endC)
+        print(cyan + "QualityClassificationRandomPoints : " + endC + "nb_class : " + str(nb_class) + endC)
+        print(cyan + "QualityClassificationRandomPoints : " + endC + "class_near_fifty : " + str(class_near_fifty) + endC)
         print(cyan + "QualityClassificationRandomPoints : " + endC + "nb_dot : " + str(nb_dot) + endC)
         print(cyan + "QualityClassificationRandomPoints : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "QualityClassificationRandomPoints : " + endC + "column_name_vector : " + str(column_name_vector) + endC)
@@ -474,7 +532,10 @@ def main(gui=False):
     if not os.path.isdir(repertory_output):
         os.makedirs(repertory_output)
 
-    # execution de la fonction pour une image
+    # Execution de la fonction pour calculer le nombre de point
+    if nb_class != 0:
+        nb_dot = computeNumberPointsToShoot(nb_class, class_near_fifty)
+    # Execution de la fonction pour une image
     estimateQualityClassification(image_input, vector_cut_input, vector_sample_input, vector_output, nb_dot, no_data_value, column_name_vector, column_name_ref, column_name_class, path_time_log, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
 # ================================================
