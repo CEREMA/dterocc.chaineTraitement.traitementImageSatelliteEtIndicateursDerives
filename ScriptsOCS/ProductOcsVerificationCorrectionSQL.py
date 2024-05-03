@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,12 +10,13 @@
 # SCRIPT QUI PERMET DE VERIFIER ET CORRIGER (PB TOPOLOGIQUE) LES RESULTATS ISSUES DE PRODUDCTION OCS                                        #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : ProductOcsVerificationCorrectionSQL.py
 Description :
-    Objectif : Verifier et corriger pb topologique modification des colonnes, les resultats issues de produdction OCS
-    Rq : utilisation des OTB Applications : na
-    Appel de routines SQL
+-------------
+Objectif : Verifier et corriger pb topologique modification des colonnes, les resultats issues de produdction OCS
+Rq : utilisation des OTB Applications : na
+Appel de routines SQL
 
 Date de creation : 18/01/2017
 ----------
@@ -24,13 +25,12 @@ Histoire :
 Origine : Nouveau
 18/01/2017 : Création
 -----------------------------------------------------------------------------------------------------
-Modifications
+Modifications :
 
 ------------------------------------------------------
-A Reflechir/A faire
- -
- -
-'''
+A Reflechir/A faire :
+
+"""
 
 from __future__ import print_function
 import os,sys,glob,argparse,string
@@ -46,30 +46,31 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION verificationCorrection()                                                                                                       #
 ###########################################################################################################################################
-# ROLE:
-#     Verifier et corrige des vecteurs resultats de classifications OCS en traitement sous postgis
-#
-# ENTREES DE LA FONCTION :
-#     vector_ref: le vecteur d'emprise de référence des vecteurs
-#     vectors_input_list : les vecteurs d'entrée qui seront découpés
-#     vectors_output_list : les vecteurs de sorties découpées
-#     epsg : EPSG code de projection
-#     project_encoding : encodage des fichiers d'entrés
-#     server_postgis : nom du serveur postgis
-#     port_number : numéro du port pour le serveur postgis
-#     user_postgis : le nom de l'utilisateurs postgis
-#     password_postgis : le mot de passe de l'utilisateur posgis
-#     database_postgis : le nom de la base posgis à utiliser
-#     schema_postgis : le nom du schéma à utiliser
-#     path_time_log : le fichier de log de sortie
-#     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
-#
-# SORTIES DE LA FONCTION :
-#     na
-#
-
 def verificationCorrection(vector_ref, vectors_input_list, vectors_output_list, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log, save_results_intermediate=False, overwrite=True) :
+    """
+    # ROLE:
+    #     Verifier et corrige des vecteurs resultats de classifications OCS en traitement sous postgis
+    #
+    # ENTREES DE LA FONCTION :
+    #     vector_ref: le vecteur d'emprise de référence des vecteurs
+    #     vectors_input_list : les vecteurs d'entrée qui seront découpés
+    #     vectors_output_list : les vecteurs de sorties découpées
+    #     epsg : EPSG code de projection
+    #     project_encoding : encodage des fichiers d'entrés
+    #     server_postgis : nom du serveur postgis
+    #     port_number : numéro du port pour le serveur postgis
+    #     user_postgis : le nom de l'utilisateurs postgis
+    #     password_postgis : le mot de passe de l'utilisateur posgis
+    #     database_postgis : le nom de la base posgis à utiliser
+    #     schema_postgis : le nom du schéma à utiliser
+    #     path_time_log : le fichier de log de sortie
+    #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #
+    # SORTIES DE LA FONCTION :
+    #     na
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "verificationCorrection() : Verifie and correct vector starting : "
@@ -202,7 +203,7 @@ def verificationCorrection(vector_ref, vectors_input_list, vectors_output_list, 
         """ % (table_verif_sum100_name, table_verif_sum_name)
         executeQuery(connection, query_verif_sum100)
 
-        data_list = getData(connection, table_verif_sum100_name, COLUMN_SUM)
+        data_list = getData(connection, table_verif_sum100_name, COLUMN_SUM, condition='')
         if len(data_list) > 0:
             print(cyan + "verificationCorrection() : " + bold + red + "Error column sum 100 not empty = " + str(len(data_list)) +  endC, file=sys.stderr)
 
@@ -219,7 +220,7 @@ def verificationCorrection(vector_ref, vectors_input_list, vectors_output_list, 
         executeQuery(connection, query_verif_surf)
 
         delta = 1
-        data_list = getData(connection, table_verif_surf_name, COLUMN_SUM)
+        data_list = getData(connection, table_verif_surf_name, COLUMN_SUM, condition='')
         data_list0 = float(str(data_list[0])[1:-2])
         for data in data_list:
             data = float(str(data)[1:-2])
@@ -229,7 +230,7 @@ def verificationCorrection(vector_ref, vectors_input_list, vectors_output_list, 
                 print(cyan + "verificationCorrection() : " + bold + red + "Error area comparaison, ref = " + str(data_list0) + "m², data = " + str(data) + "m²" + endC, file=sys.stderr)
 
         # Correction la géométrie (topologie)
-        topologyCorrections(connection, table_output_name)
+        topologyCorrections(connection, table_output_name, geom_field='geom')
 
         # Récupération de la base du fichier vecteur de sortie (et déconnexion de la base de données, pour éviter les conflits d'accès)
         closeConnection(connection)
