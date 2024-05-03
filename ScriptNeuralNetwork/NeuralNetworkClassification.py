@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,10 +10,11 @@
 # SCRIPT QUI APPLIQUE UNE CLASSIFICATION PAR RESEAU DE NEURONES                                                                             #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+
+"""
 Nom de l'objet : NeuralNetworkClassification.py
 Description :
-    Objectif : exécute une classification via réseaux de neurones sur des images découpées d'une seule image satellite en se basant sur un réseau Encodeur/Decodeur type Unet
+Objectif : exécute une classification via réseaux de neurones sur des images découpées d'une seule image satellite en se basant sur un réseau Encodeur/Decodeur type Unet
 
 Date de creation : 08/04/2021
 ----------
@@ -24,8 +25,8 @@ Origine : le script originel provient du regroupement de fichier du stagiaire Ro
 Modifications
 
 ------------------------------------------------------
+"""
 
-'''
 ##### Import propre à l'evaluation de performance #####
 from __future__ import print_function
 import os
@@ -50,10 +51,10 @@ import glob,string,shutil,time,argparse, threading
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_log import timeLine
 from Lib_operator import getExtensionApplication
-from Lib_vector import simplifyVector, cutoutVectors, bufferVector, fusionVectors, filterSelectDataVector, getAttributeNameList, getNumberFeature, getGeometryType, getEmpriseFile, createEmpriseShapeReduced, createGridVector, splitVector
-from Lib_raster import createVectorMask, rasterizeBinaryVector, getNodataValueImage, getGeometryImage, getProjectionImage, updateReferenceProjection, getGeometryImage, roundPixelEmpriseSize, getEmpriseImage, cutImageByVector, getPixelWidthXYImage, countPixelsOfValue, countPixelsOfValueBis
+from Lib_vector import simplifyVector, cutoutVectors, bufferVector, fusionVectors, filterSelectDataVector, getAttributeNameList, getNumberFeature, getGeometryType, getEmpriseVector, createEmpriseShapeReduced, createGridVector, splitVector
+from Lib_raster import createVectorMask, rasterizeBinaryVector, getNodataValueImage, getGeometryImage, getProjectionImage, updateReferenceProjection, getEmpriseImage, cutImageByVector, getPixelWidthXYImage, countPixelsOfValue, cutImageByGrid
 from Lib_file import removeVectorFile, removeFile
-from Lib_text import appendTextFileCR
+from Lib_text import appendTextFileCR, fillTableFiles
 
 ##### Import propre à Data Generator #####
 
@@ -61,8 +62,8 @@ from skimage import img_as_float
 from tifffile import imread
 
 ##### Import propre à Prediction #####
-from gdal import *
-from gdalconst import *
+from osgeo import gdal, gdalconst
+from osgeo.gdalconst import *
 from skimage import img_as_ubyte
 from tqdm import tqdm
 
@@ -84,8 +85,11 @@ debug = 3
 ###########################################################################################################################################
 # STRUCTURE StructNnParameter                                                                                                             #
 ###########################################################################################################################################
-# Structure contenant les parametres utiles au calcul du Reseau de neurones
+
 class StructNnParameter:
+    """
+    # Structure contenant les parametres utiles au calcul du Reseau de neurones.
+    """
     def __init__(self):
 
         # Hyperparameters NN
@@ -114,7 +118,11 @@ class StructNnParameter:
 ###########################################################################################################################################
 
 #class DataGenerator(keras.utils.Sequence):
-class DataGenerator(keras.utils.all_utils.Sequence):
+#class DataGenerator(keras.utils.all_utils.Sequence):
+class DataGenerator(keras.utils.data_utils.Sequence):
+    """
+    # Génération des données pour les mettre en entrée du réseau de neurones.
+    """
     def __init__(self, batch_size, input_img_paths, target_mask_paths, augmentation, data_type):
         self.batch_size = batch_size
         self.input_img_paths = input_img_paths
@@ -125,31 +133,37 @@ class DataGenerator(keras.utils.all_utils.Sequence):
     ###########################################################################################################################################
     # FONCTION __len__()                                                                                                                      #
     ###########################################################################################################################################
-    # ROLE:
-    #    Redefinition de la fonction __len__ la taille du DataGenerator
-    #
-    # ENTREES DE LA FONCTION :
-    #
-    # SORTIES DE LA FONCTION :
-    #    taille de la liste générée par DataGenerator
-    #
     def __len__(self):
+        """
+        # ROLE:
+        #    Redefinition de la fonction __len__ la taille du DataGenerator
+        #
+        # ENTREES DE LA FONCTION :
+        #
+        # SORTIES DE LA FONCTION :
+        #    taille de la liste générée par DataGenerator
+        #
+        """
+
         return (len(self.input_img_paths) // self.batch_size) + 1
 
     ###########################################################################################################################################
     # FONCTION __getitem__()                                                                                                                  #
     ###########################################################################################################################################
-    # ROLE:
-    #    Redefinition de la fonction __getitem__ pour recupérer un lot d'images et de masques stockés à l'indice index
-    #
-    # ENTREES DE LA FONCTION :
-    #    index (int) : indice pour récuperer le lot à l'indice souhaité
-    #
-    # SORTIES DE LA FONCTION :
-    #    images en float32
-    #    masques en uint8
-    #
     def __getitem__(self, index):
+        """
+        # ROLE:
+        #    Redefinition de la fonction __getitem__ pour recupérer un lot d'images et de masques stockés à l'indice index
+        #
+        # ENTREES DE LA FONCTION :
+        #    index (int) : indice pour récuperer le lot à l'indice souhaité
+        #
+        # SORTIES DE LA FONCTION :
+        #    images en float32
+        #    masques en uint8
+        #
+        """
+
         # Pour la prédiction, on a juste besoin des images
         if self.data_type == 'test':
             i = index * self.batch_size
@@ -187,17 +201,20 @@ class DataGenerator(keras.utils.all_utils.Sequence):
     ###########################################################################################################################################
     # FONCTION augmentData()                                                                                                                  #
     ###########################################################################################################################################
-    # ROLE:
-    #    Assure une augmentation des données avec rotation (90°) et retournement (vertical/horizontal) selon un nombre aléatoire.
-    #
-    # ENTREES DE LA FONCTION :
-    #    image (array) : l'image
-    #    mask  (array) : le masque
-    #
-    # SORTIES DE LA FONCTION :
-    #    image et masque augmentés (modifiés avec rotation/retournement)
-    #
     def augmentData(self, image, mask):
+        """
+        # ROLE:
+        #    Assure une augmentation des données avec rotation (90°) et retournement (vertical/horizontal) selon un nombre aléatoire.
+        #
+        # ENTREES DE LA FONCTION :
+        #    image (array) : l'image
+        #    mask  (array) : le masque
+        #
+        # SORTIES DE LA FONCTION :
+        #    image et masque augmentés (modifiés avec rotation/retournement)
+        #
+        """
+
         if random.random() < 0.5:
             image = np.flipud(image)
             mask = np.flipud(mask)
@@ -234,16 +251,19 @@ class DataGenerator(keras.utils.all_utils.Sequence):
     ###########################################################################################################################################
     # FONCTION loadTiffMask()                                                                                                                 #
     ###########################################################################################################################################
-    # ROLE:
-    #    Chargement du masque et changement de ses dimensions et de son type pour être utilisé en entrée du reseau de neurones.
-    #
-    # ENTREES DE LA FONCTION :
-    #    mask_name (string) : chemin du fichier contenant le masque
-    #
-    # SORTIES DE LA FONCTION :
-    #    masque redimensionné et convertit en uint8
-    #
     def loadTiffMask(self, mask_name):
+        """
+        # ROLE:
+        #    Chargement du masque et changement de ses dimensions et de son type pour être utilisé en entrée du reseau de neurones.
+        #
+        # ENTREES DE LA FONCTION :
+        #    mask_name (string) : chemin du fichier contenant le masque
+        #
+        # SORTIES DE LA FONCTION :
+        #    masque redimensionné et convertit en uint8
+        #
+        """
+
         mask = imread(mask_name)
         mask = mask[..., np.newaxis]
 
@@ -266,19 +286,22 @@ class DataGenerator(keras.utils.all_utils.Sequence):
 ###########################################################################################################################################
 # FONCTION conv2dBlock()                                                                                                                  #
 ###########################################################################################################################################
-# ROLE:
-#    Création d'un bloc de convolutions comprenant 2 couches de neurones convolutif ainsi qu'une activation ReLu et une BatchNormalization.
-#
-# ENTREES DE LA FONCTION :
-#    input_tensor (tensor) : image modifiée pour être utilisable par un réseau de neurones
-#    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-#    kernel_size (int): taille du filtre, par défaut 3 donc de dimension 3x3
-#    batchnorm (bool) : booléen pour en fonction rajouter ou non une couche de BatchNormalization, par défaut True
-#
-# SORTIES DE LA FONCTION :
-#    Cela renvoie input_tensor transformée après le passage dans les couches du bloc convolutif
-#
 def conv2dBlock(input_tensor, n_filters, kernel_size = 3, batchnorm = True):
+    """
+    # ROLE:
+    #    Création d'un bloc de convolutions comprenant 2 couches de neurones convolutif ainsi qu'une activation ReLu et une BatchNormalization.
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_tensor (tensor) : image modifiée pour être utilisable par un réseau de neurones
+    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
+    #    kernel_size (int): taille du filtre, par défaut 3 donc de dimension 3x3
+    #    batchnorm (bool) : booléen pour en fonction rajouter ou non une couche de BatchNormalization, par défaut True
+    #
+    # SORTIES DE LA FONCTION :
+    #    Cela renvoie input_tensor transformée après le passage dans les couches du bloc convolutif
+    #
+    """
+
     # Première couche
     x = Conv2D(filters = n_filters, kernel_size = kernel_size, padding = 'same', activation = 'relu', kernel_initializer="he_normal")(input_tensor)
     if batchnorm:
@@ -293,21 +316,24 @@ def conv2dBlock(input_tensor, n_filters, kernel_size = 3, batchnorm = True):
 ###########################################################################################################################################
 # FONCTION unet()                                                                                                                         #
 ###########################################################################################################################################
-# ROLE:
-#    Création du réseau de neurone type UNet basé sur l'article https://arxiv.org/abs/1505.04597
-#
-# ENTREES DE LA FONCTION :
-#    input_size (int) : dimension de l'image passée en entrée du réseau
-#    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-#    n_classes(int) : nombre de classes. Utile pour la dernière couche du réseau afin de classer
-#    mode (string) : "mono" ou "multi" en fonction du nombre de classe que l'on utilise.
-#    upconv (bool) : booléen utile pour la partie décodeur. Soit on utilise une UpConvolution soit on fait une convolution Transposée
-#             True : conv2D + Upsampling2D, upconv = False : Conv2DTranspose (conseillé)
-#
-# SORTIES DE LA FONCTION :
-#    Modèle Unet
-#
 def unet(input_size, n_filters, n_classes, kernel_size, mode, upconv = False):
+    """
+    # ROLE:
+    #    Création du réseau de neurone type UNet basé sur l'article https://arxiv.org/abs/1505.04597
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_size (int) : dimension de l'image passée en entrée du réseau
+    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
+    #    n_classes(int) : nombre de classes. Utile pour la dernière couche du réseau afin de classer
+    #    mode (string) : "mono" ou "multi" en fonction du nombre de classe que l'on utilise.
+    #    upconv (bool) : booléen utile pour la partie décodeur. Soit on utilise une UpConvolution soit on fait une convolution Transposée
+    #             True : conv2D + Upsampling2D, upconv = False : Conv2DTranspose (conseillé)
+    #
+    # SORTIES DE LA FONCTION :
+    #    Modèle Unet
+    #
+    """
+
     inputs = Input(input_size)
 
     # Encodeur
@@ -381,20 +407,23 @@ def unet(input_size, n_filters, n_classes, kernel_size, mode, upconv = False):
 ###########################################################################################################################################
 # FONCTION convBlock()                                                                                                                    #
 ###########################################################################################################################################
-# ROLE:
-#    Création d'un bloc de convolutions comprenant une BatchNormalization, une activation ReLu et une couche de neurones convolutif.
-#
-# ENTREES DE LA FONCTION :
-#    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
-#    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-#    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
-#    padding (int) : rajoute des 0 au filtre de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
-#    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
-#
-# SORTIES DE LA FONCTION :
-#    Cela renvoie x transformée après le passage dans les couches du bloc convolutif
-#
 def convBlock(x, n_filters, kernel_size = 3, padding = 'same', strides = 1):
+    """
+    # ROLE:
+    #    Création d'un bloc de convolutions comprenant une BatchNormalization, une activation ReLu et une couche de neurones convolutif.
+    #
+    # ENTREES DE LA FONCTION :
+    #    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
+    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
+    #    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
+    #    padding (int) : rajoute des 0 au filtre de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
+    #    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
+    #
+    # SORTIES DE LA FONCTION :
+    #    Cela renvoie x transformée après le passage dans les couches du bloc convolutif
+    #
+    """
+
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = Conv2D(n_filters, kernel_size, padding = padding, strides = strides, kernel_initializer="he_normal")(x)
@@ -403,20 +432,23 @@ def convBlock(x, n_filters, kernel_size = 3, padding = 'same', strides = 1):
 ###########################################################################################################################################
 # FONCTION inputBlock()                                                                                                                   #
 ###########################################################################################################################################
-# ROLE:
-#    Création du premier bloc de convolution en entrée du réseau.
-#
-# ENTREES DE LA FONCTION :
-#    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
-#    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-#    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
-#    padding (int) : rajoute des 0 à l'image de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
-#    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
-#
-# SORTIES DE LA FONCTION :
-#    Cela renvoie add qui est un modèle représentant le block d'entrée de l'encodeur.
-#
 def inputBlock(x, n_filters, kernel_size = 3, padding = 'same', strides = 1):
+    """
+    # ROLE:
+    #    Création du premier bloc de convolution en entrée du réseau.
+    #
+    # ENTREES DE LA FONCTION :
+    #    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
+    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
+    #    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
+    #    padding (int) : rajoute des 0 à l'image de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
+    #    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
+    #
+    # SORTIES DE LA FONCTION :
+    #    Cela renvoie add qui est un modèle représentant le block d'entrée de l'encodeur.
+    #
+    """
+
     conv = Conv2D(n_filters, kernel_size, padding = padding, strides = strides, kernel_initializer="he_normal")(x)
     conv = convBlock(conv, n_filters, kernel_size, padding, strides)
     x_skip = Conv2D(n_filters, kernel_size = 3, padding = padding, strides = strides, kernel_initializer="he_normal")(x)
@@ -428,20 +460,23 @@ def inputBlock(x, n_filters, kernel_size = 3, padding = 'same', strides = 1):
 ###########################################################################################################################################
 # FONCTION residualBlock()                                                                                                                #
 ###########################################################################################################################################
-# ROLE:
-#    Création d'un bloc basique dans les réseaux de neurones type ResNet.
-#
-# ENTREES DE LA FONCTION :
-#    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
-#    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-#    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
-#    padding (int) : rajoute des 0 à l'image de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
-#    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
-#
-# SORTIES DE LA FONCTION :
-#    Cela renvoie add qui est un modèle représentant un block basique dans les réseaux de neurones type ResNet.
-#
 def residualBlock(x, n_filters, kernel_size = 3, padding = 'same', strides = 1):
+    """
+    # ROLE:
+    #    Création d'un bloc basique dans les réseaux de neurones type ResNet.
+    #
+    # ENTREES DE LA FONCTION :
+    #    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
+    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
+    #    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
+    #    padding (int) : rajoute des 0 à l'image de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
+    #    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
+    #
+    # SORTIES DE LA FONCTION :
+    #    Cela renvoie add qui est un modèle représentant un block basique dans les réseaux de neurones type ResNet.
+    #
+    """
+
     res = convBlock(x, n_filters, kernel_size, padding, strides)
     res = convBlock(res, n_filters, kernel_size, padding, 1)
     x_skip = Conv2D(n_filters, kernel_size, padding = padding, strides = strides, kernel_initializer="he_normal")(x)
@@ -453,19 +488,22 @@ def residualBlock(x, n_filters, kernel_size = 3, padding = 'same', strides = 1):
 ###########################################################################################################################################
 # FONCTION resunet()                                                                                                                      #
 ###########################################################################################################################################
-# ROLE:
-#    Création du réseau de neurone type ResUNet basé sur les articles https://arxiv.org/pdf/1711.10684.pdf et https://www.kaggle.com/ekhtiar/lung-segmentation-cropping-resunet-tf-# keras.
-#
-# ENTREES DE LA FONCTION :
-#    input_size (int) : dimension de l'image passée en entrée du réseau
-#    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-#    n_classes (int) : nombre de classes. Utile pour la dernière couche du réseau afin de classer
-#    mode (string) : "mono" ou "multi" en fonction du nombre de classe que l'on utilise.
-#
-# SORTIES DE LA FONCTION :
-#    Modèle ResUNet
-#
 def resunet(input_size, n_filters, n_classes, kernel_size, mode):
+    """
+    # ROLE:
+    #    Création du réseau de neurone type ResUNet basé sur les articles https://arxiv.org/pdf/1711.10684.pdf et https://www.kaggle.com/ekhtiar/lung-segmentation-cropping-resunet-tf-# keras.
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_size (int) : dimension de l'image passée en entrée du réseau
+    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
+    #    n_classes (int) : nombre de classes. Utile pour la dernière couche du réseau afin de classer
+    #    mode (string) : "mono" ou "multi" en fonction du nombre de classe que l'on utilise.
+    #
+    # SORTIES DE LA FONCTION :
+    #    Modèle ResUNet
+    #
+    """
+
     inputs = Input(input_size)
 
     # Encodeur
@@ -517,22 +555,25 @@ def resunet(input_size, n_filters, n_classes, kernel_size, mode):
 ###########################################################################################################################################
 # FONCTION savePredictedMaskAsRasterGenerator()                                                                                           #
 ###########################################################################################################################################
-# ROLE:
-#    Création des fichiers pour y stocker les masques obtenus après la prédiction du réseau de neurones. Production de nom_masque.tif
-#
-# ENTREES DE LA FONCTION :
-#    predicted_mask (string list) : la liste des masques obtenus après le keras.predict()
-#    filenames (string list) : la liste des noms des fichiers (chemins)
-#    prediction_dir (string) : le chemin pour sauvegarder les masques
-#    pixel_size (int) : taille d'un pixel
-#    size_grid (int) : définis la dimension des imagettes
-#
-# SORTIES DE LA FONCTION :
-#    Aucune sortie
-#
 def savePredictedMaskAsRasterGenerator(predicted_mask, filenames, prediction_dir, pixel_size, size_grid, format_raster):
+    """
+    # ROLE:
+    #    Création des fichiers pour y stocker les masques obtenus après la prédiction du réseau de neurones. Production de nom_masque.tif
+    #
+    # ENTREES DE LA FONCTION :
+    #    predicted_mask (list) : la liste des masques obtenus après le keras.predict()
+    #    filenames (list) : la liste des noms des fichiers (chemins)
+    #    prediction_dir (string) : le chemin pour sauvegarder les masques
+    #    pixel_size (int) : taille d'un pixel
+    #    size_grid (int) : définis la dimension des imagettes
+    #
+    # SORTIES DE LA FONCTION :
+    #    Aucune sortie
+    #
+    """
+
     no_of_bands = predicted_mask[0].shape[2]
-    #print("no_of_bands : "+str(no_of_bands))
+    #print("no_of_bands : " + str(no_of_bands))
     height = predicted_mask[0].shape[1]
     width = predicted_mask[0].shape[0]
     j=0
@@ -548,7 +589,7 @@ def savePredictedMaskAsRasterGenerator(predicted_mask, filenames, prediction_dir
                 mask[mask >= 0.5] = 1
                 mask[mask < 0.5] = 0
 
-            source_ds = Open(filename, GA_ReadOnly)
+            source_ds = gdal.Open(filename, GA_ReadOnly)
             source_projection = source_ds.GetProjection()
             ulx = source_ds.GetGeoTransform()[0]
             uly = source_ds.GetGeoTransform()[3]
@@ -560,7 +601,7 @@ def savePredictedMaskAsRasterGenerator(predicted_mask, filenames, prediction_dir
             geotransform[4] = 0
             geotransform[5] = - pixel_size
 
-            driver = GetDriverByName(format_raster)
+            driver = gdal.GetDriverByName(format_raster)
             target_ds = driver.Create(output_name, width, height, 1, GDT_Byte)
             target_ds.SetGeoTransform(geotransform)
             target_ds.SetProjection(source_projection)
@@ -579,19 +620,22 @@ def savePredictedMaskAsRasterGenerator(predicted_mask, filenames, prediction_dir
 ###########################################################################################################################################
 # FONCTION changeNodataInPrediction()                                                                                                     #
 ###########################################################################################################################################
-# ROLE:
-#    Changement du masque prédit en enlevant la classe no_data. Les pixels ayant la classe no_data attribué ont maintenant la deuxième classe la plus probable
-#
-# ENTREES DE LA FONCTION :
-#    mask (array) : un masque résultant d'un keras.predict()
-#    size_grid (int) : définis la dimension des imagettes
-#
-# SORTIES DE LA FONCTION :
-#    Le même masque auquel on a retiré la classe no_data
-#
 def changeNodataInPrediction(mask, size_grid):
+    """
+    # ROLE:
+    #    Changement du masque prédit en enlevant la classe no_data. Les pixels ayant la classe no_data attribué ont maintenant la deuxième classe la plus probable
+    #
+    # ENTREES DE LA FONCTION :
+    #    mask (array) : un masque résultant d'un keras.predict()
+    #    size_grid (int) : définis la dimension des imagettes
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le même masque auquel on a retiré la classe no_data
+    #
+    """
+
     new_mask = np.zeros((mask.shape[0], mask.shape[1], 1), dtype = np.uint8)
-    #print("mask : "+str(len(mask[0][0])))
+    #print("mask : " + str(len(mask[0][0])))
     cpt_px_change_classif = 0
     for i in range(size_grid):
         for j in range(size_grid):
@@ -599,7 +643,7 @@ def changeNodataInPrediction(mask, size_grid):
 
             if np.argmax(temp) == 0:
                 temp = np.delete(temp, 0)
-                #print("0 -> "+str(np.argmax(temp)))
+                #print("0 -> " + str(np.argmax(temp)))
                 new_mask[i,j] = np.argmax(temp) + 1
                 cpt_px_change_classif = cpt_px_change_classif + 1
             else:
@@ -607,32 +651,35 @@ def changeNodataInPrediction(mask, size_grid):
 
             #new_mask[i,j] = np.argmax(temp) + 1
     if debug >= 5 and cpt_px_change_classif != 0:
-        print("cpt_px_change_classif : "+str(cpt_px_change_classif))
+        print(cyan + "changeNodataInPrediction() : " + endC + "cpt_px_change_classif : "+str(cpt_px_change_classif))
 
     return new_mask
 
 ###########################################################################################################################################
 # FONCTION predictionTestGenerator()                                                                                                      #
 ###########################################################################################################################################
-# ROLE:
-#    Prédiction sur les données d'évaluations puis modification pour les pixels no_data et stockage dans des fichiers .tiff.
-#
-# ENTREES DE LA FONCTION :
-#    model (string) : le modèle (réseau de neurones) entrainé
-#    test_gen (array list) : les données à tester (issues de DataGenerator)
-#    filenames (string list) : la liste des noms des fichiers (chemins)
-#    prediction_dir (string) : le chemin pour sauvegarder les masques
-#    pixel_size (int) : taille d'un pixel
-#    size_grid (int) : définis la dimension des imagettes
-#    format_raster (string) : format des imagettes
-#
-# SORTIES DE LA FONCTION :
-#    Aucune sortie
-#
 def predictionTestGenerator(model, test_gen, filenames, prediction_dir, pixel_size, size_grid, format_raster):
-    #print("LEN test_gen : "+str(len(test_gen)))
+    """
+    # ROLE:
+    #    Prédiction sur les données d'évaluations puis modification pour les pixels no_data et stockage dans des fichiers .tiff.
+    #
+    # ENTREES DE LA FONCTION :
+    #    model (string) : le modèle (réseau de neurones) entrainé
+    #    test_gen (array list) : les données à tester (issues de DataGenerator)
+    #    filenames (list) : la liste des noms des fichiers (chemins)
+    #    prediction_dir (string) : le chemin pour sauvegarder les masques
+    #    pixel_size (int) : taille d'un pixel
+    #    size_grid (int) : définis la dimension des imagettes
+    #    format_raster (string) : format des imagettes
+    #
+    # SORTIES DE LA FONCTION :
+    #    Aucune sortie
+    #
+    """
+
+    #print("LEN test_gen : " + str(len(test_gen)))
     pred_test = model.predict(test_gen)
-    #print("LEN pred_test : "+str(len(pred_test)))
+    #print("LEN pred_test : " + str(len(pred_test)))
     savePredictedMaskAsRasterGenerator(pred_test, filenames, prediction_dir, pixel_size, size_grid, format_raster)
 
     return
@@ -644,18 +691,21 @@ def predictionTestGenerator(model, test_gen, filenames, prediction_dir, pixel_si
 ###########################################################################################################################################
 
 ###########################################################################################################################################
-# FONCTION cleanConfusionMatrixFile()                                                                                                  #
+# FONCTION cleanConfusionMatrixFile()                                                                                                     #
 ###########################################################################################################################################
-# ROLE:
-#    Filtrage du fichier pour ne garder que ce qui nous intéresse à partir de mots clés. Modification de ce fichier
-#
-# ENTREES DE LA FONCTION :
-#    cm_file (string) : fichier .txt contenant la redirection du résultat de la commande otbcli_ComputeConfusionMatrix
-#
-# SORTIES DE LA FONCTION :
-#    Aucune sortie
-#
 def cleanConfusionMatrixFile(cm_file):
+    """
+    # ROLE:
+    #    Filtrage du fichier pour ne garder que ce qui nous intéresse à partir de mots clés. Modification de ce fichier
+    #
+    # ENTREES DE LA FONCTION :
+    #    cm_file (string) : fichier .txt contenant la redirection du résultat de la commande otbcli_ComputeConfusionMatrix
+    #
+    # SORTIES DE LA FONCTION :
+    #    Aucune sortie
+    #
+    """
+
     # Mots clés à chercher dans le fichier
     keyword = [
         "#Reference labels",
@@ -684,20 +734,23 @@ def cleanConfusionMatrixFile(cm_file):
 ###########################################################################################################################################
 # FONCTION computeMatrix()                                                                                                                #
 ###########################################################################################################################################
-# ROLE:
-#    Calcul de la matrice de confusion entre le masque de référence et la prédiction avec otbcli_ComputeConfusionMatrix
-#    Récupération des résultats de cette commande dans un fichier .txt
-#
-# ENTREES DE LA FONCTION :
-#    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
-#    n_bands (int) : nombre de bandes des images utilisées
-#    n_classes (int) : nombre de classes
-#    training_input (string list) : chemin vers les imagettes d'entrainement
-#
-# SORTIES DE LA FONCTION :
-#    Aucune sortie
-#
 def computeMatrix(NN, n_bands, n_classes, training_input):
+    """
+    # ROLE:
+    #    Calcul de la matrice de confusion entre le masque de référence et la prédiction avec otbcli_ComputeConfusionMatrix
+    #    Récupération des résultats de cette commande dans un fichier .txt
+    #
+    # ENTREES DE LA FONCTION :
+    #    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
+    #    n_bands (int) : nombre de bandes des images utilisées
+    #    n_classes (int) : nombre de classes
+    #    training_input (list) : chemin vers les imagettes d'entrainement
+    #
+    # SORTIES DE LA FONCTION :
+    #    Aucune sortie
+    #
+    """
+
     # Récupération des chemins
     dir_ref = training_input
     dir_pred = NN.predict
@@ -733,188 +786,64 @@ def computeMatrix(NN, n_bands, n_classes, training_input):
 #                                                                                                                                         #
 ###########################################################################################################################################
 
-
-#########################################################################
-# FONCTION cutImageByGrid()                                             #
-#########################################################################
-# ROLE:
-#    Cette fonction découpe une image (.tif) par un vecteur (.shp)
-#
-# ENTREES DE LA FONCTION :
-#    cut_shape_file (string) : le nom du shapefile de découpage (exple : "/chemin/path_clipper.shp")
-#    input_image (string) : le nom de l'image à traiter (exmple : "/users/images/image_raw.tif")
-#    output_image (string) : le nom de l'image resultat découpée (exmple : "/users/images/image_cut.tif")
-#    grid_size_x (int) : dimension de la grille en x
-#    grid_size_y (int) : dimension de la grille en y
-#    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
-#    pixel_size_x (float) : taille du pixel de sortie en x
-#    pixel_size_y (float) : taille du pixel de sortie en y
-#    no_data_value (int) : valeur de l'image d'entrée à transformer en NoData dans l'image de sortie
-#    epsg (int) : Valeur de la projection par défaut 0, si à 0 c'est la valeur de projection du fichier raster d'entrée qui est utilisé automatiquement
-#    format_raster (string) : le format du fichier de sortie, par defaut : 'GTiff'
-#    format_vector (string) : format du fichier vecteur, par defaut : 'ESRI Shapefile'
-#
-# SORTIES DE LA FONCTION :
-#    Aucune sortie
-#
-def cutImageByGrid(cut_shape_file ,input_image, output_image, grid_size_x, grid_size_y, debord, pixel_size_x=None, pixel_size_y=None, no_data_value=0, epsg=0, format_raster="GTiff", format_vector='ESRI Shapefile'):
-
-    if debug >= 3:
-        print(cyan + "cutImageByGrid() : Vecteur de découpe des l'image : " + cut_shape_file + endC)
-        print(cyan + "cutImageByGrid() : L'image à découper : " + input_image + endC)
-
-    # Constante
-    EPSG_DEFAULT = 2154
-
-    ret = True
-
-    # Récupération de la résolution du raster d'entrée
-    if pixel_size_x == None or pixel_size_y == None :
-        pixel_size_x, pixel_size_y = getPixelWidthXYImage(input_image)
-
-    if debug >= 5:
-        print("Taille des pixels : ")
-        print("pixel_size_x = " + str(pixel_size_x))
-        print("pixel_size_y = " + str(pixel_size_y))
-        print("grid_size_x = " + str(grid_size_x))
-        print("grid_size_y = " + str(grid_size_y))
-        print("debord = " + str(debord))
-        print("\n")
-
-    # Récuperation de l'emprise de l'image
-    ima_xmin, ima_xmax, ima_ymin, ima_ymax = getEmpriseImage(input_image)
-
-    if debug >= 5:
-        print("Emprise raster : ")
-        print("ima_xmin = " + str(ima_xmin))
-        print("ima_xmax = " + str(ima_xmax))
-        print("ima_ymin = " + str(ima_ymin))
-        print("ima_ymax = " + str(ima_ymax))
-        print("\n")
-
-    # Récuperation de la projection de l'image
-    if epsg == 0:
-        epsg_proj = getProjectionImage(input_image)
-    else :
-        epsg_proj = epsg
-    if epsg_proj == 0:
-        epsg_proj = EPSG_DEFAULT
-
-    if debug >= 3:
-        print(cyan + "cutImageByGrid() : EPSG : " + str(epsg_proj) + endC)
-
-    # Identification de l'emprise de vecteur de découpe
-    empr_xmin, empr_xmax, empr_ymin, empr_ymax = getEmpriseFile(cut_shape_file, format_vector)
-
-    if debug >= 5:
-        print("Emprise vector : ")
-        print("empr_xmin = " + str(empr_xmin))
-        print("empr_xmax = " + str(empr_xmax))
-        print("empr_ymin = " + str(empr_ymin))
-        print("empr_ymax = " + str(empr_ymax))
-        print("\n")
-
-    # Calculer l'emprise arrondi
-    xmin, xmax, ymin, ymax = roundPixelEmpriseSize(pixel_size_x, pixel_size_y, empr_xmin, empr_xmax, empr_ymin, empr_ymax)
-
-    if debug >= 5:
-        print("Emprise vecteur arrondi a la taille du pixel : ")
-        print("xmin = " + str(xmin))
-        print("xmax = " + str(xmax))
-        print("ymin = " + str(ymin))
-        print("ymax = " + str(ymax))
-        print("(debord * pixel_size_x)/2 = "+str((debord * pixel_size_x)/2))
-        print("\n")
-
-    # Trouver l'emprise optimale
-    opt_xmin = xmin - (debord * pixel_size_y)/2
-    opt_xmax = xmin + grid_size_x + (debord * pixel_size_x)/2
-
-    opt_ymin = ymax - grid_size_y - (debord * pixel_size_y)/2
-    opt_ymax = ymax + (debord * pixel_size_x)/2
-
-
-    if debug >= 5:
-        print("Emprise retenu : ")
-        print("opt_xmin = " + str(opt_xmin))
-        print("opt_xmax = " + str(opt_xmax))
-        print("opt_ymin = " + str(opt_ymin))
-        print("opt_ymax = " + str(opt_ymax))
-        print("\n")
-
-    # Découpage grace à gdal
-    command = 'gdalwarp -t_srs EPSG:%s  -te %s %s %s %s -tap -multi -co "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), format_raster, input_image, output_image)
-
-    if debug >= 4:
-        print(command)
-
-    exit_code = os.system(command)
-    if exit_code != 0:
-        print(command)
-        print(cyan + "cutImageByGrid() : " + bold + red + "!!! Une erreur c'est produite au cours du decoupage de l'image : " + input_image + ". Voir message d'erreur." + endC, file=sys.stderr)
-        ret = False
-
-    else :
-        if debug >= 4:
-            print(cyan + "cutImageByGrid() : L'image résultat découpée : " + output_image + endC)
-
-    return ret
-
 #########################################################################
 # FONCTION createFileOutputImagette()                                   #
 #########################################################################
-# ROLE:
-#    Cette fonction crée le chemin du fichier de sortie correspondant à une imagette redimensionnée
-#
-# ENTREES DE LA FONCTION :
-#    file_grid_temp (string) : fichier de découpe de l'imagette
-#    file_imagette (string) : fichier de l'imagette classifiée
-#    classification_resized_dir (string) : dossier où stocker les imagettes classifiées redimensionnées
-#    extension_raster (string) :  extension d'un fichier raster
-#
-# SORTIES DE LA FONCTION :
-#    Renvoie les fichiers d'entrée file_grid_temp, file_imagette ainsi que le chemin du fichier de sortie créé
-#
 def createFileOutputImagette(file_grid_temp, file_imagette, classification_resized_dir, extension_raster):
+    """
+    # ROLE:
+    #    Cette fonction crée le chemin du fichier de sortie correspondant à une imagette redimensionnée
+    #
+    # ENTREES DE LA FONCTION :
+    #    file_grid_temp (string) : fichier de découpe de l'imagette
+    #    file_imagette (string) : fichier de l'imagette classifiée
+    #    classification_resized_dir (string) : dossier où stocker les imagettes classifiées redimensionnées
+    #    extension_raster (string) :  extension d'un fichier raster
+    #
+    # SORTIES DE LA FONCTION :
+    #    Renvoie les fichiers d'entrée file_grid_temp, file_imagette ainsi que le chemin du fichier de sortie créé
+    #
+    """
 
     # Récupération du nom de l'imagette
     imagette_file = file_imagette.split(os.sep)[-1]
     imagette_file_name = imagette_file.split(".")[0]
-    output_imagette = classification_resized_dir + imagette_file_name + "_tmp" + extension_raster
+    output_imagette = classification_resized_dir + os.sep +  imagette_file_name + "_tmp" + extension_raster
 
     if debug >= 5 :
-        print("file_grid_temp : "+file_grid_temp)
-        print("file_imagette : "+file_imagette)
-        print("output_imagette : "+output_imagette)
+        print(cyan + "createFileOutputImagette() : " + endC + "file_grid_temp : " + file_grid_temp)
+        print(cyan + "createFileOutputImagette() : " + endC + "file_imagette : " + file_imagette)
+        print(cyan + "createFileOutputImagette() : " + endC + "output_imagette : " + output_imagette)
 
     return file_grid_temp, file_imagette, output_imagette
 
 ###########################################################################################################################################
 # FONCTION assemblyImages()                                                                                                               #
 ###########################################################################################################################################
-# ROLE:
-#    Reconstruction de l'image satellite entière. Utilisé pour assembler les différentes imagettes résultats de la prédiction
-#
-# ENTREES DE LA FONCTION :
-#    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
-#    prediction_dir (string) : chemin du dossier Predict
-#    classification_resized_dir (string) : chemin du dossier des imagettes classifiées redimmensionnées
-#    input_img_paths (string list) : liste contenant les chemins vers toutes les imagettes
-#    output_assembly (string) : chemin pour l'image de sortie assemblée
-#    vector_simple_mask (string) : vecteur simplifié de l'image
-#    split_tile_vector_list (string list) : liste des vecteurs de découpe
-#    image_input (string) : image satellite d'entrée
-#    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
-#    no_data_value (int) : valeur que prend un pixel qui ne contient pas d'information
-#    epsg (int) : identificateur de SIG
-#    extension_raster (string) : extension de fichier des imagettes
-#    format_vector (string) : format des vecteurs
-#    format_raster (string) : format des imagettes
-#
-# SORTIES DE LA FONCTION :
-#    Renvoie l'image satellite assemblée
-#
-def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_paths, output_assembly, vector_simple_mask, split_tile_vector_list, image_input, debord, no_data_value=0, epsg=2154, extension_raster=".tif", format_vector='ESRI Shapefile', format_raster='GTiff'):
+def assemblyImages(prediction_dir, classification_resized_dir, input_img_paths, output_assembly, vector_simple_mask, split_tile_vector_list, image_input, debord, no_data_value=0, epsg=2154, extension_raster=".tif", format_vector='ESRI Shapefile', format_raster='GTiff'):
+    """
+    # ROLE:
+    #    Reconstruction de l'image satellite entière. Utilisé pour assembler les différentes imagettes résultats de la prédiction
+    #
+    # ENTREES DE LA FONCTION :
+    #    prediction_dir (string) : chemin du dossier Predict
+    #    classification_resized_dir (string) : chemin du dossier des imagettes classifiées redimmensionnées
+    #    input_img_paths (list) : liste contenant les chemins vers toutes les imagettes
+    #    output_assembly (string) : chemin pour l'image de sortie assemblée
+    #    vector_simple_mask (string) : vecteur simplifié de l'image
+    #    split_tile_vector_list (list) : liste des vecteurs de découpe
+    #    image_input (string) : image satellite d'entrée
+    #    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
+    #    no_data_value (int) : valeur que prend un pixel qui ne contient pas d'information
+    #    epsg (int) : identificateur de SIG
+    #    extension_raster (string) : extension de fichier des imagettes
+    #    format_vector (string) : format des vecteurs
+    #    format_raster (string) : format des imagettes
+    #
+    # SORTIES DE LA FONCTION :
+    #    Renvoie l'image satellite assemblée
+    #
+    """
 
     imagette_file_list = prediction_dir + "liste_images_tmp.txt"
 
@@ -943,7 +872,7 @@ def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_pat
                 file_grid_temp, file_imagette, output_imagette =  createFileOutputImagette(split_tile_vector_list[(i * number_CPU) + j], input_img_paths[i * number_CPU + j], classification_resized_dir, extension_raster)
 
                 # Découpage de l'image par multi-threading
-                thread = threading.Thread(target=cutImageByVector, args=(file_grid_temp ,file_imagette, output_imagette, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
+                thread = threading.Thread(target=cutImageByVector, args=(file_grid_temp ,file_imagette, output_imagette, pixel_size, pixel_size, False, no_data_value, epsg, format_raster, format_vector))
                 thread.start()
                 thread_list.append(thread)
 
@@ -954,7 +883,7 @@ def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_pat
                 for thread in thread_list:
                     thread.join()
             except:
-                print(cyan + "computePreTreatment() : " + bold + red + "computePreTreatment() : " + endC + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
+                print(cyan + "assemblyImages() : " + bold + red + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
 
         # Initialisation de la liste pour le multi-threading
         thread_list = []
@@ -963,7 +892,7 @@ def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_pat
             file_grid_temp, file_imagette, output_imagette =  createFileOutputImagette(split_tile_vector_list[(rapport_division_CPU * number_CPU) + i], input_img_paths[(rapport_division_CPU * number_CPU) + i], classification_resized_dir, extension_raster)
 
             # Découpage de l'image par multi-threading
-            thread = threading.Thread(target=cutImageByVector, args=(file_grid_temp ,file_imagette, output_imagette, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
+            thread = threading.Thread(target=cutImageByVector, args=(file_grid_temp ,file_imagette, output_imagette, pixel_size, pixel_size, False, no_data_value, epsg, format_raster, format_vector))
             thread.start()
             thread_list.append(thread)
 
@@ -974,7 +903,7 @@ def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_pat
             for thread in thread_list:
                 thread.join()
         except:
-            print(cyan + "computePreTreatment() : " + bold + red + "computePreTreatment() : " + endC + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
+            print(cyan + "assemblyImages() : " + bold + red + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
 
     # Cas où il n'y a pas de débord et donc pas besoin de redécouper les images
     else :
@@ -984,10 +913,12 @@ def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_pat
 
     # Fusion des imagettes
     cmd_merge = "gdal_merge" + getExtensionApplication() + " -of " + format_raster + " -ps " + str(pixel_size) + " " + str(pixel_size) + " -n " + str(no_data_value) + " -a_nodata " + str(no_data_value) + " -o "  + output_assembly + " --optfile " + imagette_file_list
-    print(cmd_merge)
+    if debug >= 2:
+        print(cmd_merge)
     exit_code = os.system(cmd_merge)
     if exit_code != 0:
-        raise NameError (bold + red + "!!! Une erreur c'est produite au cours du merge des images. Voir message d'erreur."  + endC)
+        print(cmd_merge)
+        raise NameError (cyan + "assemblyImages() : " + bold + red + "!!! Une erreur c'est produite au cours du merge des images. Voir message d'erreur."  + endC)
 
     # Conserve le nom de la classification pour pouvoir la supprimer apres la decoupe
     old_output_assembly = output_assembly
@@ -998,19 +929,20 @@ def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_pat
         decoupe = "_decoupe"
         splitText = output_assembly.split(".")
         output_assembly_decoupe = splitText[0] + decoupe + "." + splitText[1]
-        cutImageByVector(vector_simple_mask , output_assembly, output_assembly_decoupe, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector)
+        cutImageByVector(vector_simple_mask , output_assembly, output_assembly_decoupe, pixel_size, pixel_size, False, no_data_value, epsg, format_raster, format_vector)
 
         output_assembly = output_assembly_decoupe
 
         if debug >= 2:
-            print("Decoupage de l'image assemblée effectué")
+            print(cyan + "assemblyImages() : " + endC + "Decoupage de l'image assemblée effectué")
 
     # Si le fichier de sortie mergé a perdu sa projection on force la projection à la valeur par defaut
-    if getProjectionImage(output_assembly) == None or getProjectionImage(output_assembly) == 0:
+    epsg_ima, _ = getProjectionImage(output_assembly)
+    if epsg_ima == None or epsg_ima == 0:
         if epsg != 0 :
             updateReferenceProjection(None, output_assembly, int(epsg))
         else :
-            raise NameError (bold + red + "!!! Erreur les fichiers images d'entrée non pas de projection défini et vous n'avez pas défini de projection (EPSG) en parametre d'entrée."  + endC)
+            raise NameError (cyan + "assemblyImages() : " + bold + red + "!!! Erreur les fichiers images d'entrée non pas de projection défini et vous n'avez pas défini de projection (EPSG) en parametre d'entrée."  + endC)
 
     # Suppression de l'image predite non decoupee et rennomage de la decoupe
     if os.path.exists(old_output_assembly):
@@ -1020,72 +952,33 @@ def assemblyImages(NN, prediction_dir, classification_resized_dir, input_img_pat
     return old_output_assembly
 
 ###########################################################################################################################################
-# FONCTION fillTableFiles()                                                                                                               #
-###########################################################################################################################################
-# ROLE:
-#    Remplir la matrice contenant les chemins vers l'ensemble des imagettes
-#
-# ENTREES DE LA FONCTION :
-#    split_tile_vector (string) : vecteur de découpe
-#    input_table (string list list) : matrice dans laquelle on va stocker l'imagette de sortie
-#    repertory_data_imagette_temp (string) : dossier contenant les imagettes
-#    name_file (string) : nom du fichier de l'imagette
-#    extension_raster (string) : extension de fichier des imagettes
-#
-# SORTIES DE LA FONCTION :
-#    Renvoie le chemin de l'imagette
-#
-def fillTableFiles(split_tile_vector, input_table, repertory_data_imagette_temp, name_file , extension_raster):
-
-        # Récupération du numéro de ligne et de colonne
-        sub_name = split_tile_vector.split(".")[0].split("_")[-1]
-        #print(sub_name)
-        find_ligne = sub_name.find("l")
-        find_colonne = sub_name.find("c")
-        id_ligne = int(sub_name[find_ligne+1:find_colonne]) - 1
-        id_colonne = int(sub_name[find_colonne+1:]) - 1
-
-        # Création de l'iamge de sortie
-        output_image = repertory_data_imagette_temp + os.sep + name_file + sub_name + extension_raster
-        #print("Output_image : "+output_image)
-
-        # Remplis les matrices
-        #print("Image que l'on veut stocker : "+output_image)
-        #print("Coordonnées :" +str(id_ligne) +" | "+ str(id_colonne))
-
-        # Remplis la matrice
-        input_table[id_ligne].append(output_image)
-        #print("Apres ajout dans la matrice il y a : "+ str(input_table[id_ligne]))
-
-        return output_image
-
-###########################################################################################################################################
 # FONCTION computePreTreatment()                                                                                                          #
 ###########################################################################################################################################
-# ROLE:
-#    Pré-traitement de l'image qui va être découpée en imagettes pour pouvoir entrer en entrée du réseau de neurones
-#
-# ENTREES DE LA FONCTION :
-#    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
-#    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
-#    neural_network_mode (string) : nom du type de réseau de neurones
-#    model (string) : nom du modèle, réseau de neurones
-#    training_input (string) : l'image satellite d'apprentissage
-#    image_input (string) : l'image satellite
-#    vector_input (string) : vecteur de découpe d'entrée (pas obligatoire)
-#    image_output (string) : chemin de l'image de sortie du réseau de neurones, classifiée
-#    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
-#    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
-#    extension_raster (string) : extension de fichier des imagettes
-#    extension_vector (string) : extension de fichier des vecteurs
-#    format_raster (string) : format des imagettes
-#    format_vector (string) : format des vecteurs
-#    epsg (int) : Identificateur de SIG
-#
-# SORTIES DE LA FONCTION :
-#    Renvoie les martices contenant les chemins des imagettes, l'emprise de l'image, la liste des vecteurs de découpes ainsi que le nom des dossieres où sont stockés les vecteurs et imagettes
-#
-def computePreTreatment(NN,debord,neural_network_mode, model, training_input, image_input, vector_input, image_output, size_grid, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', epsg=2154):
+def computePreTreatment(training_input, image_input, vector_input, image_output, neural_network_mode, model, size_grid, debord, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', epsg=2154):
+    """
+    # ROLE:
+    #    Pré-traitement de l'image qui va être découpée en imagettes pour pouvoir entrer en entrée du réseau de neurones
+    #
+    # ENTREES DE LA FONCTION :
+    #    training_input (string) : l'image satellite d'apprentissage
+    #    image_input (string) : l'image satellite
+    #    vector_input (string) : vecteur de découpe d'entrée (pas obligatoire)
+    #    image_output (string) : chemin de l'image de sortie du réseau de neurones, classifiée
+    #    neural_network_mode (string) : nom du type de réseau de neurones
+    #    model (string) : nom du modèle, réseau de neurones
+    #    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
+    #    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
+    #    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
+    #    extension_raster (string) : extension de fichier des imagettes
+    #    extension_vector (string) : extension de fichier des vecteurs
+    #    format_raster (string) : format des imagettes
+    #    format_vector (string) : format des vecteurs
+    #    epsg (int) : Identificateur de SIG
+    #
+    # SORTIES DE LA FONCTION :
+    #    Renvoie les martices contenant les chemins des imagettes, l'emprise de l'image, la liste des vecteurs de découpes ainsi que le nom des dossieres où sont stockés les vecteurs et imagettes
+    #
+    """
 
     simplify_vector_param = 10.0
 
@@ -1140,7 +1033,7 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
     # Creer le fichier grille
     image_dimension = size_grid*pixel_size
     vector_grid_temp = repertory_vect_temp + os.sep + image_name + SUFFIX_GRID_TEMP + extension_vector
-    nb_polygon = createGridVector(vector_simple_mask, vector_grid_temp, image_dimension - (debord * pixel_size), image_dimension - (debord * pixel_size), None, overwrite, epsg , format_vector)
+    createGridVector(vector_simple_mask, vector_grid_temp, image_dimension - (debord * pixel_size) * 2, image_dimension - (debord * pixel_size) * 2, None, overwrite, epsg , format_vector)
 
     repertory_data_temp = repertory + os.sep + neural_network_mode + FOLDER_DATA_TEMP + model_file_name
 
@@ -1181,7 +1074,7 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
     # Récupération du nombre de vecteurs de découpe et définition du nombre de threads à utiliser
     number_vector = len(split_tile_vector_list)
     number_CPU = int(os.cpu_count()/2) #number_vector
-    #print("os.cpu_count()/2 :"+str(os.cpu_count()/2))
+    #print("os.cpu_count()/2 :" + str(os.cpu_count()/2))
 
     rapport_division_CPU = number_vector // number_CPU
     rapport_modulo_CPU = number_vector % number_CPU
@@ -1202,10 +1095,10 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
             #print("Output Image :" + output_image)
 
             if debug >= 1 :
-                print("Traitement de la tuile " + str((i * number_CPU) + j+1) + os.sep + str(number_vector) + "...")
+                print(cyan + "computePreTreatment() : " + endC + "Traitement de la tuile " + str((i * number_CPU) + j+1) + os.sep + str(number_vector) + "...")
             if os.path.exists(split_tile_vector_list[(i * number_CPU) + j]):
                 # Découpage de l'image par multi-threading
-                thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[i * number_CPU + j], image_input, output_image, image_dimension - (debord * pixel_size), image_dimension - (debord * pixel_size), debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
+                thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[i * number_CPU + j], image_input, output_image, image_dimension - (debord * pixel_size) * 2, image_dimension - (debord * pixel_size) * 2, debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
                 thread.start()
                 thread_list.append(thread)
 
@@ -1214,7 +1107,7 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
             for thread in thread_list:
                 thread.join()
         except:
-            print(cyan + "computePreTreatment() : " + bold + red + "computePreTreatment() : " + endC + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
+            print(cyan + "computePreTreatment() : " + bold + red + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
 
     #print(input_table)
 
@@ -1227,11 +1120,11 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
         output_image_path_list.append(output_image)
         #print("Output Imuage :" + output_image)
         if debug >= 1 :
-            print("Traitement de la tuile " + str(i+1) + os.sep + str(number_vector) + "...")
+            print(cyan + "computePreTreatment() : " + endC + "Traitement de la tuile " + str(i+1) + os.sep + str(number_vector) + "...")
         if os.path.exists(split_tile_vector_list[(rapport_division_CPU * number_CPU) + i]):
 
             # Découpage de l'image par multi-threading
-            thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[rapport_division_CPU * number_CPU + i], image_input, output_image, image_dimension - (debord * pixel_size), image_dimension - (debord * pixel_size), debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
+            thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[rapport_division_CPU * number_CPU + i], image_input, output_image, image_dimension - (debord * pixel_size) * 2, image_dimension - (debord * pixel_size) * 2, debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
             thread.start()
             thread_list.append(thread)
 
@@ -1240,7 +1133,7 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
         for thread in thread_list:
             thread.join()
     except:
-        print(cyan + "computePreTreatment() : " + bold + red + "computePreTreatment() : " + endC + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
+        print(cyan + "computePreTreatment() : " + bold + red + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
 
     if training_input != "" :
 
@@ -1255,12 +1148,12 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
                 output_train_image_path_list.append(output_train_image)
                 #print("Output Train Image :" + output_train_img)
                 if debug >= 1 :
-                    print("Traitement de la tuile " + str((i * number_CPU) + j) + os.sep + str(number_vector) + "...")
+                    print(cyan + "computePreTreatment() : " + endC + "Traitement de la tuile " + str((i * number_CPU) + j) + os.sep + str(number_vector) + "...")
                 # Découpage du masque
                 if os.path.exists(split_tile_vector_list[(i * number_CPU) + j]):
 
                     # Découpage de l'image par multi-threading
-                    thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[i * number_CPU + j], training_input, output_train_image, image_dimension - (debord * pixel_size), image_dimension - (debord * pixel_size), debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
+                    thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[i * number_CPU + j], training_input, output_train_image, image_dimension - (debord * pixel_size) * 2, image_dimension - (debord * pixel_size) * 2, debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
                     thread.start()
                     thread_list.append(thread)
 
@@ -1269,7 +1162,7 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
                 for thread in thread_list:
                     thread.join()
             except:
-                print(cyan + "computePreTreatment() : " + bold + red + "computePreTreatment() : " + endC + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
+                print(cyan + "computePreTreatment() : " + bold + red + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
 
         # Initialisation de la liste pour le multi-threading
         thread_list = []
@@ -1281,10 +1174,10 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
             output_train_image_path_list.append(output_train_image)
             #print("Output Train Imuage :" + output_train_img)
             if debug >= 1 :
-                print("Traitement de la tuile " + str(rapport_division_CPU * number_CPU + i) + os.sep + str(number_vector) + "...")
+                print(cyan + "computePreTreatment() : " + endC + "Traitement de la tuile " + str(rapport_division_CPU * number_CPU + i) + os.sep + str(number_vector) + "...")
             if os.path.exists(split_tile_vector_list[rapport_division_CPU * number_CPU + i]):
                 # Découpage de l'image par multi-threading
-                thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[rapport_division_CPU * number_CPU + i], training_input, output_train_image, image_dimension - (debord * pixel_size), image_dimension - (debord * pixel_size), debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
+                thread = threading.Thread(target=cutImageByGrid, args=(split_tile_vector_list[rapport_division_CPU * number_CPU + i], training_input, output_train_image, image_dimension - (debord * pixel_size) * 2, image_dimension - (debord * pixel_size) * 2, debord, pixel_size, pixel_size, no_data_value, epsg, format_raster, format_vector))
                 thread.start()
                 thread_list.append(thread)
 
@@ -1293,43 +1186,45 @@ def computePreTreatment(NN,debord,neural_network_mode, model, training_input, im
             for thread in thread_list:
                 thread.join()
         except:
-            print(cyan + "computePreTreatment() : " + bold + red + "computePreTreatment() : " + endC + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
+            print(cyan + "computePreTreatment() : " + bold + red + "Erreur lors de le decoupe : impossible de demarrer le thread" + endC, file=sys.stderr)
 
     return input_table, training_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp
 
 ###########################################################################################################################################
 # FONCTION computeTrain()                                                                                                                 #
 ###########################################################################################################################################
-# ROLE:
-#    Calcul de la matrice de confusion entre le masque de référence et la prédiction avec otbcli_ComputeConfusionMatrix
-#    Récupération des résultats de cette commande dans un fichier .txt
-#
-# ENTREES DE LA FONCTION :
-#    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
-#    neural_network_mode (string) : nom du type de réseau de neurones
-#    training_input (string) : l'image satellite d'apprentissage
-#    image_input (string) : l'image satellite d'entrée
-#    vector_input (string) : vecteur de découpe d'entrée
-#    model_output (string) : chemin où stocker le réseau de neurones entrainé
-#    image_output (string) : chemin où stocker l'image finale classifiée
-#    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
-#    augment_training (int) : booléen pour determiner si on augmente artificiellement le jeu de données par des rotations
-#    number_class (int) : nombre de classes
-#    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
-#    path_time_log (string) : chemin du fichier de log
-#    save_data (bool) : booléen pour determiner si on conserve ou non le dossier Data
-#    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
-#    extension_raster (string) : extension de fichier des imagettes
-#    extension_vector (string) : extension de fichier des vecteurs
-#    format_raster (string) : format des imagettes
-#    format_vector (string) : format des vecteurs
-#    epsg (int) : Identificateur de SIG
-#    save (int) : booléen qui determine si on sauvegarde ou non les fichiers temporaires
-#
-# SORTIES DE LA FONCTION :
-#    Renvoie le modèle de sortie entraîné, la table des imagettes, l'emprise de l'image d'entrée, la liste des vecteurs de découpe ainsi que les noms des dossiers où sont stockés les vecteurs et imagettes
-#
-def computeTrain(NN, neural_network_mode, training_input, image_input, vector_input, model_output, image_output, size_grid, augment_training, number_class, debord, path_time_log, save_data, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', rand_seed=0, epsg=2154, percent_no_data=10, save=False):
+def computeTrain(training_input, image_input, vector_input, model_output, image_output, NN, neural_network_mode, size_grid, debord, augment_training, number_class, path_time_log, save_data, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', rand_seed=0, epsg=2154, percent_no_data=10, save=False):
+    """
+    # ROLE:
+    #    Calcul de la matrice de confusion entre le masque de référence et la prédiction avec otbcli_ComputeConfusionMatrix
+    #    Récupération des résultats de cette commande dans un fichier .txt
+    #
+    # ENTREES DE LA FONCTION :
+    #    training_input (string) : l'image satellite d'apprentissage
+    #    image_input (string) : l'image satellite d'entrée
+    #    vector_input (string) : vecteur de découpe d'entrée
+    #    model_output (string) : chemin où stocker le réseau de neurones entrainé
+    #    image_output (string) : chemin où stocker l'image finale classifiée
+    #    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
+    #    neural_network_mode (string) : nom du type de réseau de neurones
+    #    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
+    #    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
+    #    augment_training (int) : booléen pour determiner si on augmente artificiellement le jeu de données par des rotations
+    #    number_class (int) : nombre de classes
+    #    path_time_log (string) : chemin du fichier de log
+    #    save_data (bool) : booléen pour determiner si on conserve ou non le dossier Data
+    #    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
+    #    extension_raster (string) : extension de fichier des imagettes
+    #    extension_vector (string) : extension de fichier des vecteurs
+    #    format_raster (string) : format des imagettes
+    #    format_vector (string) : format des vecteurs
+    #    epsg (int) : Identificateur de SIG
+    #    save (int) : booléen qui determine si on sauvegarde ou non les fichiers temporaires
+    #
+    # SORTIES DE LA FONCTION :
+    #    Renvoie le modèle de sortie entraîné, la table des imagettes, l'emprise de l'image d'entrée, la liste des vecteurs de découpe ainsi que les noms des dossiers où sont stockés les vecteurs et imagettes
+    #
+    """
 
     # Constantes
     FOLDER_HISTORY = "_History_"
@@ -1396,61 +1291,7 @@ def computeTrain(NN, neural_network_mode, training_input, image_input, vector_in
         timeLine(path_time_log, pre_treatment_event)
 
     # Récupération des imagettes et masques associés
-    input_table, training_table, vector_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp = computePreTreatment(NN,debord,neural_network_mode, model_path, training_input, image_input, vector_input, image_output, size_grid, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg)
-
-    # CI-DESSUS A DECOMMENTER LORS DE L UTILISATION FINALE DE L APPLI
-
-    ######################################################################################################
-    """
-    input_list = sorted(glob.glob("/mnt/RAM_disk/resunet_Data_Model_Deb6_Batch32_Filt8/Imagette_Model_Deb6_Batch32_Filt8/*"))
-    training_list = sorted(glob.glob("/mnt/RAM_disk/resunet_Data_Model_Deb6_Batch32_Filt8/Train_Model_Deb6_Batch32_Filt8/*"))
-
-    ligne_indice_list = []
-    colonne_indice_list = []
-
-    for f in input_list :
-        # Récupération des dimensions des matrices
-        sub_name = f.split(".")[0].split("_")[-1]
-        find_ligne = sub_name.find("l")
-        find_colonne = sub_name.find("c")
-        nombre_ligne = int(sub_name[find_ligne+1:find_colonne])
-        nombre_colonne = int(sub_name[find_colonne+1:])
-
-        ligne_indice_list.append(nombre_ligne)
-        colonne_indice_list.append(nombre_colonne)
-
-    nombre_ligne = max(ligne_indice_list)
-    nombre_colonne = max(colonne_indice_list)
-
-    input_table = []
-    training_table = []
-
-    for i in range (nombre_ligne):
-        input_table.append([""]*nombre_colonne)
-        training_table.append([""]*nombre_colonne)
-
-    for i in range (len(input_list)) :
-        # Récupération des dimensions des matrices
-        sub_name = input_list[i].split(".")[0].split("_")[-1]
-        find_ligne = sub_name.find("l")
-        find_colonne = sub_name.find("c")
-        nombre_ligne = int(sub_name[find_ligne+1:find_colonne])
-        nombre_colonne = int(sub_name[find_colonne+1:])
-
-        input_table[nombre_ligne-1][nombre_colonne-1] = input_list[i]
-        training_table[nombre_ligne-1][nombre_colonne-1] = training_list[i]
-
-
-    # TO CHANGE
-    vector_mask = "/mnt/RAM_disk/resunet_Vect_Model_Deb6_Batch32_Filt8/ORT_2017071337806444_LA93_stacked_vect_simplify.shp"
-    # TO CHANGE
-    split_tile_vector_list = sorted(glob.glob("/mnt/RAM_disk/resunet_Data_Model_Deb6_Batch32_Filt8/Grid_Model_Deb6_Batch32_Filt8/*.shp"))
-    # TO CHANGE
-    repertory_vect_temp = "/mnt/RAM_disk/resunet_Vect_Model_Deb6_Batch32_Filt8"
-    # TO CHANGE
-    repertory_data_temp = "/mnt/RAM_disk/resunet_Data_Model_Deb6_Batch32_Filt8"
-    """
-    ######################################################################################################
+    input_table, training_table, vector_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp = computePreTreatment(training_input, image_input, vector_input, image_output, neural_network_mode, model_path, size_grid, debord, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg)
 
     # Mise à jour du Log
     if check_log :
@@ -1461,14 +1302,14 @@ def computeTrain(NN, neural_network_mode, training_input, image_input, vector_in
     input_table_copy = copy.deepcopy(input_table)
 
     # Suppression de la derniere ligne et colonne de l'image pour éviter de faire apprendre sur des images avec beaucoup de nodata
-    """
+    '''
     del input_table[-1]
     del training_table[-1]
 
     for i in range(len(input_table)):
         input_table[i] = input_table[i][:-1]
         training_table[i] = training_table[i][:-1]
-    """
+    '''
     # Remplissage des listes et Suppression de toute image d'entrée ayant plus de 10% des px en nodata
     input_img_paths_list = []
     input_train_img_list = []
@@ -1489,10 +1330,10 @@ def computeTrain(NN, neural_network_mode, training_input, image_input, vector_in
     #for i in range(len(input_img_paths_list)):
         #print(input_img_paths_list[i])
     if debug >=3:
-        print("Nombres d'images et images d'entrainement supprimes :" + str(cpt_img_supprime))
-        print("Nombres d'images :" + str(len(input_img_paths_list)))
-        print("Nombres d'images d'entrainement :" + str(len(input_train_img_list)))
-        print("Fin du prétraitement de l'image")
+        print(cyan + "computeTrain() : " + endC + "Nombres d'images et images d'entrainement supprimes :" + str(cpt_img_supprime))
+        print(cyan + "computeTrain() : " + endC + "Nombres d'images :" + str(len(input_img_paths_list)))
+        print(cyan + "computeTrain() : " + endC + "Nombres d'images d'entrainement :" + str(len(input_train_img_list)))
+        print(cyan + "computeTrain() : " + endC + "Fin du prétraitement de l'image")
 
     # Séparation train | validation
     validation_idx = int(len(input_img_paths_list) * NN.validation_split)
@@ -1502,7 +1343,6 @@ def computeTrain(NN, neural_network_mode, training_input, image_input, vector_in
     train_target_mask_paths = input_train_img_list[:-validation_idx]
     val_input_img_paths = input_img_paths_list[-validation_idx:]
     val_target_mask_paths = input_train_img_list[-validation_idx:]
-
 
     # Chargement des données par lots de taille batch_size avec augmentation pour le train (générateur)
     train_gen = DataGenerator(batch_size, train_input_img_paths, train_target_mask_paths, augment_training, data_type = 'train')
@@ -1548,7 +1388,7 @@ def computeTrain(NN, neural_network_mode, training_input, image_input, vector_in
     if not save :
 
         if debug >= 1 :
-            print("Suppression des dossiers temporaires")
+            print(cyan + "computeTrain() : " + endC + "Suppression des dossiers temporaires")
 
         try:
             shutil.rmtree(history_dir)
@@ -1570,33 +1410,41 @@ def computeTrain(NN, neural_network_mode, training_input, image_input, vector_in
 ###########################################################################################################################################
 # FONCTION computeClassification()                                                                                                        #
 ###########################################################################################################################################
-# ROLE:
-#    Prediction des différents résultats en imagettes et assemblage en une seule image
-#
-# ENTREES DE LA FONCTION :
-#    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
-#    neural_network_mode (string) : nom du type de réseau de neurones
-#    model_input (string) : nom du réseau de neurones à utiliser pour classifier
-#    training_input (string) : l'image satellite d'apprentissage
-#    image_input (string) : l'image satellite d'entrée
-#    vector_input (string) : vecteur de découpe d'entrée
-#    image_output (string) : chemin où stocker l'image finale classifiée
-#    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
-#    number_class (int) : nombre de classes
-#    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
-#    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
-#    extension_raster (string) : extension de fichier des imagettes
-#    extension_vector (string) : extension de fichier des vecteurs
-#    format_raster (string) : format des imagettes
-#    format_vector (string) : format des vecteurs
-#    epsg (int) : Identificateur de SIG
-#    no_data_value (int) : valeur que prend un pixel qui ne contient pas d'information
-#    save (bool) : booléen qui determine si on sauvegarde ou non les fichiers temporaires
-#
-# SORTIES DE LA FONCTION :
-#    Aucune sortie
-#
-def computeClassification(NN, neural_network_mode, model_input, training_input, image_input, vector_input, image_output, size_grid, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp, number_class, debord, path_time_log, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', epsg=2154, no_data_value=0, save=False):
+def computeClassification(training_input, image_input, vector_input, image_output, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp, model_input, NN, neural_network_mode,size_grid, debord, number_class, path_time_log, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', epsg=2154, no_data_value=0, save=False):
+    """
+    # ROLE:
+    #    Prediction des différents résultats en imagettes et assemblage en une seule image
+    #
+    # ENTREES DE LA FONCTION :
+    #    training_input (string) : l'image satellite d'apprentissage
+    #    image_input (string) : l'image satellite d'entrée
+    #    vector_input (string) : vecteur de découpe d'entrée
+    #    image_output (string) : chemin où stocker l'image finale classifiée
+    #    input_table (list) : table de ...
+    #    vector_simple_mask (string) :  Non du vecteur masque simplifié
+    #    split_tile_vector_list (list) : liste des vecteurs de découpe
+    #    repertory_vect_temp (string) : Chemin du répertoire temporaire contenant les vecteurs
+    #    repertory_data_temp (string) : Chemin du répertoire temporaire contenant les imagettes
+    #    model_input (string) : nom du réseau de neurones à utiliser pour classifier
+    #    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
+    #    neural_network_mode (string) : nom du type de réseau de neurones
+    #    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
+    #    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
+    #    number_class (int) : nombre de classes
+    #    path_time_log (string) : chemin du fichier de log
+    #    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
+    #    extension_raster (string) : extension de fichier des imagettes
+    #    extension_vector (string) : extension de fichier des vecteurs
+    #    format_raster (string) : format des imagettes
+    #    format_vector (string) : format des vecteurs
+    #    epsg (int) : Identificateur de SIG
+    #    no_data_value (int) : valeur que prend un pixel qui ne contient pas d'information
+    #    save (bool) : booléen qui determine si on sauvegarde ou non les fichiers temporaires
+    #
+    # SORTIES DE LA FONCTION :
+    #    Aucune sortie
+    #
+    """
 
     # Création d'un dossier temporaire Prédiction
     FOLDER_PREDICTION = "_Predict_"
@@ -1634,7 +1482,7 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
             timeLine(path_time_log, pre_treatment_event)
 
         # Récupération des imagettes et masques associés
-        input_table, _, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp = computePreTreatment(NN, debord, neural_network_mode, model_input, training_input, image_input, vector_input, image_output, size_grid, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg)
+        input_table, _, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp = computePreTreatment(training_input, image_input, vector_input, image_output, neural_network_mode, model_input, size_grid, debord, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg)
 
         # Mise à jour du Log
         if check_log :
@@ -1656,24 +1504,24 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
     pixel_size, _ = getPixelWidthXYImage(image_input)
 
     if debug >=3:
-        print("Nombres d'images :"+str(len(input_img_paths_list)))
-        print("Nombres d'images d'entrainement :"+str(len(input_train_img_list)))
-        print("Fin du prétraitement de l'image")
+        print(cyan + "computeClassification() : " + endC + "Nombres d'images :"+str(len(input_img_paths_list)))
+        print(cyan + "computeClassification() : " + endC + "Nombres d'images d'entrainement :"+str(len(input_train_img_list)))
+        print(cyan + "computeClassification() : " + endC + "Fin du prétraitement de l'image")
 
     # Prédiction à partir d'un modèle
     # Chargement de toutes les images (générateur)
     if debug >= 1:
-        print("Chargement de toutes les images")
+        print(cyan + "computeClassification() : " + endC + "Chargement de toutes les images")
     test_gen = DataGenerator(NN.batch, input_img_paths_list, input_train_img_list, 0, data_type = 'test')
     if debug >= 1:
-        print("Fin du chargement de toutes les images")
+        print(cyan + "computeClassification() : " + endC + "Fin du chargement de toutes les images")
 
     # Chargement d'un modèle déjà entraîné
     if debug >= 1:
-        print("Chargement du modele entraine")
+        print(cyan + "computeClassification() : " + endC + "Chargement du modele entraine")
     model = keras.models.load_model(model_input)
     if debug >= 1:
-        print("Fin du chargement du modèle")
+        print(cyan + "computeClassification() : " + endC + "Fin du chargement du modèle")
 
     # Mise à jour du Log
     if check_log :
@@ -1682,7 +1530,7 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
 
     # Prédiction sur toutes les données
     if debug >= 1:
-        print("Debut de prediction")
+        print(cyan + "computeClassification() : " + endC + "Debut de prediction")
     if(NN.test_in_one_block):
         predictionTestGenerator(model, test_gen, input_img_paths_list, classification_dir, pixel_size, size_grid, format_raster)
 
@@ -1694,13 +1542,13 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
 
             for i in range (len(test_gen)):
                 if debug >= 1:
-                    print("Test ", (i+1), os.sep, (len(test_gen)))
+                    print(cyan + "computeClassification() : " + endC + "Test ", (i+1), os.sep, (len(test_gen)))
                 predictionTestGenerator(model, test_gen[i], input_img_paths_list[i*nb_mask:i*nb_mask+nb_mask], classification_dir, pixel_size, size_grid, format_raster)
         else:
             nb_lots_utile = int(len(input_img_paths_list)/nb_mask)
             for i in range (nb_lots_utile):
                 if debug >= 1:
-                    print("Test ", (i+1), os.sep, nb_lots_utile)
+                    print(cyan + "computeClassification() : " + endC + "Test ", (i+1), os.sep, nb_lots_utile)
                 predictionTestGenerator(model, test_gen[i], input_img_paths_list[i*nb_mask:i*nb_mask+nb_mask], classification_dir, pixel_size, size_grid, format_raster)
 
     # Mise à jour du Log
@@ -1709,7 +1557,7 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
         timeLine(path_time_log, ending_predicting_event)
 
     if debug >= 1:
-        print("Fin de prediction")
+        print(cyan + "computeClassification() : " + endC + "Fin de prediction")
 
     # Récuperation dans une seule de l'ensemble des imagettes classifiees
     predict_img_list = []
@@ -1725,7 +1573,7 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
         timeLine(path_time_log, assembly_event)
 
     # Assemblage de l'image en une seule
-    output_assembly = assemblyImages(NN, prediction_dir, classification_resized_dir, predict_img_list, image_output, vector_simple_mask, split_tile_vector_list, image_input, debord, no_data_value, epsg, extension_raster, format_vector, format_raster)
+    output_assembly = assemblyImages(prediction_dir, classification_resized_dir, predict_img_list, image_output, vector_simple_mask, split_tile_vector_list, image_input, debord, no_data_value, epsg, extension_raster, format_vector, format_raster)
 
     # Mise à jour du Log
     if check_log :
@@ -1733,13 +1581,13 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
         timeLine(path_time_log, ending_assembly_event)
 
     if debug >= 1:
-        print("Image complete stockee a :"+output_assembly)
+        print(cyan + "computeClassification() : " + endC + "Image complete stockee a :" + output_assembly)
 
     # Suppression des dossiers temporaires
     if not save :
 
         if debug >= 1 :
-            print("Suppression des dossiers temporaires")
+            print(cyan + "computeClassification() : " + endC + "Suppression des dossiers temporaires")
         try:
             shutil.rmtree(prediction_dir)
         except Exception:
@@ -1756,45 +1604,51 @@ def computeClassification(NN, neural_network_mode, model_input, training_input, 
             pass
 
     # Mesures de performance
-    #computeMatrix(NN, n_bands, n_classes)
-
+    '''
+    computeMatrix(NN, n_bands, n_classes)
+    '''
     return
 
 ###########################################################################################################################################
 # FONCTION computeNeuralNetwork()                                                                                                         #
 ###########################################################################################################################################
-# ROLE:
-#    Choix entre une simple classification ou entrainement, ou bien un enchainement des deux
-#
-# ENTREES DE LA FONCTION :
-#    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
-#    use_graphic_card (bool) : booléen qui determine si on utilise la GPU ou la CPU
-#    id_graphic_card (int) : determine l'identifiant de la carte graphique à utiliser (int)
-#    debug (int) : gère l'affichage dans la console pour aider au débogage
-#    neural_network_mode (string) : nom du type de réseau de neurones
-#    model_input (string) : nom du réseau de neurones à utiliser pour classifier
-#    training_input (string) : l'image satellite d'apprentissage
-#    image_input (string) : l'image satellite d'entrée
-#    vector_input (string) : vecteur de découpe d'entrée
-#    image_output (string) : chemin où stocker l'image finale classifiée
-#    model_output (string) : chemin où stocker le modèle (réseau de neurones) une fois entraîné
-#    augment_training (bool) : booléen qui determine si on procède à l'augmentation artificielle de données sur le jeu de donnée d'entrainement
-#    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
-#    number_class (int) : nombre de classes
-#    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
-#    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
-#    extension_raster (string) : extension de fichier des imagettes
-#    extension_vector (string) : extension de fichier des vecteurs
-#    format_raster (string) : format des imagettes
-#    format_vector (string) : format des vecteurs
-#    epsg (int) : Identificateur de SIG
-#    no_data_value (int) : valeur que prend un pixel qui ne contient pas d'information
-#    save_results_intermediate (bool) : booléen qui determine si on sauvegarde ou non les fichiers temporaires
-#
-# SORTIES DE LA FONCTION :
-#    Aucune sortie
-#
-def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_network_mode, model_input, training_input, image_input, vector_input, image_output, model_output, augment_training, size_grid, number_class, debord, path_time_log, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', rand_seed=0, epsg=2154, percent_no_data=10, no_data_value=0, save_results_intermediate=False):
+def computeNeuralNetwork(image_input, training_input, vector_input, image_output, model_input, model_output, NN, use_graphic_card, id_graphic_card, neural_network_mode, augment_training, size_grid, debord, number_class, debug, path_time_log, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', rand_seed=0, epsg=2154, percent_no_data=10, no_data_value=0, save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #    Choix entre une simple classification ou entrainement, ou bien un enchainement des deux
+    #
+    # ENTREES DE LA FONCTION :
+    #    image_input (string) : l'image satellite d'entrée
+    #    training_input (string) : l'image satellite d'apprentissage
+    #    vector_input (string) : vecteur de découpe d'entrée
+    #    image_output (string) : chemin où stocker l'image finale classifiée
+    #    model_input (string) : nom du réseau de neurones à utiliser pour classifier
+    #    model_output (string) : chemin où stocker le modèle (réseau de neurones) une fois entraîné
+    #    NN (structure) : structure contenant tout les paramètres propre au réseau de neurones
+    #    use_graphic_card (bool) : booléen qui determine si on utilise la GPU ou la CPU
+    #    id_graphic_card (int) : determine l'identifiant de la carte graphique à utiliser (int)
+    #    neural_network_mode (string) : nom du type de réseau de neurones
+    #    augment_training (bool) : booléen qui determine si on procède à l'augmentation artificielle de données sur le jeu de donnée d'entrainement
+    #    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
+    #    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
+    #    number_class (int) : nombre de classes
+    #    debug (int) : gère l'affichage dans la console pour aider au débogage
+    #    path_time_log (string) : le fichier de log de sortie
+    #    extension_raster (string) : extension de fichier des imagettes
+    #    extension_vector (string) : extension de fichier des vecteurs
+    #    format_raster (string) : format des imagettes
+    #    format_vector (string) : format des vecteurs
+    #    rand_seed (int): graine pour la partie randon
+    #    epsg (int) : Identificateur de SIG
+    #    percent_no_data (int) : pourcentage de no data
+    #    no_data_value (int) : valeur que prend un pixel qui ne contient pas d'information
+    #    save_results_intermediate (bool) : booléen qui determine si on sauvegarde ou non les fichiers temporaires
+    #    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
+    #
+    # SORTIES DE LA FONCTION :
+    #    Aucune sortie
+    #
+    """
 
     if rand_seed != 0:
 
@@ -1830,7 +1684,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
         # Si le dossier Vect existe deja et que overwrite est activé
         check = os.path.isdir(vect_dir)
         if check:
-            print(bold + yellow + "Delete of Vect folder already existing" + endC)
+            print(cyan + "computeNeuralNetwork() : " + bold + yellow + "Delete of Vect folder already existing" + endC)
             if check:
                 try:
                     shutil.rmtree(vect_dir)
@@ -1840,7 +1694,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
         # Si le dossier Data existe deja et que overwrite est activé
         check = os.path.isdir(data_dir)
         if check:
-            print(bold + yellow + "Delete of Data folder already existing" + endC)
+            print(cyan + "computeNeuralNetwork() : " + bold + yellow + "Delete of Data folder already existing" + endC)
             if check:
                 try:
                     shutil.rmtree(data_dir)
@@ -1850,7 +1704,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
          # Si le dossier Predict existe deja et que overwrite est activé
         check = os.path.isdir(prediction_dir)
         if check:
-            print(bold + yellow + "Delete of Predict folder already existing" + endC)
+            print(cyan + "computeNeuralNetwork() : " + bold + yellow + "Delete of Predict folder already existing" + endC)
             if check:
                 try:
                     shutil.rmtree(prediction_dir)
@@ -1860,7 +1714,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
         # Si le dossier History existe deja et que overwrite est activé
         check = os.path.isdir(history_dir)
         if check:
-            print(bold + yellow + "Delete of History folder already existing" + endC)
+            print(cyan + "computeNeuralNetwork() : " + bold + yellow + "Delete of History folder already existing" + endC)
             if check:
                 try:
                     shutil.rmtree(history_dir)
@@ -1870,7 +1724,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
         # Si le fichier de log existe deja et que overwrite est activé
         check = os.path.isfile(path_time_log)
         if check:
-            print(bold + yellow + "Delete of path_time_log file already existing" + endC)
+            print(cyan + "computeNeuralNetwork() : " + bold + yellow + "Delete of path_time_log file already existing" + endC)
             if check:
                 try:
                     os.remove(path_time_log)
@@ -1923,7 +1777,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
     if image_output != "" and model_input != "":
 
          if debug >=1:
-            print("Début de la phase de classification")
+            print(cyan + "computeNeuralNetwork() : " + endC + "Début de la phase de classification")
 
          # Initialisation
          input_table = []
@@ -1938,7 +1792,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
             timeLine(path_time_log, starting_event)
 
          # Classification
-         computeClassification(NN, neural_network_mode, model_input, training_input, image_input, vector_input, image_output, size_grid, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp, number_class, debord, path_time_log, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, save_results_intermediate)
+         computeClassification(training_input, image_input, vector_input, image_output, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp, model_input, NN, neural_network_mode, size_grid, debord, number_class, path_time_log, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, save_results_intermediate)
 
          # Mise à jour du Log
          if check_log :
@@ -1946,13 +1800,13 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
             timeLine(path_time_log, ending_event)
 
          if debug >=1:
-            print("Fin de la classification avec reseau de neurones")
+            print(cyan + "computeNeuralNetwork() : " + endC + "Fin de la classification avec reseau de neurones")
 
     # Cas d'un entrainement puis classification
     elif image_output != "" and model_input == "" and training_input != "":
 
          if debug >=1:
-            print("Début de la phase d'entrainement")
+            print(cyan + "computeNeuralNetwork() : " + endC + "Début de la phase d'entrainement")
 
          # Mise à jour du Log
          if check_log :
@@ -1963,11 +1817,11 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
          save_data = True
 
          # Entrainement
-         model_input_tmp, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp = computeTrain(NN, neural_network_mode, training_input, image_input, vector_input, model_output, image_output, size_grid, augment_training, number_class, debord, path_time_log, save_data, overwrite, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, save_results_intermediate)
+         model_input_tmp, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp = computeTrain(training_input, image_input, vector_input, model_output, image_output, NN, neural_network_mode, size_grid, debord, augment_training, number_class, path_time_log, save_data, overwrite, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, save_results_intermediate)
 
          if debug >=1:
-            print("Fin de l'entrainement du réseau de neurones")
-            print("Début de la phase de classification")
+            print(cyan + "computeNeuralNetwork() : " + endC + "Fin de l'entrainement du réseau de neurones")
+            print(cyan + "computeNeuralNetwork() : " + endC + "Début de la phase de classification")
 
          # Mise à jour du Log
          if check_log :
@@ -1975,7 +1829,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
             timeLine(path_time_log, ending_training_starting_classification_event)
 
          # Classification
-         computeClassification(NN, neural_network_mode, model_input_tmp, training_input, image_input, vector_input, image_output, size_grid, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp, number_class, debord, path_time_log, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, save_results_intermediate)
+         computeClassification(training_input, image_input, vector_input, image_output, input_table, vector_simple_mask, split_tile_vector_list, repertory_vect_temp, repertory_data_temp, model_input_tmp, NN, neural_network_mode, size_grid, debord, number_class, path_time_log, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, save_results_intermediate)
 
          # Mise à jour du Log
          if check_log :
@@ -1990,7 +1844,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
                 pass # Si le dossier ne peut pas être supprimé, on suppose qu'il n'existe pas et on passe à la suite
 
          if debug >=1:
-            print("Fin de la classification avec reseau de neurones")
+            print(cyan + "computeNeuralNetwork() : " + endC + "Fin de la classification avec reseau de neurones")
 
     # Cas d'un nouvel entrainement d'un réseau déjà existant
     elif model_input != "" and training_input != "":
@@ -2004,7 +1858,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
         save_data = False
 
         # Entrainement
-        _,_,_,_,_,_ = computeTrain(NN, neural_network_mode, training_input, image_input, vector_input, model_output, image_output, size_grid, augment_training, number_class, debord, path_time_log, save_data, overwrite, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, save_results_intermediate)
+        _,_,_,_,_,_ = computeTrain(training_input, image_input, vector_input, model_output, image_output, NN, neural_network_mode, size_grid, debord, augment_training, number_class, path_time_log, save_data, overwrite, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, save_results_intermediate)
 
         # Mise à jour du Log
         if check_log :
@@ -2013,7 +1867,7 @@ def computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_net
 
     else :
         if debug >=1:
-            print("Vous n'avez pas renseignés les éléments nécessaire à un entrainnement du réseau ou à une classification")
+            print(cyan + "computeNeuralNetwork() : " + endC + "Vous n'avez pas renseignés les éléments nécessaire à un entrainnement du réseau ou à une classification")
 
     # Clear la session
     keras.backend.clear_session()
@@ -2067,7 +1921,7 @@ def main(gui=False):
     # Input image parameters
     parser.add_argument('-sg','--size_grid',default=256,help="Size of study grid in pixels. Not used, if vector_grid_input is inquired", type=int, required=False)
     parser.add_argument('-at','--augment_training',action='store_true',default=False,help="Modify image and mask to artificially increase the data set", required=False)
-    parser.add_argument('-deb','--debord',default=0,help="Reduce size of grid cells. Useful to avoid side effect",type=int, required=False)
+    parser.add_argument('-deb','--debord',default=0,help="Reduce size of grid cells in pixels. Useful to avoid side effect",type=int, required=False)
     parser.add_argument('-ugc','--use_graphic_card',action='store_true',default=False,help="Use CPU for training phase", required=False)
     parser.add_argument('-igpu','--id_graphic_card',default=0,help="Id of graphic card used to classify", type=int, required=False)
     parser.add_argument('-nc','--number_class',default=0,help="Number of classes to classify", type=int, required=True)
@@ -2336,12 +2190,12 @@ def main(gui=False):
         print(cyan + "NeuralNetworkClassification : " + endC + "model_input : " + model_input + endC)
         print(cyan + "NeuralNetworkClassification : " + endC + "model_output : " + model_output + endC)
 
-        print(cyan + "NeuralNetworkClassification : " + endC + "size_grid : " + str(size_grid) + endC)
         print(cyan + "NeuralNetworkClassification : " + endC + "augment_training : " + str(augment_training) + endC)
+        print(cyan + "NeuralNetworkClassification : " + endC + "size_grid : " + str(size_grid) + endC)
         print(cyan + "NeuralNetworkClassification : " + endC + "debord : " + str(debord) + endC)
+        print(cyan + "NeuralNetworkClassification : " + endC + "number_class : " + str(number_class) + endC)
         print(cyan + "NeuralNetworkClassification : " + endC + "use_graphic_card : " + str(use_graphic_card) + endC)
         print(cyan + "NeuralNetworkClassification : " + endC + "id_graphic_card : " + str(id_graphic_card) + endC)
-        print(cyan + "NeuralNetworkClassification : " + endC + "number_class : " + str(number_class) + endC)
         print(cyan + "NeuralNetworkClassification : " + endC + "neural_network_mode : " + neural_network_mode + endC)
         print(cyan + "NeuralNetworkClassification : " + endC + "percent_no_data : " + str(percent_no_data) + endC)
 
@@ -2375,7 +2229,7 @@ def main(gui=False):
         print(cyan + "NeuralNetworkClassification : " + endC + "debug : " + str(debug) + endC)
 
         # Appel de la fonction principale
-        computeNeuralNetwork(NN,use_graphic_card, id_graphic_card, debug, neural_network_mode, model_input, training_input, image_input, vector_input, image_output, model_output, augment_training, size_grid, number_class, debord, path_time_log, overwrite, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, no_data_value, save_results_intermediate)
+        computeNeuralNetwork(image_input, training_input, vector_input, image_output, model_input, model_output, NN, use_graphic_card, id_graphic_card, neural_network_mode, augment_training, size_grid, debord, number_class, debug, path_time_log, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, no_data_value, save_results_intermediate, overwrite)
 
 # ================================================
 
