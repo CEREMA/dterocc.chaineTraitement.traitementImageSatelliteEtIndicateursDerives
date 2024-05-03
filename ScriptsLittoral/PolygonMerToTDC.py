@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,16 +11,18 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : PolygonMerToTDC.py
 Description    :
-    Objectif   : Extrait le trait de côte jet de rive à partir d'un masque binaire terre/mer et de l'identification des polygones mer
+----------------
+Objectif   : Extrait le trait de côte jet de rive à partir d'un masque binaire terre/mer et de l'identification des polygones mer
 
 Date de creation : 25/05/2016
-'''
+"""
 
 from __future__ import print_function
-import os, argparse, shutil, sys, gdal
+import os, argparse, shutil, sys
+from osgeo import gdal
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC, displayIHM
 from Lib_log import timeLine
 from Lib_raster import polygonizeRaster, createBinaryMaskMultiBand, getNodataValueImage
@@ -35,33 +37,34 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION PolygonMerToTDC                                                                                                                #
 ###########################################################################################################################################
-# ROLE:
-#    Extraction du trait de côte jet de rive à partir d'un masque binaire terre/mer
-#
-# ENTREES DE LA FONCTION :
-#    input_im_ndvi_dico : Dictionnaire associant les images à traiter pour extraire le trait de côte avec le(s) masque(s) vecteur(s) binaire(s) terre/mer associé(s)
-#    output_dir : Répertoire de sortie pour les fichiers issus du traitement
-#    input_sea_points : Fichier shp de points dans la mer pour identifier les polygones mer sur le masque binaire vecteur terre/mer
-#    fct_bin_mask_vect : Option : les masques binaires sont calculés précedement (pris en compte pour les noms des fichiers de sortie)
-#    simplif : Option : Valeur de tolérance pour la simplification du trait de côte obtenu
-#    input_cut_vector : Option : le fichier vecteur pour la découpe du trait de côte en sortie
-#    buf_pos : Taille du buffer pour la dilatation, en vue de la suppression des trous (bâteaux, ...) dans le polygone mer. Par défaut 3.5
-#    buf_neg : Taille du buffer pour l'érosion, en vue de la suppression des trous (bâteaux, ...) dans le polygone mer. Par défaut -3.5
-#    no_data_value : Valeur de  pixel du no data
-#    path_time_log : le fichier de log de sortie
-#    epsg : Valeur de la projection. Par défaut 2154
-#    format_vector  : format des vecteurs de sortie, par defaut = 'ESRI Shapefile'
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant le trait de côte
-#    Eléments modifiés aucun
-#
-
 def polygonMerToTDC(input_im_ndvi_dico, output_dir, input_sea_points, fct_bin_mask_vect, simplif, input_cut_vector, buf_pos, buf_neg, no_data_value, path_time_log, epsg=2154, format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Extraction du trait de côte jet de rive à partir d'un masque binaire terre/mer
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_im_ndvi_dico : Dictionnaire associant les images à traiter pour extraire le trait de côte avec le(s) masque(s) vecteur(s) binaire(s) terre/mer associé(s)
+    #    output_dir : Répertoire de sortie pour les fichiers issus du traitement
+    #    input_sea_points : Fichier shp de points dans la mer pour identifier les polygones mer sur le masque binaire vecteur terre/mer
+    #    fct_bin_mask_vect : Option : les masques binaires sont calculés précedement (pris en compte pour les noms des fichiers de sortie)
+    #    simplif : Option : Valeur de tolérance pour la simplification du trait de côte obtenu
+    #    input_cut_vector : Option : le fichier vecteur pour la découpe du trait de côte en sortie
+    #    buf_pos : Taille du buffer pour la dilatation, en vue de la suppression des trous (bâteaux, ...) dans le polygone mer. Par défaut 3.5
+    #    buf_neg : Taille du buffer pour l'érosion, en vue de la suppression des trous (bâteaux, ...) dans le polygone mer. Par défaut -3.5
+    #    no_data_value : Valeur de  pixel du no data
+    #    path_time_log : le fichier de log de sortie
+    #    epsg : Valeur de la projection. Par défaut 2154
+    #    format_vector  : format des vecteurs de sortie, par defaut = 'ESRI Shapefile'
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant le trait de côte
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "PolygonMerToTDC() : Select PolygonMerToTDC starting : "

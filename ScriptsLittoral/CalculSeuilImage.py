@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,16 +11,18 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : CalculSeuilImage.py
 Description    :
-    Objectif   : Calcule les seuils automatiques d'une liste d'images NDVI
+----------------
+Objectif   : Calcule les seuils automatiques d'une liste d'images NDVI
 
 Date de creation : 31/05/2016
 
 Nom de l'objet : runCalculSeuil
 Description    :
-    Objectif   : Calcule le seuils automatiques d'une image NDVI
+----------------
+Objectif   : Calcule le seuils automatiques d'une image NDVI
 
 Seuillage automatique : Pauline Crombette
 Code : Christophe Bez
@@ -29,7 +31,7 @@ Modification : Gilles Fouvet
 
 Date de creation : 12/15/2015
 Date de modification : 31/05/2016
-'''
+"""
 
 from __future__ import print_function
 from scipy.signal import argrelextrema
@@ -45,22 +47,23 @@ debug = 4
 ###########################################################################################################################################
 # FONCTION calculSeuilImage                                                                                                               #
 ###########################################################################################################################################
-# ROLE:
-#    Calcul des seuils automatiques d'images NDVI (appel de la fonction runCalculSeuil, sur plusieurs images éventuellement)
-#
-# ENTREES DE LA FONCTION :
-#    input_ndvi_im_list : Liste des images NDVI dont le seuil est à déterminer
-#    output_dir : Répertoire de sortie pour les fichiers
-#    path_time_log : le fichier de log de sortie
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Les fichiers contenant les seuils calculés automatiquement
-#    Eléments modifiés aucun
-#
-
 def calculSeuilImage(input_ndvi_im_list, output_dir, path_time_log, save_results_intermediate, overwrite):
+    """
+    # ROLE:
+    #    Calcul des seuils automatiques d'images NDVI (appel de la fonction runCalculSeuil, sur plusieurs images éventuellement)
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_ndvi_im_list : Liste des images NDVI dont le seuil est à déterminer
+    #    output_dir : Répertoire de sortie pour les fichiers
+    #    path_time_log : le fichier de log de sortie
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Les fichiers contenant les seuils calculés automatiquement
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "CalculSeuilImage() : Select Calcul seuil image starting : "
@@ -99,20 +102,21 @@ def calculSeuilImage(input_ndvi_im_list, output_dir, path_time_log, save_results
 ###########################################################################################################################################
 # FONCTION runCalculSeuil                                                                                                                 #
 ###########################################################################################################################################
-# ROLE:
-#    Calcul des seuils automatiques d'images NDVI
-#
-# ENTREES DE LA FONCTION :
-#    ndviPath : image NDVI dont le seuil est à déterminer
-#    output_dir : Répertoire de sortie pour les fichiers
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
-#
-# SORTIES DE LA FONCTION :
-#    Les fichiers contenant les seuils calculés automatiquement
-#    Eléments modifiés aucun
-#
-
 def runCalculSeuil(ndviPath, output_dir, save_results_intermediate=True):
+    """
+    # ROLE:
+    #    Calcul des seuils automatiques d'images NDVI
+    #
+    # ENTREES DE LA FONCTION :
+    #    ndviPath : image NDVI dont le seuil est à déterminer
+    #    output_dir : Répertoire de sortie pour les fichiers
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #    Les fichiers contenant les seuils calculés automatiquement
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Import des librairies R
     rGdal = importr('rgdal')

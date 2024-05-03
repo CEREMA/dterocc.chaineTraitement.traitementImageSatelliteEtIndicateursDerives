@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,11 +10,12 @@
 # SCRIPT QUI MET EN FORME LES FICHIERS RESULTATS ISSUS DU TRAITEMENT TDC POUR LIVRAISON FINAL                                               #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : PostTreatmentTDC.py
 Description :
-    Objectif : creation d'un fichier trait de côte generale issu de la fusion d'une liste de fichier de partie de trait après un lissage par interpolation de type courbe
-    Rq : utilisation des OTB Applications :  NA
+-------------
+Objectif : creation d'un fichier trait de côte generale issu de la fusion d'une liste de fichier de partie de trait après un lissage par interpolation de type courbe
+Rq : utilisation des OTB Applications :  NA
 
 Date de creation : 16/05/2019
 ----------
@@ -27,8 +28,8 @@ Modifications
 
 ------------------------------------------------------
 A Reflechir/A faire
-- TBD
-'''
+TBD
+"""
 
 from __future__ import print_function
 import os,sys,glob,shutil,string,argparse
@@ -36,7 +37,7 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displ
 from Lib_log import timeLine
 from Lib_file import removeVectorFile
 from Lib_grass import initializeGrass, cleanGrass, smoothGeomGrass
-from Lib_vector import getEmpriseFile, getProjection, geometries2multigeometries, fusionVectors, deleteFieldsVector, updateIndexVector, differenceVector
+from Lib_vector import getEmpriseVector, getProjection, geometries2multigeometries, fusionVectors, deleteFieldsVector, updateIndexVector, differenceVector
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
@@ -46,29 +47,31 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION processTDCfilesSmoothAndFusion()                                                                                               #
 ###########################################################################################################################################
-# ROLE:
-#    appliquer un traitement de lissage (imterpolation par une courbe) des fichiers vecteurs de traits de côte et fusion des resultats en un seul fichier vecteur
-#
-# ENTREES DE LA FONCTION :
-#    coastline_vectors_input_list : liste des vecteurs d'entrée des lignes de traits de côte
-#    vector_rocky_input : fichier vecteur d'entrée contenent les zones rocheuses
-#    vector_all_output : fichier vecteur de sortie resultat general de la fusion et lissage des vecteurs d'entrée
-#    vector_withrocky_output : fichier vecteur de sortie resultat fusion et sans les zones rocheuses
-#    generalize_param_method :  parametre de generalize de Grass type de methode à utiliser
-#    generalize_param_threshold : parametre de generalize de Grass valeur du seuil
-#    name_column_fusion : nom de la colonne pour fusionner les segements ligne sen multilignes
-#    path_time_log : le fichier de log de sortie
-#    epsg : Optionnel : par défaut 2154
-#    format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    aucun
-#   Fichier vecteur unique contenent tout les traits de cote
-#
 def processTDCfilesSmoothAndFusion(coastline_vectors_input_list, vector_rocky_input, vector_all_output, vector_withrocky_output, generalize_param_method, generalize_param_threshold, name_column_fusion, path_time_log, epsg=2154, format_vector='ESRI Shapefile', extension_vector='.shp', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #    appliquer un traitement de lissage (imterpolation par une courbe) des fichiers vecteurs de traits de côte et fusion des resultats en un seul fichier vecteur
+    #
+    # ENTREES DE LA FONCTION :
+    #    coastline_vectors_input_list : liste des vecteurs d'entrée des lignes de traits de côte
+    #    vector_rocky_input : fichier vecteur d'entrée contenent les zones rocheuses
+    #    vector_all_output : fichier vecteur de sortie resultat general de la fusion et lissage des vecteurs d'entrée
+    #    vector_withrocky_output : fichier vecteur de sortie resultat fusion et sans les zones rocheuses
+    #    generalize_param_method :  parametre de generalize de Grass type de methode à utiliser
+    #    generalize_param_threshold : parametre de generalize de Grass valeur du seuil
+    #    name_column_fusion : nom de la colonne pour fusionner les segements ligne sen multilignes
+    #    path_time_log : le fichier de log de sortie
+    #    epsg : Optionnel : par défaut 2154
+    #    format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    aucun
+    #   Fichier vecteur unique contenent tout les traits de cote
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "processTDCfilesSmoothAndFusion() : Create final coastline starting : "
@@ -133,8 +136,8 @@ def processTDCfilesSmoothAndFusion(coastline_vectors_input_list, vector_rocky_in
             output_smooth_vector = repertory_temp + os.sep + vector_name + SUFFIX_SMOOTH + extension_vector
 
             vectors_temp_output_list.append(output_temp_vector)
-            xmin, xmax, ymin, ymax = getEmpriseFile(input_vector, format_vector)
-            projection = getProjection(input_vector, format_vector)
+            xmin, xmax, ymin, ymax = getEmpriseVector(input_vector, format_vector)
+            projection, _ = getProjection(input_vector, format_vector)
             if projection is None:
                 projection = epsg
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,16 +10,18 @@
 # SCRIPT QUI CALCULE LA DISTANCE LA PLUS COURTE ENTRE CHAQUE POINT D'UN SHP ET DES LIGNES DANS UN AUTRE SHP                                 #
 #                                                                                                                                           #
 #############################################################################################################################################
-'''
+"""
 Nom de l'objet : DistanceTDCPointLine.py
 Description :
-    Objectif : Convertir les poygones raster en vecteur nettoyer les petit polygones et fusion en un seul fichier vecteur
+-------------
+Objectif : Convertir les polygones raster en vecteur nettoyer les petit polygones et fusion en un seul fichier vecteur
 
 Date de creation : 29/08/2016
-'''
+"""
 
 from __future__ import print_function
-import os, sys, ogr, osr, argparse
+import os, sys, argparse
+from osgeo import ogr, osr
 import numpy as np
 from math import ceil
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
@@ -35,33 +37,34 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION distanceTDCPointLine()                                                                                                         #
 ###########################################################################################################################################
-# ROLE:
-#     calcule la distance la plus courte entre chaque point d'un shapefile et les lignes d'un autre. Résultat dans un fichier texte, et dans une copie du fichier point, avec une colonne "evolution" en plus
-#
-# ENTREES DE LA FONCTION :
-#     input_points_shp : Fichier contenant les points pour le calcul de distance
-#     input_tdc_shp : fichier contenant la ligne/le trait de côte pour le calcul de distance
-#     output_dir : le chemin du dossier de sortie pour les fichiers créés
-#     input_sea_points : shapefile contenant les points dans la mer pour l'identification du côté mer
-#     evolution_column_name : Nom de la colonne du fichier shape contenant l'évolution (distance et sens)
-#     path_time_log : le fichier de log de sortie
-#     server_postgis : nom du serveur postgis
-#     user_postgis : le nom de l'utilisateurs postgis
-#     password_postgis : le mot de passe de l'utilisateur posgis
-#     database_postgis : le nom de la base posgis à utiliser
-#     schema_postgis : le nom du schéma à utiliser
-#     port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
-#     epsg : Code EPSG des fichiers
-#     project_encoding  : encodage du projet, par défaut = 'UTF-8'
-#     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#     save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
-#     overwrite : ecrasement ou non des fichiers existants, par defaut = True
-# SORTIES DE LA FONCTION :
-#     Fichier vecteur point recopié avec une colonne distance (valeur absolue) et une colonne évolution (sens de l'évolution et distance) en plus
-#     Fichier texte contenant les points avec la distance et l'évolution
-#
-
 def distanceTDCPointLine(input_points_shp, input_tdc_shp, output_dir, input_sea_points, evolution_column_name, path_time_log, server_postgis="localhost", user_postgis="postgres", password_postgis="postgres", database_postgis="db_buffer_tdc", schema_name="directionevolution", port_number=5432, epsg=2154, project_encoding = "UTF-8", format_vector="ESRI Shapefile", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #     calcule la distance la plus courte entre chaque point d'un shapefile et les lignes d'un autre. Résultat dans un fichier texte, et dans une copie du fichier point, avec une colonne "evolution" en plus
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_points_shp : Fichier contenant les points pour le calcul de distance
+    #     input_tdc_shp : fichier contenant la ligne/le trait de côte pour le calcul de distance
+    #     output_dir : le chemin du dossier de sortie pour les fichiers créés
+    #     input_sea_points : shapefile contenant les points dans la mer pour l'identification du côté mer
+    #     evolution_column_name : Nom de la colonne du fichier shape contenant l'évolution (distance et sens)
+    #     path_time_log : le fichier de log de sortie
+    #     server_postgis : nom du serveur postgis
+    #     user_postgis : le nom de l'utilisateurs postgis
+    #     password_postgis : le mot de passe de l'utilisateur posgis
+    #     database_postgis : le nom de la base posgis à utiliser
+    #     schema_postgis : le nom du schéma à utiliser
+    #     port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
+    #     epsg : Code EPSG des fichiers
+    #     project_encoding  : encodage du projet, par défaut = 'UTF-8'
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #     save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
+    #     overwrite : ecrasement ou non des fichiers existants, par defaut = True
+    # SORTIES DE LA FONCTION :
+    #     Fichier vecteur point recopié avec une colonne distance (valeur absolue) et une colonne évolution (sens de l'évolution et distance) en plus
+    #     Fichier texte contenant les points avec la distance et l'évolution
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "distanceTDCPointLine() : Distance TDC Point Line starting : "

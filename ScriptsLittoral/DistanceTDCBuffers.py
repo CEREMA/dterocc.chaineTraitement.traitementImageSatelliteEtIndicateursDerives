@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,16 +11,18 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : DistanceTDCBuffers.py
 Description    :
-    Objectif   : Calcule la distance entre deux traits de côte par la méthode des buffers
+----------------
+Objectif   : Calcule la distance entre deux traits de côte par la méthode des buffers
 
 Date de creation : 08/08/2016
-'''
+"""
 
 from __future__ import print_function
-import os, sys, ogr, osr, sys, argparse
+import os, sys, sys, argparse
+from osgeo import ogr, osr
 from Lib_display import bold, black, red, green, yellow, blue, magenta, cyan, endC, displayIHM
 from Lib_vector import bufferVector, differenceVector, fusionVectors
 from Lib_file import copyVectorFile, deleteDir
@@ -31,35 +33,36 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION distanceTDCBuffers                                                                                                             #
 ###########################################################################################################################################
-# ROLE:
-#    Calcul de distance entre un trait de côte calculé et un de référence
-#
-# ENTREES DE LA FONCTION :
-#    tdc_reference : Fichier vecteur contenant le trait de côte de référence pour le calcul de la distance
-#    tdc_calcule : Fichier vecteur contenant le trait de côte calculé, pour lequel on veut calculer la distance à un TDC de référence
-#    input_sea_points : Fichier vecteur de point(s) dans la mer, pour identifier le buffer côté mer et celui côté terre (Attention : points doivent être contenus dans le buffer)
-#    output_dir : Répertoire de sortie pour les traitements
-#    buffer_size : Taille des buffers (en mètres), qui modulera la précision avec laquelle on veut obtenir cette différence
-#    nb_buffers : Nombre de buffers à calculer (même nombre de chaque côte du TDC)
-#    path_time_log : le fichier de log de sortie
-#    server_postgis : nom du serveur postgis
-#    user_postgis : le nom de l'utilisateurs postgis
-#    password_postgis : le mot de passe de l'utilisateur posgis
-#    database_postgis : le nom de la base posgis à utiliser
-#    schema_postgis : le nom du schéma à utiliser
-#    port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
-#    epsg : Code EPSG de la projection de la couche finale. Par défaut : 2154
-#    project_encoding : Système d'encodage des fichiers. Par défaut : "UTF-8"
-#    format_vector : Format des fichiers vecteurs. Par défaut : "ESRI Shapefile"
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
-#    overwrite : Supprime ou non les fichiers existants ayant le meme nom. Par défaut : True
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant le trait de côte (tdc_calcule), avec un champ "evolution" (évolution par rapport au trait de côte de référence)
-#    Eléments modifiés aucun
-#
-
 def distanceTDCBuffers(tdc_reference, tdc_calcule, input_sea_points, output_dir, buffer_size, nb_buffers, path_time_log, server_postgis="localhost", user_postgis="postgres", password_postgis="postgres", database_postgis="db_buffer_tdc", schema_name="directionevolution", port_number=5432, epsg=2154, project_encoding="UTF-8", format_vector="ESRI Shapefile", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Calcul de distance entre un trait de côte calculé et un de référence
+    #
+    # ENTREES DE LA FONCTION :
+    #    tdc_reference : Fichier vecteur contenant le trait de côte de référence pour le calcul de la distance
+    #    tdc_calcule : Fichier vecteur contenant le trait de côte calculé, pour lequel on veut calculer la distance à un TDC de référence
+    #    input_sea_points : Fichier vecteur de point(s) dans la mer, pour identifier le buffer côté mer et celui côté terre (Attention : points doivent être contenus dans le buffer)
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    buffer_size : Taille des buffers (en mètres), qui modulera la précision avec laquelle on veut obtenir cette différence
+    #    nb_buffers : Nombre de buffers à calculer (même nombre de chaque côte du TDC)
+    #    path_time_log : le fichier de log de sortie
+    #    server_postgis : nom du serveur postgis
+    #    user_postgis : le nom de l'utilisateurs postgis
+    #    password_postgis : le mot de passe de l'utilisateur posgis
+    #    database_postgis : le nom de la base posgis à utiliser
+    #    schema_postgis : le nom du schéma à utiliser
+    #    port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
+    #    epsg : Code EPSG de la projection de la couche finale. Par défaut : 2154
+    #    project_encoding : Système d'encodage des fichiers. Par défaut : "UTF-8"
+    #    format_vector : Format des fichiers vecteurs. Par défaut : "ESRI Shapefile"
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
+    #    overwrite : Supprime ou non les fichiers existants ayant le meme nom. Par défaut : True
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant le trait de côte (tdc_calcule), avec un champ "evolution" (évolution par rapport au trait de côte de référence)
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "distanceTDCBuffers() : Select distance TDC buffers starting : "
@@ -198,26 +201,28 @@ def distanceTDCBuffers(tdc_reference, tdc_calcule, input_sea_points, output_dir,
 ###########################################################################################################################################
 # FONCTION multiBuffersVector                                                                                                             #
 ###########################################################################################################################################
-# ROLE:
-#    Création de buffers multiples en taille et nombre paramétrables. Le buffer de la taille du dessous est évidé dans le buffer du dessus. Possibilité de buffers unilatéraux (traitement très long)
-#
-# ENTREES DE LA FONCTION :
-#    input_file : Fichier vecteur en entrée
-#    output_dir : Répertoire de sortie pour les traitements
-#    buffer_size : Taille pour les buffers (ils sont tous de même taille)
-#    nb_buffers : Nombre de buffers
-#    path_time_log : Fichier de log de sortie
-#    epsg : Code EPSG de la projection de la couche finale. Par défaut : 2154
-#    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
-#    project_encoding : Système d'encodage des fichiers. Par défaut : "UTF-8"
-#    overwrite : Supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant les buffers multiples
-#    Eléments modifiés aucun
-#
-
 def multiBuffersVector(input_file, output_dir, buffer_size, nb_buffers, path_time_log, epsg=2154, format_vector="ESRI Shapefile", project_encoding="UTF-8", overwrite=True):
+    """
+    # ROLE:
+    #    Création de buffers multiples en taille et nombre paramétrables. Le buffer de la taille du dessous est évidé dans le buffer du dessus. Possibilité de buffers unilatéraux (traitement très long)
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_file : Fichier vecteur en entrée
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    buffer_size : Taille pour les buffers (ils sont tous de même taille)
+    #    nb_buffers : Nombre de buffers
+    #    path_time_log : Fichier de log de sortie
+    #    epsg : Code EPSG de la projection de la couche finale. Par défaut : 2154
+    #    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
+    #    project_encoding : Système d'encodage des fichiers. Par défaut : "UTF-8"
+    #    overwrite : Supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant les buffers multiples
+    #    Eléments modifiés aucun
+    #
+    """
+
     # Mise à jour du Log
     starting_event = "multiBuffersVector() : Select multi buffers vector starting : "
     timeLine(path_time_log,starting_event)

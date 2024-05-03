@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,13 +11,14 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : BuffersOuvrages.py
 Description    :
-    Objectif   : Extraction des ouvrages par la méthodes des buffers, à partir d'un trait de côte
+----------------
+Objectif   : Extraction des ouvrages par la méthodes des buffers, à partir d'un trait de côte
 
 Date de creation : 07/06/2016
-'''
+"""
 
 from __future__ import print_function
 import os, sys, shutil, argparse
@@ -34,27 +35,28 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION buffersOuvrages                                                                                                                #
 ###########################################################################################################################################
-# ROLE:
-#    Extraction des ouvrages en mer à partir du trait de côte, selon la méthode des buffers (buffer positif puis négatif sur le TDC)
-#
-# ENTREES DE LA FONCTION :
-#    input_tdc_shp : shapefile du trait de côte à partir duquel les ouvrages seront extraits
-#    output_dir : Répertoire de sortie pour les traitements
-#    buf_pos : valeur du buffer positif (par défaut, 12m)
-#    buf_neg : Valeur du buffer négatif (par défaut, -14m)
-#    input_cut_vector : Shapefile de découpe de la zone d'intéret pour la suppression des artéfacts
-#    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    path_time_log : le fichier de log de sortie
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant les ouvrages extraits par la méthode des buffers
-#    Eléments modifiés aucun
-#
-
 def buffersOuvrages(input_tdc_shp, output_dir, buf_pos, buf_neg, input_cut_vector, path_time_log, format_vector="ESRI Shapefile", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Extraction des ouvrages en mer à partir du trait de côte, selon la méthode des buffers (buffer positif puis négatif sur le TDC)
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_tdc_shp : shapefile du trait de côte à partir duquel les ouvrages seront extraits
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    buf_pos : valeur du buffer positif (par défaut, 12m)
+    #    buf_neg : Valeur du buffer négatif (par défaut, -14m)
+    #    input_cut_vector : Shapefile de découpe de la zone d'intéret pour la suppression des artéfacts
+    #    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    path_time_log : le fichier de log de sortie
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant les ouvrages extraits par la méthode des buffers
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "buffersOuvrages() : Select buffers ouvrages starting : "

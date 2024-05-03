@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,13 +11,14 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : EvolvingDirectionTDC.py
 Description    :
-    Objectif   : Creation de buffer autour du trait de côte
+----------------
+Objectif   : Creation de buffer autour du trait de côte
 
 Date de creation : 07/06/2016
-'''
+"""
 
 from __future__ import print_function
 import argparse, sys, os, shutil, operator
@@ -34,33 +35,34 @@ from Lib_log import timeLine
 debug = 3
 
 ###########################################################################################################################################
-# FONCTION evolvingDirectionTDC()                                                                                                        #
+# FONCTION evolvingDirectionTDC()                                                                                                         #
 ###########################################################################################################################################
-# ROLE:
-#     Crée 1 buffer de chaque côté du trait de côte donné en entrée. Attribue -1 à ceux côté terre et +1 à ceux côté mer
-#
-# ENTREES DE LA FONCTION :
-#     input_tdc_shp : Fichier contenant le trait de côte de référence autour duquel seront créés les buffers
-#     input_pts_mer_vector : fichier vecteur contenant les points dans la mer pour l'identification du côté mer
-#     output_dir : le chemin du dossier de sortie pour les fichiers créés
-#     buffer_size : la taille du buffer
-#     path_time_log : le fichier de log de sortie
-#     server_postgis : nom du serveur postgis
-#     user_postgis : le nom de l'utilisateurs postgis
-#     password_postgis : le mot de passe de l'utilisateur posgis
-#     database_postgis : le nom de la base posgis à utiliser
-#     schema_postgis : le nom du schéma à utiliser
-#     port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
-#     epsg : Code EPSG des fichiers
-#     project_encoding  : encodage du projet, par défaut = 'UTF-8'
-#     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#     save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
-#     overwrite : ecrasement ou non des fichiers existants, par defaut = True
-# SORTIES DE LA FONCTION :
-#     Fichier contenant le buffer autour du trait de côte divisé en 2 par le trait de côte, avec attribut -1 côté terre et +1 côté mer
-#
-
 def evolvingDirectionTDC(input_tdc_shp, input_pts_mer_vector, output_dir, buffer_size, path_time_log, server_postgis="localhost", user_postgis="postgres", password_postgis="postgres", database_postgis="db_buffer_tdc", schema_name="directionevolution", port_number=5432, epsg=2154, project_encoding="UTF-8", format_vector="ESRI Shapefile", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #     Crée 1 buffer de chaque côté du trait de côte donné en entrée. Attribue -1 à ceux côté terre et +1 à ceux côté mer
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_tdc_shp : Fichier contenant le trait de côte de référence autour duquel seront créés les buffers
+    #     input_pts_mer_vector : fichier vecteur contenant les points dans la mer pour l'identification du côté mer
+    #     output_dir : le chemin du dossier de sortie pour les fichiers créés
+    #     buffer_size : la taille du buffer
+    #     path_time_log : le fichier de log de sortie
+    #     server_postgis : nom du serveur postgis
+    #     user_postgis : le nom de l'utilisateurs postgis
+    #     password_postgis : le mot de passe de l'utilisateur posgis
+    #     database_postgis : le nom de la base posgis à utiliser
+    #     schema_postgis : le nom du schéma à utiliser
+    #     port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
+    #     epsg : Code EPSG des fichiers
+    #     project_encoding  : encodage du projet, par défaut = 'UTF-8'
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #     save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
+    #     overwrite : ecrasement ou non des fichiers existants, par defaut = True
+    # SORTIES DE LA FONCTION :
+    #     Fichier contenant le buffer autour du trait de côte divisé en 2 par le trait de côte, avec attribut -1 côté terre et +1 côté mer
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "evolvingDirectionTDC() : Select evolvingDirectionTDC starting : "
@@ -116,9 +118,9 @@ def evolvingDirectionTDC(input_tdc_shp, input_pts_mer_vector, output_dir, buffer
     output_divided_buffer_vector = repertory_temp + os.sep + "buffer_" + str(buffer_size) + "_divided_" + name_input_tdc + extension_vector
     output_divided_buffer_polygons_vector = repertory_temp + os.sep + "buffer_" + str(buffer_size) + "_divided_polygons_" + name_input_tdc + extension_vector
     output_divided_buffer_polygons_sens_vector = output_dir + os.sep + "buffer_" + str(buffer_size) + "_divided_polygons_sens_" + name_input_tdc + extension_vector
-    """
-    output_divided_buffer_polygons_sens_final_vector = output_dir + os.sep + "buffer_" + str(buffer_size) + "_divided_polygons_sens_final_" + name_input_tdc + extension_vector
-    """
+
+    #output_divided_buffer_polygons_sens_final_vector = output_dir + os.sep + "buffer_" + str(buffer_size) + "_divided_polygons_sens_final_" + name_input_tdc + extension_vector
+
     output_difference_vector = repertory_temp + os.sep + "difference_" + name_input_tdc + extension_vector
     output_intersection_vector = repertory_temp + os.sep + "intersection_pt_mer_" + name_input_tdc + "_" + name_input_pts_mer + extension_vector
 
@@ -129,10 +131,10 @@ def evolvingDirectionTDC(input_tdc_shp, input_pts_mer_vector, output_dir, buffer
         removeFile(output_buffer_vector)
     if os.path.exists(output_divided_buffer_polygons_sens_vector):
         removeFile(output_divided_buffer_polygons_sens_vector)
-    """
-    if os.path.exists(output_divided_buffer_polygons_sens_final_vector):
-        removeFile(output_divided_buffer_polygons_sens_final_vector)
-    """
+
+    #if os.path.exists(output_divided_buffer_polygons_sens_final_vector):
+    #    removeFile(output_divided_buffer_polygons_sens_final_vector)
+
     if os.path.exists(output_intersection_vector):
         removeVectorFile(output_intersection_vector)
 
@@ -170,9 +172,8 @@ def evolvingDirectionTDC(input_tdc_shp, input_pts_mer_vector, output_dir, buffer
     processingDefineDirection(pos_offset_tdc_vector, neg_offset_tdc_vector, input_pts_mer_vector, output_divided_buffer_polygons_sens_vector, output_intersection_vector, IDP, AREA, NUM_SIDE, LETTER_SID, epsg, format_vector)
 
     # Traitement du sens
-    """
-    processingDirectionOrigine(output_divided_buffer_polygons_vector, pos_offset_tdc_vector, neg_offset_tdc_vector, input_pts_mer_vector, output_intersection_vector, output_divided_buffer_polygons_sens_vector, output_divided_buffer_polygons_sens_final_vector, ID, IDP, AREA, NUM_SIDE, LETTER_SID, epsg, format_vector)
-    """
+
+    #processingDirectionOrigine(output_divided_buffer_polygons_vector, pos_offset_tdc_vector, neg_offset_tdc_vector, input_pts_mer_vector, output_intersection_vector, output_divided_buffer_polygons_sens_vector, output_divided_buffer_polygons_sens_final_vector, ID, IDP, AREA, NUM_SIDE, LETTER_SID, epsg, format_vector)
 
     # Suppression du repertoire temporaire
     if not save_results_intermediate and os.path.exists(repertory_temp):
@@ -187,36 +188,38 @@ def evolvingDirectionTDC(input_tdc_shp, input_pts_mer_vector, output_dir, buffer
 ###########################################################################################################################################
 # FONCTION computeDistanceAndBufferDirection_SQL                                                                                          #
 ###########################################################################################################################################
-# ROLE:
-#     Calculer les distances entre des points et les lignes du traits de cote
-#     Calcul des buffers positifs et negatifs utiles à la détermination du signe de la distance
-#
-# ENTREES DE LA FONCTION :
-#     input_simple_tdc_vector : fichier shape d'entrée contenant le trait de cote
-#     output_buffer_vector : fichier shape de sortie contenant le buffer
-#     output_mini_buffer_vector : fichier shape de sortie contenant le mini buffer
-#     pos_offset_tdc_vector : fichier shape de sortie contenant le tdc offset positif
-#     neg_offset_tdc_vector : fichier shape de sortie contenant le tdc offset négatif
-#     buffer_size : la taille du buffer
-#     table_input_tdc : Nom de la table contenant le trait de cote d'entrée
-#     table_output_divided_buffer : Nom de la table contenant le buffer divisé
-#     table_output_buffer : Nom de la table contenant le buffer
-#     table_output_mini_buffer : Nom de la table contenant le mini buffer
-#     table_tdc_pos_offset : Nom de la table contenant le trait de cote offset positif
-#     table_tdc_neg_offset : Nom de la table contenant le trait de cote offset negatif
-#     server_postgis : nom du serveur postgis
-#     user_postgis : le nom de l'utilisateurs postgis
-#     password_postgis : le mot de passe de l'utilisateur posgis
-#     database_postgis : le nom de la base posgis à utiliser
-#     schema_name : le nom du schéma à utiliser
-#     port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
-#     epsg : Code EPSG des fichiers
-#     project_encoding  : encodage du projet, par défaut = 'UTF-8'
-#
-# SORTIES DE LA FONCTION :
-#     les fichiers vecteurs contenant les distances et les fichiers vecteurs des buffers
-#
 def computeDistanceAndBufferDirection_SQL(input_simple_tdc_vector, output_buffer_vector, output_mini_buffer_vector, pos_offset_tdc_vector, neg_offset_tdc_vector, buffer_size, table_input_tdc, table_output_divided_buffer, table_output_buffer, table_output_mini_buffer, table_tdc_pos_offset, table_tdc_neg_offset, server_postgis, user_postgis, password_postgis, database_postgis, schema_name, port_number, epsg, project_encoding) :
+    """
+    # ROLE:
+    #     Calculer les distances entre des points et les lignes du traits de cote
+    #     Calcul des buffers positifs et negatifs utiles à la détermination du signe de la distance
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_simple_tdc_vector : fichier shape d'entrée contenant le trait de cote
+    #     output_buffer_vector : fichier shape de sortie contenant le buffer
+    #     output_mini_buffer_vector : fichier shape de sortie contenant le mini buffer
+    #     pos_offset_tdc_vector : fichier shape de sortie contenant le tdc offset positif
+    #     neg_offset_tdc_vector : fichier shape de sortie contenant le tdc offset négatif
+    #     buffer_size : la taille du buffer
+    #     table_input_tdc : Nom de la table contenant le trait de cote d'entrée
+    #     table_output_divided_buffer : Nom de la table contenant le buffer divisé
+    #     table_output_buffer : Nom de la table contenant le buffer
+    #     table_output_mini_buffer : Nom de la table contenant le mini buffer
+    #     table_tdc_pos_offset : Nom de la table contenant le trait de cote offset positif
+    #     table_tdc_neg_offset : Nom de la table contenant le trait de cote offset negatif
+    #     server_postgis : nom du serveur postgis
+    #     user_postgis : le nom de l'utilisateurs postgis
+    #     password_postgis : le mot de passe de l'utilisateur posgis
+    #     database_postgis : le nom de la base posgis à utiliser
+    #     schema_name : le nom du schéma à utiliser
+    #     port_number : numéro du port à utiliser. Uniquement testé avec le 5432 (valeur par défaut)
+    #     epsg : Code EPSG des fichiers
+    #     project_encoding  : encodage du projet, par défaut = 'UTF-8'
+    #
+    # SORTIES DE LA FONCTION :
+    #     les fichiers vecteurs contenant les distances et les fichiers vecteurs des buffers
+    #
+    """
 
     # Création de la base de données, du schéma
     createDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number))
@@ -334,24 +337,26 @@ def computeDistanceAndBufferDirection_SQL(input_simple_tdc_vector, output_buffer
     return
 
 ###########################################################################################################################################
-# FONCTION filterTwoBiggestAreaPolygons                                                                                                    #
+# FONCTION filterTwoBiggestAreaPolygons                                                                                                   #
 ###########################################################################################################################################
-# ROLE:
-#     Selection et filtrage des 2 (ou du si seul) polygones ayant la plus grande surfaces avec un id unique
-#
-# ENTREES DE LA FONCTION :
-#     input_divided_buffer_polygons_vector : fichier shape d'entrée contenant les polygones divisés
-#     output_divided_buffer_polygons_sens_vector : fichier shape de sortie contenant les polygones filtrés
-#     ID : Constantes id
-#     IDP : Constantes idp
-#     AREA : Constantes area
-#     epsg : Code EPSG des fichiers
-#     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#
-# SORTIES DE LA FONCTION :
-#     le fichier vecteur contenant les polygones filtrés : output_divided_buffer_polygons_sens_vector
-#
 def filterTwoBiggestAreaPolygons(input_divided_buffer_polygons_vector, output_divided_buffer_polygons_sens_vector, ID, IDP, AREA, epsg=2154, format_vector="ESRI Shapefile") :
+    """
+    # ROLE:
+    #     Selection et filtrage des 2 (ou du si seul) polygones ayant la plus grande surfaces avec un id unique
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_divided_buffer_polygons_vector : fichier shape d'entrée contenant les polygones divisés
+    #     output_divided_buffer_polygons_sens_vector : fichier shape de sortie contenant les polygones filtrés
+    #     ID : Constantes id
+    #     IDP : Constantes idp
+    #     AREA : Constantes area
+    #     epsg : Code EPSG des fichiers
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #
+    # SORTIES DE LA FONCTION :
+    #     le fichier vecteur contenant les polygones filtrés : output_divided_buffer_polygons_sens_vector
+    #
+    """
 
     # Configuration du format vecteur
     driver = ogr.GetDriverByName(format_vector)
@@ -424,27 +429,29 @@ def filterTwoBiggestAreaPolygons(input_divided_buffer_polygons_vector, output_di
 ###########################################################################################################################################
 # FONCTION processingDefineDirection                                                                                                      #
 ###########################################################################################################################################
-# ROLE:
-#     Identification du côté du trait de côté par rapport au TDC de référence, avec un champ lettre (« A » ou « B ») pour chaque tronçon de buffer
-#     Identification de la valeur du champ lettre correspondant à la mer ou à la terre
-#     Création du champ num_side contenant +1 côté mer et -1 côté mer
-#
-# ENTREES DE LA FONCTION :
-#     input_pos_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset positif
-#     input_neg_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset negatif
-#     input_pts_mer_vector : fichier shape d'entrée contenant les points mer
-#     output_divided_buffer_polygons_sens_vector : fichier shape de sortie contenant les polygones de sens
-#     output_intersection_vector : fichier shape de sortie contenant les polygones d'intersection
-#     IDP : Constantes idp
-#     AREA : Constantes area
-#     NUM_SIDE : Constantes num_side
-#     LETTER_SID : Constantes letter_sid
-#     epsg : Code EPSG des fichiers
-#     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#
-# SORTIES DE LA FONCTION
-#
 def processingDefineDirection(input_pos_offset_tdc_vector, input_neg_offset_tdc_vector, input_pts_mer_vector, output_divided_buffer_polygons_sens_vector, output_intersection_vector, IDP, AREA, NUM_SIDE, LETTER_SID, epsg=2154, format_vector="ESRI Shapefile") :
+    """
+    # ROLE:
+    #     Identification du côté du trait de côté par rapport au TDC de référence, avec un champ lettre ('A' ou 'B') pour chaque tronçon de buffer
+    #     Identification de la valeur du champ lettre correspondant à la mer ou à la terre
+    #     Création du champ num_side contenant +1 côté mer et -1 côté mer
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_pos_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset positif
+    #     input_neg_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset negatif
+    #     input_pts_mer_vector : fichier shape d'entrée contenant les points mer
+    #     output_divided_buffer_polygons_sens_vector : fichier shape de sortie contenant les polygones de sens
+    #     output_intersection_vector : fichier shape de sortie contenant les polygones d'intersection
+    #     IDP : Constantes idp
+    #     AREA : Constantes area
+    #     NUM_SIDE : Constantes num_side
+    #     LETTER_SID : Constantes letter_sid
+    #     epsg : Code EPSG des fichiers
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #
+    # SORTIES DE LA FONCTION
+    #
+    """
 
     # Configuration du format vecteur
     driver = ogr.GetDriverByName(format_vector)
@@ -579,31 +586,33 @@ def processingDefineDirection(input_pos_offset_tdc_vector, input_neg_offset_tdc_
 ###########################################################################################################################################
 # FONCTION processingDirectionOrigine                                                                                                     #
 ###########################################################################################################################################
-# ROLE:
-#     Suppression des polygones avec un id unique
-#     Identification du côté du trait de côté par rapport au TDC de référence, avec un champ lettre (« A » ou « B ») pour chaque tronçon de buffer
-#     Identification de la valeur du champ lettre correspondant à la mer ou à la terre
-#     Création du champ num_side contenant +1 côté mer et -1 côté mer
-#
-# ENTREES DE LA FONCTION :
-#     input_divided_buffer_polygons_vector : fichier shape d'entrée contenant les polygones divisés
-#     input_pos_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset positif
-#     input_neg_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset negatif
-#     input_pts_mer_vector : fichier shape d'entrée contenant les points mer
-#     output_intersection_vector : fichier shape de sortie contenant les polygones d'intersection
-#     output_divided_buffer_polygons_sens_vector : fichier shape de sortie contenant les polygones de sens
-#     output_divided_buffer_polygons_sens_final_vector : fichier shape de sortie contenant les polygones  sens final
-#     ID : Constantes id
-#     IDP : Constantes idp
-#     AREA : Constantes area
-#     NUM_SIDE : Constantes num_side
-#     LETTER_SID : Constantes letter_sid
-#     epsg : Code EPSG des fichiers
-#     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#
-# SORTIES DE LA FONCTION
-#
 def processingDirectionOrigine(input_divided_buffer_polygons_vector, input_pos_offset_tdc_vector, input_neg_offset_tdc_vector, input_pts_mer_vector, output_intersection_vector, output_divided_buffer_polygons_sens_vector, output_divided_buffer_polygons_sens_final_vector, ID, IDP, AREA, NUM_SIDE, LETTER_SID, epsg=2154, format_vector="ESRI Shapefile") :
+    """
+    # ROLE:
+    #     Suppression des polygones avec un id unique
+    #     Identification du côté du trait de côté par rapport au TDC de référence, avec un champ lettre ('A' ou 'B') pour chaque tronçon de buffer
+    #     Identification de la valeur du champ lettre correspondant à la mer ou à la terre
+    #     Création du champ num_side contenant +1 côté mer et -1 côté mer
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_divided_buffer_polygons_vector : fichier shape d'entrée contenant les polygones divisés
+    #     input_pos_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset positif
+    #     input_neg_offset_tdc_vector : fichier shape d'entrée contenant les polygones offset negatif
+    #     input_pts_mer_vector : fichier shape d'entrée contenant les points mer
+    #     output_intersection_vector : fichier shape de sortie contenant les polygones d'intersection
+    #     output_divided_buffer_polygons_sens_vector : fichier shape de sortie contenant les polygones de sens
+    #     output_divided_buffer_polygons_sens_final_vector : fichier shape de sortie contenant les polygones  sens final
+    #     ID : Constantes id
+    #     IDP : Constantes idp
+    #     AREA : Constantes area
+    #     NUM_SIDE : Constantes num_side
+    #     LETTER_SID : Constantes letter_sid
+    #     epsg : Code EPSG des fichiers
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #
+    # SORTIES DE LA FONCTION
+    #
+    """
 
     # Configuration du format vecteur
     driver = ogr.GetDriverByName(format_vector)

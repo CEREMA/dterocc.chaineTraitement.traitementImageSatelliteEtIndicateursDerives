@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,13 +11,14 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : EdgeExtractionOuvrages.py
 Description    :
-    Objectif   : Extraction des ouvrages par la méthodes de Sobel, à partir d'images brutes ou NDWI2
+----------------
+Objectif   : Extraction des ouvrages par la méthodes de Sobel, à partir d'images brutes ou NDWI2
 
 Date de creation : 07/06/2016
-'''
+"""
 
 from __future__ import print_function
 import os, sys, shutil, argparse
@@ -36,30 +37,31 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION edgeExtractionOuvrages                                                                                                         #
 ###########################################################################################################################################
-# ROLE:
-#    Extraction des ouvrages en mer à partir du trait de côte, selon la méthode de détection des contours (Sobel), à partir d'une image brute ou NDWI2
-#
-# ENTREES DE LA FONCTION :
-#    input_im_seuils_dico : dictionnaire (chaîne de caractères) associant les images brutes aux seuils pr le masque binaire sur l'image de Sobel et éventuellement à leur image NDWI2 déjà calculée
-#    output_dir : Répertoire de sortie pour les traitements
-#    input_cut_vector : Shapefile de découpe pour la suppression des artéfacts (zone d'intérêt autour du TDC)
-#    calc_ndwi2_image : Booléen : calcul ou non de l'image NDI2 (selon si elle est renseignée dans le dictionnaire ou non)
-#    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
-#    no_data_value : Valeur de  pixel du no data
-#    path_time_log : le fichier de log de sortie
-#    format_raster : Format de l'image de sortie, par défaut : GTiff
-#    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant les ouvrages extraits par la méthode du filtre de Sobel
-#    Eléments modifiés aucun
-#
-
 def edgeExtractionOuvrages(input_im_seuils_dico, output_dir, input_cut_vector, calc_ndwi2_image, no_data_value, path_time_log, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Extraction des ouvrages en mer à partir du trait de côte, selon la méthode de détection des contours (Sobel), à partir d'une image brute ou NDWI2
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_im_seuils_dico : dictionnaire (chaîne de caractères) associant les images brutes aux seuils pr le masque binaire sur l'image de Sobel et éventuellement à leur image NDWI2 déjà calculée
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    input_cut_vector : Shapefile de découpe pour la suppression des artéfacts (zone d'intérêt autour du TDC)
+    #    calc_ndwi2_image : Booléen : calcul ou non de l'image NDI2 (selon si elle est renseignée dans le dictionnaire ou non)
+    #    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
+    #    no_data_value : Valeur de  pixel du no data
+    #    path_time_log : le fichier de log de sortie
+    #    format_raster : Format de l'image de sortie, par défaut : GTiff
+    #    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant les ouvrages extraits par la méthode du filtre de Sobel
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "edgeExtractionOuvrages() : Select edge extraction ouvrages starting : "
@@ -123,24 +125,25 @@ def edgeExtractionOuvrages(input_im_seuils_dico, output_dir, input_cut_vector, c
 ###########################################################################################################################################
 # FONCTION createSobelImage                                                                                                               #
 ###########################################################################################################################################
-# ROLE:
-#    Création d'une image dont les contours sont détectés
-#
-# ENTREES DE LA FONCTION :
-#    input_image : image pour l'extraction des contours
-#    output_dir : dossier pour les fichiers en sortie
-#    calc_ndwi2_image : True si input_image est une image brute, False si c'est déjà une image calculée d'indice
-#    path_time_log : le fichier de log de sortie
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant les contours extraits
-#    Eléments modifiés aucun
-#
-
 def createSobelImage(input_image, output_dir, calc_ndwi2_image, path_time_log, extension_raster=".tif", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Création d'une image dont les contours sont détectés
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_image : image pour l'extraction des contours
+    #    output_dir : dossier pour les fichiers en sortie
+    #    calc_ndwi2_image : True si input_image est une image brute, False si c'est déjà une image calculée d'indice
+    #    path_time_log : le fichier de log de sortie
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant les contours extraits
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "createSobelImage() : Select create Sobel Image starting : "
@@ -175,28 +178,29 @@ def createSobelImage(input_image, output_dir, calc_ndwi2_image, path_time_log, e
 ###########################################################################################################################################
 # FONCTION sobelToOuvrages                                                                                                                #
 ###########################################################################################################################################
-# ROLE:
-#    Extraction des ouvrages en mer à partir d'une image de Sobel déjà calculée
-#
-# ENTREES DE LA FONCTION :
-#    input_im_seuils_dico : Dictionnaire (chaîne de caractères) associant l'image brute avec son image de Sobel et les seuils pour le masque binaire
-#    output_dir : Répertoire de sortie pour les traitements
-#    input_cut_vector : Shapefile de découpe de la zone d'intérêt (pou suppression des artéfacts : bateaux, ...)
-#    no_data_value : Valeur de  pixel du no data
-#    path_time_log : le fichier de log de sortie
-#    format_raster : Format de l'image de sortie, par défaut : GTiff
-#    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant les ouvrages extraits
-#    Eléments modifiés aucun
-#
-
 def sobelToOuvrages(input_im_seuils_dico, output_dir, input_cut_vector, no_data_value, path_time_log, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Extraction des ouvrages en mer à partir d'une image de Sobel déjà calculée
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_im_seuils_dico : Dictionnaire (chaîne de caractères) associant l'image brute avec son image de Sobel et les seuils pour le masque binaire
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    input_cut_vector : Shapefile de découpe de la zone d'intérêt (pou suppression des artéfacts : bateaux, ...)
+    #    no_data_value : Valeur de  pixel du no data
+    #    path_time_log : le fichier de log de sortie
+    #    format_raster : Format de l'image de sortie, par défaut : GTiff
+    #    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant les ouvrages extraits
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Constantes
     REPERTORY_TEMP = "temp_sobel"
@@ -253,7 +257,7 @@ def sobelToOuvrages(input_im_seuils_dico, output_dir, input_cut_vector, no_data_
             createBinaryMask(sobel_image, sobel_binary_mask, float(seuil), True)
 
             # Découpe du masque binaire par le shapefile de découpe en entrée
-            cutImageByVector(input_cut_vector, sobel_binary_mask, sobel_decoup, None, None, no_data_value, 0, format_raster, format_vector)
+            cutImageByVector(input_cut_vector, sobel_binary_mask, sobel_decoup, None, None, False, no_data_value, 0, format_raster, format_vector)
 
             # Vectorisation du masque binaire Sobel découpé
             polygonizeRaster(sobel_decoup, sobel_binary_mask_vector, sobel_binary_mask_vector_name)

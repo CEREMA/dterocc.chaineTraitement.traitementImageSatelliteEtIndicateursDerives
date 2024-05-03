@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,13 +11,14 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : DetectionOuvrages.py
 Description    :
-    Objectif   : Extrait les ouvrages en mer à partir
+----------------
+Objectif   : Extrait les ouvrages en mer à partir
 
 Date de creation : 07/06/2016
-'''
+"""
 
 from __future__ import print_function
 import os, sys, argparse, shutil
@@ -37,34 +38,35 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION detectionOuvrages                                                                                                              #
 ###########################################################################################################################################
-# ROLE:
-#    Extraction des ouvrages en mer, en combinant la méthode des buffers et du filtre de Sobel, et éventuellement calcul du jet de rive par seuillage
-#
-# ENTREES DE LA FONCTION :
-#    input_dico : Dictionnaire contenant principalement les images à traiter et les seuils, l'ordre et le contenu dépend des cas d'utilisation (cf. Documentation chaine littoral)
-#    output_dir : Répertoire de sortie pour les traitements
-#    method : Méthode à utiliser pour la détection des ouvrages : b pour buffers, s pour Sobel et bs pour combinaison des 2
-#    im_indice_buffers : Booléen : présence de l'image NDVI ou autre indice calculée dans le dictionnaire (pour le calcul du jet de rive)
-#    im_indice_sobel : Booléen : présence de l'image NDWI2 ou autre indice calculée dans le dictionnaire (pour la détection des ouvrages par Sobel)
-#    input_cut_vector : Shapefile de découpe de la zone d'intérêt pour la suppression des artéfacts (bateaux, ...)
-#    input_sea_points : Shapefile de points dans la mer pour l'identification des polygones mer (pour le calcul du jet de rive)
-#    no_data_value : Valeur de  pixel du no data
-#    path_time_log : le fichier de log de sortie
-#    channel_order : identifiant des canaux de l image, exmple : {"Red":1,"Green":2,"Blue":3,"NIR":4}, defaut=[Red,Green,Blue,NIR]
-#    epsg : Code EPSG des fichiers
-#    format_raster : Format de l'image de sortie, par défaut : GTiff
-#    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant les ouvrages extraits
-#    Eléments modifiés aucun
-#
-
 def detectionOuvrages(input_dico, output_dir, method, im_indice_buffers, im_indice_sobel, input_cut_vector, input_sea_points, no_data_value, path_time_log, channel_order=['Red','Green','Blue','NIR'], epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Extraction des ouvrages en mer, en combinant la méthode des buffers et du filtre de Sobel, et éventuellement calcul du jet de rive par seuillage
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_dico : Dictionnaire contenant principalement les images à traiter et les seuils, l'ordre et le contenu dépend des cas d'utilisation (cf. Documentation chaine littoral)
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    method : Méthode à utiliser pour la détection des ouvrages : b pour buffers, s pour Sobel et bs pour combinaison des 2
+    #    im_indice_buffers : Booléen : présence de l'image NDVI ou autre indice calculée dans le dictionnaire (pour le calcul du jet de rive)
+    #    im_indice_sobel : Booléen : présence de l'image NDWI2 ou autre indice calculée dans le dictionnaire (pour la détection des ouvrages par Sobel)
+    #    input_cut_vector : Shapefile de découpe de la zone d'intérêt pour la suppression des artéfacts (bateaux, ...)
+    #    input_sea_points : Shapefile de points dans la mer pour l'identification des polygones mer (pour le calcul du jet de rive)
+    #    no_data_value : Valeur de  pixel du no data
+    #    path_time_log : le fichier de log de sortie
+    #    channel_order : identifiant des canaux de l image, exmple : {"Red":1,"Green":2,"Blue":3,"NIR":4}, defaut=[Red,Green,Blue,NIR]
+    #    epsg : Code EPSG des fichiers
+    #    format_raster : Format de l'image de sortie, par défaut : GTiff
+    #    format_vector : Format des fichiers vecteur. Par défaut "ESRI Shapefile"
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant les ouvrages extraits
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "detectionOuvrages() : Select Detection Ouvrages starting : "

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,17 +11,18 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : PrepareData.py
 Description    :
-    Objectif   : Assemble et découpe des images raster comprises dans l'enveloppe optimale de l'intersection d'un buffer et d'un polygone
+----------------
+Objectif   : Assemble et découpe des images raster comprises dans l'enveloppe optimale de l'intersection d'un buffer et d'un polygone
 
 Date de creation : 29/04/2016
-'''
+"""
 
 from __future__ import print_function
-import os, sys, shutil, gdal, ogr, argparse
-from osgeo import ogr
+import os, sys, shutil, argparse
+from osgeo import gdal, ogr
 from Lib_log import timeLine
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_vector import splitVector, getAttributeValues, getProjection
@@ -36,38 +37,40 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION prepareData                                                                                                                    #
 ###########################################################################################################################################
-# ROLE:
-#    Assembler et découper des images raster comprises dans un buffer
-#
-# ENTREES DE LA FONCTION :
-#    input_buffer_tdc : Fichier format shape (.shp) de la ligne autour de laquelle couper les images
-#    input_paysage : Paysage pour la découpe de l'image, qui sera optimisé par le script
-#    output_dir: Répertoire de sortie pour les traitements
-#    input_repertories_list : Répertoire(s) des fichiers raw (.tif, .ecw, .jp2, .asc) images d'entrées
-#    id_paysage : Nom de la colonne dans le shapefile paysage contenant le nom des paysages qu'on veut mettre dans les noms des images assemblées
-#    id_name_sub_rep : Nom de la colonne dans le shapefile paysage contenant le nom du sous repéertoire contenant les imagettes associés au paysage
-#    epsg : Valeur de l'EPSG : par défaut 2154
-#    optimization_zone : True : la zone d'étude est l'intersection de la zone buffer et des zones paysages
-#    no_cover : True : pas de recouvrement entre les images
-#    zone_date : True : les images seront assemblées par date
-#    separ_name : Paramètre date acquisition dans le nom, séparateur d'information
-#    pos_date : Paramètre date acquisition dans le nom, position relatif au séparateur d'information
-#    nb_char_date : Paramètre date acquisition dans le nom, nombre de caractères constituant la date
-#    separ_date : Paramètre date acquisition dans le nom, séparateur dans l'information date
-#    path_time_log : le fichier de log de sortie
-#    format_raster : Format de l'image de sortie, par défaut : GTiff
-#    format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le(s) fichier(s) image assemblé(s)
-#    Eléments modifiés aucun
-#
-
 def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_list, id_paysage, id_name_sub_rep, epsg, optimization_zone, no_cover, zone_date, separ_name, pos_date, nb_char_date, separ_date, path_time_log, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Assembler et découper des images raster comprises dans un buffer
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_buffer_tdc : Fichier format shape (.shp) de la ligne autour de laquelle couper les images
+    #    input_paysage : Paysage pour la découpe de l'image, qui sera optimisé par le script
+    #    output_dir: Répertoire de sortie pour les traitements
+    #    input_repertories_list : Répertoire(s) des fichiers raw (.tif, .ecw, .jp2, .asc) images d'entrées
+    #    id_paysage : Nom de la colonne dans le shapefile paysage contenant le nom des paysages qu'on veut mettre dans les noms des images assemblées
+    #    id_name_sub_rep : Nom de la colonne dans le shapefile paysage contenant le nom du sous repéertoire contenant les imagettes associés au paysage
+    #    epsg : Valeur de l'EPSG : par défaut 2154
+    #    optimization_zone : True : la zone d'étude est l'intersection de la zone buffer et des zones paysages
+    #    no_cover : True : pas de recouvrement entre les images
+    #    zone_date : True : les images seront assemblées par date
+    #    separ_name : Paramètre date acquisition dans le nom, séparateur d'information
+    #    pos_date : Paramètre date acquisition dans le nom, position relatif au séparateur d'information
+    #    nb_char_date : Paramètre date acquisition dans le nom, nombre de caractères constituant la date
+    #    separ_date : Paramètre date acquisition dans le nom, séparateur dans l'information date
+    #    path_time_log : le fichier de log de sortie
+    #    format_raster : Format de l'image de sortie, par défaut : GTiff
+    #    format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = True
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le(s) fichier(s) image assemblé(s)
+    #    Eléments modifiés aucun
+    #
+    """
+
     # Mise à jour du Log
     starting_event = "prepareData() : Select prepare data starting : "
     timeLine(path_time_log,starting_event)
@@ -125,7 +128,7 @@ def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_l
 
     # Recuperer l'epsg du fichier d'emprise
     if epsg == 0 :
-        epsg = getProjection(input_paysage, format_vector)
+        epsg, _ = getProjection(input_paysage, format_vector)
 
     # Création du paysage optimal
     optimPaysage(input_buffer_tdc, input_paysage, optimization_zone, SUFFIX_OPTI, output_dir_paysages, id_paysage, format_vector)
@@ -204,7 +207,7 @@ def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_l
             # ~ image_output = output_dir_images + os.sep + name_shape + SUFFIX_ASS + extension_raster
 
         # ~ for shape in sub_repertory_images_paysages_list :
-            image_output = output_dir_images + os.sep + os.path.splitext(os.path.basename(shape)) + extension_raster
+            image_output = output_dir_images + os.sep + os.path.splitext(os.path.basename(shape))[0] + extension_raster
 
             if optimization_zone :
                 shape_cut = os.path.splitext(shape)[0] + SUFFIX_CUT + os.path.splitext(shape)[1]
@@ -212,7 +215,7 @@ def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_l
             else :
                 shape_cut = shape
 
-            selectAssembyImagesByHold(shape_cut, input_repertories_list, image_output, False, zone_date, epsg, False, False, False, False, 0, 0, 0, 0, separ_name, pos_date, nb_char_date, separ_date, path_time_log, SUFFIX_ERROR, SUFFIX_MERGE, SUFFIX_CLEAN, SUFFIX_STACK, format_raster, format_vector, save_results_intermediate, overwrite)
+            selectAssembyImagesByHold(shape_cut, input_repertories_list, image_output, False, zone_date, epsg, False, False, False, False, 0, 0, 0, 0, separ_name, pos_date, nb_char_date, separ_date, path_time_log, SUFFIX_ERROR, SUFFIX_MERGE, SUFFIX_CLEAN, SUFFIX_STACK, format_raster, format_vector,extension_raster,extension_vector, save_results_intermediate, overwrite)
             if optimization_zone and os.path.exists(shape_cut):
                 removeVectorFile(shape_cut, format_vector)
 
@@ -227,26 +230,26 @@ def prepareData(input_buffer_tdc, input_paysage, output_dir, input_repertories_l
 ###########################################################################################################################################
 # FONCTION optimPaysage                                                                                                                   #
 ###########################################################################################################################################
-# ROLE:
-#    Calculer le fichier shape autour de la zone d'interet
-#
-# ENTREES DE LA FONCTION :
-#    input_buffer_tdc : buffer pour l'intersection avec le paysage (en vue de l'optimisation)
-#    input_paysage : paysage à optimiser avec l'intersection
-#    optimization_zone : True : la zone d'étude est l'intersection de la zone buffer et des zones paysages
-#    prefix_opti : prefixe des noms des shapes optimisés
-#    output_dir_paysages : dossier où sera créé le paysage optimisé en sortie
-#    format_vector : format du vecteur de sortie (par défaut : ESRI Shapefile)
-#
-# SORTIES DE LA FONCTION :
-#    Un nouveau shp contenant le paysage optimisé avec l'intersection du buffer
-#    Eléments modifiés aucun
-#
-# AMELIORATIONS A APPORTER
-#    Si le buffer intersecte le paysage en plusieurs fois (ex : île ou grand virage dans linéaire), le paysage optimisé pourra être en autant de morceaux
-
-
 def optimPaysage(input_buffer_tdc, input_paysage, optimization_zone, prefix_opti, output_dir_paysages, id_paysage, format_vector='ESRI Shapefile'):
+    """
+    # ROLE:
+    #    Calculer le fichier shape autour de la zone d'interet
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_buffer_tdc : buffer pour l'intersection avec le paysage (en vue de l'optimisation)
+    #    input_paysage : paysage à optimiser avec l'intersection
+    #    optimization_zone : True : la zone d'étude est l'intersection de la zone buffer et des zones paysages
+    #    prefix_opti : prefixe des noms des shapes optimisés
+    #    output_dir_paysages : dossier où sera créé le paysage optimisé en sortie
+    #    format_vector : format du vecteur de sortie (par défaut : ESRI Shapefile)
+    #
+    # SORTIES DE LA FONCTION :
+    #    Un nouveau shp contenant le paysage optimisé avec l'intersection du buffer
+    #    Eléments modifiés aucun
+    #
+    # AMELIORATIONS A APPORTER
+    #    Si le buffer intersecte le paysage en plusieurs fois (ex : île ou grand virage dans linéaire), le paysage optimisé pourra être en autant de morceaux
+    """
 
     driver = ogr.GetDriverByName(format_vector)
     # Récupération de la couche input_paysage et de ses propriétés
@@ -392,10 +395,14 @@ def main(gui=False):
     # Récupération de la donnée en entrée (ligne)
     if args.input_buffer_tdc != None :
         input_buffer_tdc = args.input_buffer_tdc
+        if not os.path.isfile(input_buffer_tdc):
+            raise NameError (cyan + "PrepareData : " + bold + red  + "File %s not existe!" %(input_buffer_tdc) + endC)
 
     # Récupération des paysages en entrée
     if args.input_paysage != None :
         input_paysage = args.input_paysage
+        if not os.path.isfile(input_paysage):
+            raise NameError (cyan + "PrepareData : " + bold + red  + "File %s not existe!" %(input_paysage) + endC)
 
     # Récupération du chemin des images en sortie
     if args.output_dir != None :

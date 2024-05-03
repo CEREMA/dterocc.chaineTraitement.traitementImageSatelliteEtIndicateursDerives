@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,14 +11,15 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : TDCKmeans.py
 Description    :
-    Objectif   : Extrait le trait de côte par la méthode des k-means à partir d'une image satellite
-    Rq : utilisation des OTB Applications :  otbcli_ConcatenateImages, otbcli_KMeansClassification, otbcli_ClassificationMapRegularization
+----------------
+Objectif   : Extrait le trait de côte par la méthode des k-means à partir d'une image satellite
+Rq : utilisation des OTB Applications :  otbcli_ConcatenateImages, otbcli_KMeansClassification, otbcli_ClassificationMapRegularization
 
 Date de creation : 23/06/2016
-'''
+"""
 
 from __future__ import print_function
 import os, argparse, sys, shutil
@@ -34,7 +35,6 @@ from PolygonMerToTDC import polygonMerToTDC
 debug = 3
 
 # Les parametres de la fonction OTB otbcli_KMeansClassification a changé à partir de la version 7.0 de l'OTB
-IS_VERSION_UPPER_OTB_7_0 = False
 pythonpath = os.environ["PYTHONPATH"]
 print ("Identifier la version d'OTB : ")
 pythonpath_list = pythonpath.split(os.sep)
@@ -46,35 +46,38 @@ for info in pythonpath_list :
 print (otb_info)
 if int(otb_info.split(".")[0]) >= 7 :
     IS_VERSION_UPPER_OTB_7_0 = True
+else :
+    IS_VERSION_UPPER_OTB_7_0 = False
 
 ###########################################################################################################################################
 # FONCTION runTDCKmeans                                                                                                                   #
 ###########################################################################################################################################
-# ROLE:
-#    Extraction du trait de côte avec la méthode des k-means à partir d'une image satellite
-#
-# ENTREES DE LA FONCTION :
-#    input_images : Liste des images pour l'extraction du trait de côte (.tif)
-#    output_dir : Répertoire de sortie pour les traitements
-#    input_sea_points : Fichier shp de points dans la mer pour identifier les polygones mer sur le masque terre/mer
-#    input_cut_vector : Fichier shp de contour pour la découpe de la zone d'intérêt
-#    nb_classes : Nombre de classes pour la classification. Par défaut, 5
-#    no_data_value : Valeur de  pixel du no data
-#    path_time_log : le fichier de log de sortie
-#    epsg : Code EPSG des fichiers
-#    format_raster : Format de l'image de sortie, par défaut : GTiff
-#    format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant le trait de côte
-#    Eléments modifiés aucun
-#
-
 def runTDCKmeans(input_images, output_dir, input_sea_points, input_cut_vector, no_data_value, path_time_log, nb_classes=5, epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Extraction du trait de côte avec la méthode des k-means à partir d'une image satellite
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_images : Liste des images pour l'extraction du trait de côte (.tif)
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    input_sea_points : Fichier shp de points dans la mer pour identifier les polygones mer sur le masque terre/mer
+    #    input_cut_vector : Fichier shp de contour pour la découpe de la zone d'intérêt
+    #    nb_classes : Nombre de classes pour la classification. Par défaut, 5
+    #    no_data_value : Valeur de  pixel du no data
+    #    path_time_log : le fichier de log de sortie
+    #    epsg : Code EPSG des fichiers
+    #    format_raster : Format de l'image de sortie, par défaut : GTiff
+    #    format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant le trait de côte
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "runTDCKmeans() : Select TDC kmeans starting : "
@@ -171,7 +174,7 @@ def runTDCKmeans(input_images, output_dir, input_sea_points, input_cut_vector, n
                 print(cyan + "runTDCKmeans() : " + endC + bold + green + "Create binary file %s complete!" %(im_kmeans) + endC)
 
         # Découpe du raster image Kmeans
-        cutImageByVector(input_cut_vector, im_kmeans, im_kmeans_decoup, None, None, no_data_value, epsg, format_raster, format_vector)
+        cutImageByVector(input_cut_vector, im_kmeans, im_kmeans_decoup, None, None, False, no_data_value, epsg, format_raster, format_vector)
 
          # Nettoyage de l'image raster Kmeans
         command = "otbcli_ClassificationMapRegularization -io.in %s -io.out %s -ip.radius %s" %(im_kmeans_decoup, im_kmeans_decoup_filter, str(5))

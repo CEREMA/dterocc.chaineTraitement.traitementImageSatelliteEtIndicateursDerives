@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -11,13 +11,14 @@
 #                                                                                                                                           #
 #############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : TDCSeuil.py
 Description    :
-    Objectif   : Extrait le trait de côte jet de rive par seuillage à partir d'une image satellite
+----------------
+Objectif   : Extrait le trait de côte jet de rive par seuillage à partir d'une image satellite
 
 Date de creation : 20/05/2016
-'''
+"""
 
 from __future__ import print_function
 from osgeo import ogr, osr
@@ -40,8 +41,10 @@ debug = 3
 ###########################################################################################################################################
 # STRUCTURE StructAttribute                                                                                                                #
 ###########################################################################################################################################
-# Structure contenant les information utiles à un attribu : Non, le type, la dimension, et la valeur
 class StructAttribute:
+    """
+    # Structure contenant les information utiles à un attribu : Non, le type, la dimension, et la valeur
+    """
     def __init__(self):
         self.name = ''
         self.ogrType = None
@@ -57,40 +60,42 @@ class StructAttribute:
 ###########################################################################################################################################
 # FONCTION runTDCSeuil                                                                                                                    #
 ###########################################################################################################################################
-# ROLE:
-#    Extraction du trait de côte jet de rive d'une image satellite
-#
-# ENTREES DE LA FONCTION :
-#    input_im_seuils_dico : Dictionnaire des images à traiter pour extraire un trait de côte par image, et des seuils associés pour le masque binaire terre/mer
-#    output_dir : Répertoire de sortie pour les traitements
-#    input_sea_points : Fichier shp de points dans la mer pour identifier les polygones mer sur le masque terre/mer
-#    input_cut_vector : Option : le fichier vecteur pour la découpe du trait de côte en sortie
-#    input_emprise_vector : Option : le fichier d'emprise pour remplire automatiquement les valeurs des attributs
-#    simplif : Option : valeur de tolérence pour la simplification du trait de côte
-#    is_calc_indice_image : Option : Calcul de l'image NDVI (si elle n'est pas donnée en entrée)
-#    attribute_val_limite : Valeur de l'attribut TDC_Limite
-#    attribute_val_proced : Valeur de l'attribut TDC_proced
-#    attribute_val_datepr : Valeur de l'attribut TDC_Datepr
-#    attribute_val_precis : Valeur de l'attribut TDC_precis
-#    attribute_val_contac : Valeur de l'attribut TDC_Contac
-#    attribute_val_type : Valeur de l'attribut Type (de sattelite)
-#    no_data_value : Valeur de  pixel du no data
-#    path_time_log : le fichier de log de sortie
-#    channel_order : identifiant des canaux de l image, exmple : {"Red":1,"Green":2,"Blue":3,"NIR":4}, defaut=[Red,Green,Blue,NIR]
-#    epsg : Code EPSG des fichiers
-#    format_raster : Format de l'image de sortie, par défaut : GTiff
-#    format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant le trait de côte extrait par seuillage
-#    Eléments modifiés aucun
-#
-
-def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, attribute_val_real, no_data_value, path_time_log, channel_order=['Red','Green','Blue','NIR'], epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, attribute_val_real, no_data_value, path_time_log, channel_order=['Red','Green','Blue','NIR'], epsg=2154, ram_otb=0, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=True, overwrite=True):
+    """
+    # ROLE:
+    #    Extraction du trait de côte jet de rive d'une image satellite
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_im_seuils_dico : Dictionnaire des images à traiter pour extraire un trait de côte par image, et des seuils associés pour le masque binaire terre/mer
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    input_sea_points : Fichier shp de points dans la mer pour identifier les polygones mer sur le masque terre/mer
+    #    input_cut_vector : Option : le fichier vecteur pour la découpe du trait de côte en sortie
+    #    input_emprise_vector : Option : le fichier d'emprise pour remplire automatiquement les valeurs des attributs
+    #    simplif : Option : valeur de tolérence pour la simplification du trait de côte
+    #    is_calc_indice_image : Option : Calcul de l'image NDVI (si elle n'est pas donnée en entrée)
+    #    attribute_val_limite : Valeur de l'attribut TDC_Limite
+    #    attribute_val_proced : Valeur de l'attribut TDC_proced
+    #    attribute_val_datepr : Valeur de l'attribut TDC_Datepr
+    #    attribute_val_precis : Valeur de l'attribut TDC_precis
+    #    attribute_val_contac : Valeur de l'attribut TDC_Contac
+    #    attribute_val_type : Valeur de l'attribut Type (de sattelite)
+    #    no_data_value : Valeur de  pixel du no data
+    #    path_time_log : le fichier de log de sortie
+    #    channel_order : identifiant des canaux de l image, exmple : {"Red":1,"Green":2,"Blue":3,"NIR":4}, defaut=[Red,Green,Blue,NIR]
+    #    epsg : Code EPSG des fichiers
+    #    ram_otb : memoire RAM disponible pour les applications OTB
+    #    format_raster : Format de l'image de sortie, par défaut : GTiff
+    #    format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = True
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :
+    #    Le fichier contenant le trait de côte extrait par seuillage
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Mise à jour du Log
     starting_event = "runTDCSeuil() : Select TDC Seuil starting : "
@@ -117,6 +122,7 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
         print(cyan + "runTDCSeuil() : " + endC + "path_time_log : " + str(path_time_log) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "channel_order: " + str(channel_order) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "epsg : " + str(epsg) + endC)
+        print(cyan + "runTDCSeuil() : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "runTDCSeuil() : " + endC + "extension_raster : " + str(extension_raster) + endC)
@@ -255,7 +261,7 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
             createNDVI(input_image, image_index, channel_order)
 
         else:
-            image_index = seuils_index_image_list[0]
+            image_index = input_image
             if os.path.splitext(image_index)[1] != extension_raster :
                 print(cyan + "runTDCSeuil() : " + red + bold + "Si vous choisissez de calculer l'image NDVI, mettre l'option -c. Sinon, le 1er paramètre derrière \":\" dans -isd doit être l'image indice (.tif)" + endC, file=sys.stderr)
                 sys.exit(1)
@@ -266,14 +272,14 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
                     if t == AUTO:
                         seuils_list = runCalculSeuil(image_index, output_dir, save_results_intermediate)
                         # Masque centre classe
-                        bin_mask_cc = binaryMaskVect(image_index, repertory_temp, float(seuils_list[0]), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask_cc = binaryMaskVect(image_index, repertory_temp, float(seuils_list[0]), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
                         # Masque borne inf
-                        bin_mask_bi = binaryMaskVect(image_index, repertory_temp, float(v[1]), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask_bi = binaryMaskVect(image_index, repertory_temp, float(v[1]), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
                         # Ajout des masques à la liste
                         bin_mask_list.append(bin_mask_cc)
                         bin_mask_list.append(bin_mask_bi)
                     else:
-                        bin_mask = binaryMaskVect(image_index, repertory_temp, float(t), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask = binaryMaskVect(image_index, repertory_temp, float(t), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
                         bin_mask_list.append(bin_mask)
             else:
                 print(cyan + "runTDCSeuil() : " + red + + bold +  "Renseignez les images NDVI associées et les seuils !" + endC, file=sys.stderr)
@@ -285,14 +291,14 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
                     if t == AUTO:
                         seuils_list = runCalculSeuil(image_index, output_dir, save_results_intermediate)
                         # Masque centre classe
-                        bin_mask_cc = binaryMaskVect(image_index, repertory_temp, float(seuils_list[0]), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask_cc = binaryMaskVect(image_index, repertory_temp, float(seuils_list[0]), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
                         # Masque borne inf
-                        bin_mask_bi = binaryMaskVect(image_index, repertory_temp, float(seuils_list[1]), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask_bi = binaryMaskVect(image_index, repertory_temp, float(seuils_list[1]), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
                         # Ajout des masques à la liste
                         bin_mask_list.append(bin_mask_cc)
                         bin_mask_list.append(bin_mask_bi)
                     else:
-                        bin_mask = binaryMaskVect(image_index, repertory_temp, float(t), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask = binaryMaskVect(image_index, repertory_temp, float(t), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
                         bin_mask_list.append(bin_mask)
             else:
                 for j in range(1,len(seuils_index_image_list)):
@@ -300,14 +306,14 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
                     if t == AUTO:
                         seuils_list = runCalculSeuil(image_index, output_dir, save_results_intermediate)
                         # Masque centre classe
-                        bin_mask_cc = binaryMaskVect(image_index, repertory_temp, float(seuils_list[0]), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask_cc = binaryMaskVect(image_index, repertory_temp, float(seuils_list[0]), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
                         # Masque borne inf
-                        bin_mask_bi = binaryMaskVect(image_index, repertory_temp, float(seuils_list[1]), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask_bi = binaryMaskVect(image_index, repertory_temp, float(seuils_list[1]), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector,  extension_raster, extension_vector, save_results_intermediate, overwrite)
                         # Ajout des masques à la liste
                         bin_mask_list.append(bin_mask_cc)
                         bin_mask_list.append(bin_mask_bi)
                     else:
-                        bin_mask = binaryMaskVect(image_index, repertory_temp, float(t), input_cut_vector, attributes_list, no_data_value, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+                        bin_mask = binaryMaskVect(image_index, repertory_temp, float(t), input_cut_vector, attributes_list, no_data_value, epsg, ram_otb, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
                         bin_mask_list.append(bin_mask)
 
     # Constitution du dictionnaire associant chaque image aux vecteurs NDVI associés, pour l'entrée dans PolygonMerToTDC
@@ -408,30 +414,32 @@ def runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_ve
 ###########################################################################################################################################
 # FONCTION binaryMaskVect                                                                                                                 #
 ###########################################################################################################################################
-# ROLE:
-#    Création d'un masque binaire vecteur à partir d'une image raster et d'un seuil
-#
-# ENTREES DE LA FONCTION :
-#    input_image : Image à traiter
-#    output_dir : Répertoire de sortie pour les traitements
-#    threshold : seuil utilisé pour le masque binaire
-#    input_cut_vector : fichier de découpe du masque binaire pour réduction de la zone à vectoriser (gain en temps de calcul)
-#    attributes_list : liste des noms et formats des champs ansi que leur valeur
-#    no_data_value : Valeur de  pixel du no data
-#    epsg : Code EPSG des fichiers
-#    format_raster  : format des raster de sortie, par defaut = 'GTiff'
-#    format_vector  : format des vecteurs de sortie, par defaut = 'ESRI Shapefile'
-#    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
-#    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
-#    save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = False
-#    overwrite : supprime ou non les fichiers existants ayant le meme nom
-#
-# SORTIES DE LA FONCTION :
-#    Le fichier contenant le masque binaire terre/mer
-#    Eléments modifiés aucun
-#
-
-def binaryMaskVect(input_image, output_dir, threshold, input_cut_vector, attributes_list, no_data_value, epsg, format_raster="GTiff", format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+def binaryMaskVect(input_image, output_dir, threshold, input_cut_vector, attributes_list, no_data_value, epsg, ram_otb=0, format_raster="GTiff", format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #    Création d'un masque binaire vecteur à partir d'une image raster et d'un seuil
+    #
+    # ENTREES DE LA FONCTION :
+    #    input_image : Image à traiter
+    #    output_dir : Répertoire de sortie pour les traitements
+    #    threshold : seuil utilisé pour le masque binaire
+    #    input_cut_vector : fichier de découpe du masque binaire pour réduction de la zone à vectoriser (gain en temps de calcul)
+    #    attributes_list : liste des noms et formats des champs ansi que leur valeur
+    #    no_data_value : Valeur de  pixel du no data
+    #    epsg : Code EPSG des fichiers
+    #    ram_otb : memoire RAM disponible pour les applications OTB
+    #    format_raster  : format des raster de sortie, par defaut = 'GTiff'
+    #    format_vector  : format des vecteurs de sortie, par defaut = 'ESRI Shapefile'
+    #    extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #    save_results_intermediate : fichiers de sorties intermediaires non nettoyees, par defaut = False
+    #    overwrite : supprime ou non les fichiers existants ayant le meme nom
+    #
+    # SORTIES DE LA FONCTION :binaryMaskVect
+    #    Le fichier contenant le masque binaire terre/mer
+    #    Eléments modifiés aucun
+    #
+    """
 
     # Affichage des paramètres
     if debug >= 3:
@@ -440,6 +448,7 @@ def binaryMaskVect(input_image, output_dir, threshold, input_cut_vector, attribu
         print(cyan + "binaryMaskVect() : " + endC + "output_dir : " + str(output_dir) + endC)
         print(cyan + "binaryMaskVect() : " + endC + "threshold : " + str(threshold) + endC)
         print(cyan + "binaryMaskVect() : " + endC + "input_cut_vector : " + str(input_cut_vector) + endC)
+        print(cyan + "binaryMaskVect() : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "binaryMaskVect() : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "binaryMaskVect() : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "binaryMaskVect() : " + endC + "extension_raster : " + str(extension_raster) + endC)
@@ -471,11 +480,11 @@ def binaryMaskVect(input_image, output_dir, threshold, input_cut_vector, attribu
             return binary_mask_vector
 
     # Création du masque binaire
-    createBinaryMask(input_image, binary_mask, threshold, False)
+    createBinaryMask(input_image, binary_mask, threshold, False, "uint8", ram_otb)
 
     if input_cut_vector != "":
         # Découpe du raster
-        cutImageByVector(input_cut_vector, binary_mask, binary_mask_decoup, None, None, no_data_value, epsg, format_raster, format_vector)
+        cutImageByVector(input_cut_vector, binary_mask, binary_mask_decoup, None, None, False, no_data_value, epsg, format_raster, format_vector)
     else:
         binary_mask_decoup = binary_mask
 
@@ -532,6 +541,7 @@ def main(gui=False):
     parser.add_argument('-at_v_real','--attribute_val_real', default="Cerema_Aceyte", help="Attribute value of satellite type.", type=str, required=False)
     parser.add_argument('-epsg','--epsg',default=2154,help="Option : Projection EPSG for the layers. By default : 2154", type=int, required=False)
     parser.add_argument('-ndv','--no_data_value', default=0, help="Option : Value of the pixel no data. By default : 0", type=int, required=False)
+    parser.add_argument('-ram','--ram_otb',default=0,help="Ram available for processing otb applications (in MB)", type=int, required=False)
     parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image raster. By default : GTiff (GTiff, HFA...)", type=str, required=False)
     parser.add_argument('-vef','--format_vector',default="ESRI Shapefile",help="Option : Vector format. By default : ESRI Shapefile", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
@@ -598,6 +608,10 @@ def main(gui=False):
     if args.no_data_value!= None:
         no_data_value = args.no_data_value
 
+    # Récupération du parametre ram
+    if args.ram_otb != None:
+        ram_otb = args.ram_otb
+
     # Paramètre format des images de sortie
     if args.format_raster != None:
         format_raster = args.format_raster
@@ -650,6 +664,7 @@ def main(gui=False):
         print(cyan + "TDCSeuil : " + endC + "attribute_val_real : " + str(attribute_val_real) + endC)
         print(cyan + "TDCSeuil : " + endC + "epsg : " + str(epsg) + endC)
         print(cyan + "TDCSeuil : " + endC + "no_data_value : " + str(no_data_value) + endC)
+        print(cyan + "TDCSeuil : " + endC + "ram_otb : " + str(ram_otb) + endC)
         print(cyan + "TDCSeuil : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "TDCSeuil : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "TDCSeuil : " + endC + "extension_raster : " + str(extension_raster) + endC)
@@ -660,7 +675,7 @@ def main(gui=False):
         print(cyan + "TDCSeuil : " + endC + "debug : " + str(debug) + endC)
 
     # Fonction générale
-    runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, attribute_val_real,  no_data_value, path_time_log, channel_order, epsg, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
+    runTDCSeuil(input_im_seuils_dico, output_dir, input_sea_points, input_cut_vector, input_emprise_vector, simplif, is_calc_indice_image, attribute_val_limite, attribute_val_proced, attribute_val_datepr, attribute_val_precis, attribute_val_contac, attribute_val_type, attribute_val_real,  no_data_value, path_time_log, channel_order, epsg, ram_otb, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
 # ================================================
 
