@@ -1,34 +1,33 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-########################################################################
-#                                                                      #
-#    Copyright (©) CEREMA/DTerSO/DALETT/SCGSI - All rights reserved    #
-#                                                                      #
-########################################################################
+#############################################################################################################################################
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
+#############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : WaterHeight.py
 Description :
-    Objectif : calculer les hauteurs d'eau sur une zone inondée
-    Remarque : issu en partie de la traduction du plugin cartoZI, développé par le SPC Loire Cher Indre et porté par le SCHAPI : http://wikhydro.developpement-durable.gouv.fr/index.php/CartoZI
+-------------
+Objectif : calculer les hauteurs d'eau sur une zone inondée
+Remarque : issu en partie de la traduction du plugin cartoZI, développé par le SPC Loire Cher Indre et porté par le SCHAPI : http://wikhydro.developpement-durable.gouv.fr/index.php/CartoZI
 
 -----------------
 Outils utilisés :
- -
 
 ------------------------------
 Historique des modifications :
- - 01/02/2019 : création
+01/02/2019 : création
 
 -----------------------
 A réfléchir / A faire :
- -
-'''
+
+"""
 
 # Import des bibliothèques Python
 from __future__ import print_function
-import os, argparse, ogr
+import os, argparse
+from osgeo import ogr
 from Lib_display import bold,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_file import cleanTempData, deleteDir, removeFile, removeVectorFile
 from Lib_grass import initializeGrass, connectionGrass, importVectorOgr2Grass, exportVectorOgr2Grass, importRasterGdal2Grass, pointsAlongPolylines, sampleRasterUnderPoints
@@ -45,33 +44,34 @@ debug = 3
 ########################################################################
 # FONCTION classesOfWaterHeights()                                     #
 ########################################################################
-# ROLE :
-#     Cartographie des classes de hauteurs d'eau
-#
-# ENTREES DE LA FONCTION :
-#     input_flooded_areas_vector : fichier d'emprise inondée en entrée (en format vecteur)
-#     input_digital_elevation_model_file : fichier du MNT en entrée (en format raster)
-#     output_heights_classes_file : fichier des classes de hauteurs d'eau en sortie (en format raster)
-#     output_heights_classes_vector : fichier des classes de hauteurs d'eau en sortie (en format vecteur)
-#     heights_classes : classes de hauteurs d'eau à générer. Par défaut : '0,0.5,1,1.5,2'
-#     epsg : code epsg du système de projection. Par défaut : 2154
-#     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
-#     format_raster : format des fichiers raster. Par défaut : 'GTiff'
-#     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster. Par défaut : '.tif'
-#     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
-#     grass_gisbase : variable d'environnement GRASS. Par défaut : os.environ['GISBASE']
-#     grass_gisdb : nom de la géodatabase GRASS. Par défaut : 'GRASS_database'
-#     grass_location : paramètre 'location' de la géodatabase GRASS. Par défaut : 'LOCATION'
-#     grass_mapset : paramètre 'mapset' de la géodatabase GRASS. Par défaut : 'MAPSET'
-#     path_time_log : fichier log de sortie, par défaut vide
-#     save_results_intermediate : fichiers temporaires conservés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def classesOfWaterHeights(input_flooded_areas_vector, input_digital_elevation_model_file, output_heights_classes_file, output_heights_classes_vector, heights_classes='0,0.5,1,1.5,2', epsg=2154, no_data_value=0, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster='.tif', extension_vector='.shp', grass_gisbase=os.environ['GISBASE'], grass_gisdb='GRASS_database', grass_location='LOCATION', grass_mapset='MAPSET', path_time_log='', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Cartographie des classes de hauteurs d'eau
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_flooded_areas_vector : fichier d'emprise inondée en entrée (en format vecteur)
+    #     input_digital_elevation_model_file : fichier du MNT en entrée (en format raster)
+    #     output_heights_classes_file : fichier des classes de hauteurs d'eau en sortie (en format raster)
+    #     output_heights_classes_vector : fichier des classes de hauteurs d'eau en sortie (en format vecteur)
+    #     heights_classes : classes de hauteurs d'eau à générer. Par défaut : '0,0.5,1,1.5,2'
+    #     epsg : code epsg du système de projection. Par défaut : 2154
+    #     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
+    #     format_raster : format des fichiers raster. Par défaut : 'GTiff'
+    #     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster. Par défaut : '.tif'
+    #     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
+    #     grass_gisbase : variable d'environnement GRASS. Par défaut : os.environ['GISBASE']
+    #     grass_gisdb : nom de la géodatabase GRASS. Par défaut : 'GRASS_database'
+    #     grass_location : paramètre 'location' de la géodatabase GRASS. Par défaut : 'LOCATION'
+    #     grass_mapset : paramètre 'mapset' de la géodatabase GRASS. Par défaut : 'MAPSET'
+    #     path_time_log : fichier log de sortie, par défaut vide
+    #     save_results_intermediate : fichiers temporaires conservés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     if debug >= 3:
         print('\n' + bold + green + "Classes de hauteurs d'eau - Variables dans la fonction :" + endC)
@@ -250,7 +250,7 @@ def classesOfWaterHeights(input_flooded_areas_vector, input_digital_elevation_mo
     rasterCalculator([raw_heights], heights_classes_temp, expression, codage=ENCODING_RASTER_UINT8)
 
     # Redécoupage propre des zones en dehors de l'emprise inondée
-    cutImageByVector(input_flooded_areas_vector, heights_classes_temp, output_heights_classes_file, pixel_size_x=pixel_width, pixel_size_y=pixel_height, no_data_value=no_data_value, epsg=epsg, format_raster=format_raster, format_vector=format_vector)
+    cutImageByVector(input_flooded_areas_vector, heights_classes_temp, output_heights_classes_file, pixel_size_x=pixel_width, pixel_size_y=pixel_height, in_line=False, no_data_value=no_data_value, epsg=epsg, format_raster=format_raster, format_vector=format_vector)
 
     print(cyan + "classesOfWaterHeights() : " + bold + green + "ETAPE 5/6 - Fin de l'attribution des classes de hauteurs d'eau." + endC + '\n')
 

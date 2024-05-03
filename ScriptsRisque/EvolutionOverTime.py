@@ -1,30 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-########################################################################
-#                                                                      #
-#    Copyright (©) CEREMA/DTerSO/DALETT/SCGSI - All rights reserved    #
-#                                                                      #
-########################################################################
+#############################################################################################################################################
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
+#############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : EvolutionOverTime.py
 Description :
-    Objectif : étudier l'évolution d'un territoire dans le temps
-    Remarque : compare divers états à t0, t1, t2... en termes de surface et/ou de taux d'évolution
+-------------
+Objectif : étudier l'évolution d'un territoire dans le temps
+Remarque : compare divers états à t0, t1, t2... en termes de surface et/ou de taux d'évolution
 
 -----------------
 Outils utilisés :
- -
 
 ------------------------------
 Historique des modifications :
- - 06/06/2019 : création
+06/06/2019 : création
 
 -----------------------
 A réfléchir / A faire :
- -
-'''
+
+"""
 
 # Import des bibliothèques Python
 from __future__ import print_function
@@ -43,37 +41,38 @@ debug = 3
 ########################################################################
 # FONCTION soilOccupationChange()                                      #
 ########################################################################
-# ROLE :
-#     Cartographie des évolutions (positives et négatives) de l'OCS par parcelle
-#
-# ENTREES DE LA FONCTION :
-#     input_plot_vector : fichier parcellaire en entrée (en format vecteur)
-#     output_plot_vector : fichier parcellaire en sortie (en format vecteur)
-#     footprint_vector : fichier emprise en entrée (en format vecteur)
-#     input_tx_files_list : liste des fichier OCS à tx en entrée (en format raster)
-#     evolutions_list : liste des évolutions à quantifier. Par défaut : ['0:1:11000:10:50:and', '0:1:12000:10:50:and', '0:1:21000:10:50:and', '0:1:22000:10:50:and', '0:1:23000:10:50:and']
-#     class_label_dico : dictionnaire des classes OCS. Par défaut : {11000:'Bati', 12000:'Route', 21000:'SolNu', 22000:'Eau', 23000:'Vegetation'}
-#     epsg : code epsg du système de projection. Par défaut : 2154
-#     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
-#     format_raster : format des fichiers raster. Par défaut : 'GTiff'
-#     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster. Par défaut : '.tif'
-#     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
-#     postgis_ip_host : nom du serveur PostGIS. Par défaut : 'localhost'
-#     postgis_num_port : numéro de port du serveur PostGIS. Par défaut : 5432
-#     postgis_user_name : nom d'utilisateur PostGIS. Par défaut : 'postgres'
-#     postgis_password : mot de passe de l'utilisateur PostGIS. Par défaut : 'postgres'
-#     postgis_database_name : nom de la base PostGIS. Par défaut : 'database'
-#     postgis_schema_name : nom du schéma dans la base PostGIS. Par défaut : 'public'
-#     postgis_encoding : l'encodage des fichiers pour l'import de vecteurs dans PostGIS. Par défaut : 'latin1'
-#     path_time_log : fichier log de sortie, par défaut vide
-#     save_results_intermediate : fichiers temporaires conservés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector, input_tx_files_list, evolutions_list=['0:1:11000:10:50:and', '0:1:12000:10:50:and', '0:1:21000:10:50:and', '0:1:22000:10:50:and', '0:1:23000:10:50:and'], class_label_dico={11000:'Bati', 12000:'Route', 21000:'SolNu', 22000:'Eau', 23000:'Vegetation'}, epsg=2154, no_data_value=0, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster='.tif', extension_vector='.shp', postgis_ip_host='localhost', postgis_num_port=5432, postgis_user_name='postgres', postgis_password='postgres', postgis_database_name='database', postgis_schema_name='public', postgis_encoding='latin1', path_time_log='', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Cartographie des évolutions (positives et négatives) de l'OCS par parcelle
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_plot_vector : fichier parcellaire en entrée (en format vecteur)
+    #     output_plot_vector : fichier parcellaire en sortie (en format vecteur)
+    #     footprint_vector : fichier emprise en entrée (en format vecteur)
+    #     input_tx_files_list : liste des fichier OCS à tx en entrée (en format raster)
+    #     evolutions_list : liste des évolutions à quantifier. Par défaut : ['0:1:11000:10:50:and', '0:1:12000:10:50:and', '0:1:21000:10:50:and', '0:1:22000:10:50:and', '0:1:23000:10:50:and']
+    #     class_label_dico : dictionnaire des classes OCS. Par défaut : {11000:'Bati', 12000:'Route', 21000:'SolNu', 22000:'Eau', 23000:'Vegetation'}
+    #     epsg : code epsg du système de projection. Par défaut : 2154
+    #     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
+    #     format_raster : format des fichiers raster. Par défaut : 'GTiff'
+    #     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster. Par défaut : '.tif'
+    #     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
+    #     postgis_ip_host : nom du serveur PostGIS. Par défaut : 'localhost'
+    #     postgis_num_port : numéro de port du serveur PostGIS. Par défaut : 5432
+    #     postgis_user_name : nom d'utilisateur PostGIS. Par défaut : 'postgres'
+    #     postgis_password : mot de passe de l'utilisateur PostGIS. Par défaut : 'postgres'
+    #     postgis_database_name : nom de la base PostGIS. Par défaut : 'database'
+    #     postgis_schema_name : nom du schéma dans la base PostGIS. Par défaut : 'public'
+    #     postgis_encoding : l'encodage des fichiers pour l'import de vecteurs dans PostGIS. Par défaut : 'latin1'
+    #     path_time_log : fichier log de sortie, par défaut vide
+    #     save_results_intermediate : fichiers temporaires conservés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     if debug >= 3:
         print('\n' + bold + green + "Evolution de l'OCS par parcelle - Variables dans la fonction :" + endC)
@@ -144,7 +143,7 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
     cutVector(footprint_vector, input_plot_vector, plot_vector_cut, overwrite=overwrite, format_vector=format_vector)
 
     # Récupération du nom des champs dans le fichier source (pour isoler les champs nouvellement créés par la suite, et les renommer)
-    attr_names_list_origin = getAttributeNameList(plot_vector_cut, format_vector=format_vector)
+    attr_names_list_origin = getAttributeNameList(input_plot_vector, format_vector=format_vector)
     new_attr_names_list_origin = attr_names_list_origin
 
     # Préparation de PostGIS
@@ -167,7 +166,7 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
             print(cyan + "soilOccupationChange() : " + endC + bold + "Calcul des statistiques à tx %s/%s." % (tx+1, len_tx) + endC + '\n')
 
         # Statistiques OCS par parcelle
-        statisticsVectorRaster(input_tx_file, plot_vector_cut, "", 1, True, False, False, [], [], class_label_dico, path_time_log, clean_small_polygons=True, format_vector=format_vector, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
+        statisticsVectorRaster(input_tx_file, plot_vector_cut, "", 1, True, False, False, [], [], class_label_dico, clean_small_polygons=True, no_data_value=no_data_value, format_vector=format_vector, path_time_log=path_time_log, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
 
         # Récupération du nom des champs dans le fichier parcellaire (avec les champs créés précédemment dans CVR)
         attr_names_list_tx = getAttributeNameList(plot_vector_cut, format_vector=format_vector)
@@ -279,6 +278,8 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
             temp_field += 1
 
     # Traitements SQL de l'évolution des classes OCS
+    if debug >= 3:
+        print(sql_query)
     executeQuery(connection, sql_query)
     closeConnection(connection)
     exportVectorByOgr2ogr(postgis_database_name, output_plot_vector, plot_table, user_name=postgis_user_name, password=postgis_password, ip_host=postgis_ip_host, num_port=postgis_num_port, schema_name=postgis_schema_name, format_type=format_vector)

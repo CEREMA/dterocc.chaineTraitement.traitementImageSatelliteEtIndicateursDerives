@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-########################################################################
-#                                                                      #
-#    Copyright (©) CEREMA/DTerSO/DALETT/SCGSI - All rights reserved    #
-#                                                                      #
-########################################################################
+#############################################################################################################################################
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
+#############################################################################################################################################
 
-'''
+"""
 Nom de l'objet : AreasUnderUrbanization.py
 Description :
-    Objectif : produire une donnée des zones en voie d'urbanisation
-    Remarque : peut être utilisé comme donnée Oc0 (zones en voie d'urbanisation) du Référentiel national de vulnérabilité aux inondations
+-------------
+Objectif : produire une donnée des zones en voie d'urbanisation
+Remarque : peut être utilisé comme donnée Oc0 (zones en voie d'urbanisation) du Référentiel national de vulnérabilité aux inondations
 
 -----------------
 Outils utilisés :
@@ -24,18 +23,19 @@ Historique des modifications :
 -----------------------
 A réfléchir / A faire :
  -
-'''
+"""
 
 # Import des bibliothèques Python
 from __future__ import print_function
-import os, argparse, ogr
+import os, argparse
+from osgeo import ogr
 from Lib_display import bold,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_file import cleanTempData, deleteDir, removeVectorFile
 from Lib_log import timeLine
 from Lib_postgis import createDatabase, openConnection, importVectorByOgr2ogr, executeQuery, exportVectorByOgr2ogr, closeConnection, dropDatabase
 from Lib_raster import getPixelWidthXYImage, rasterizeBinaryVector, rasterizeBinaryVectorWithoutReference, rasterizeVector
 from Lib_text import regExReplace
-from Lib_vector import cutVector, fusionVectors, getAttributeValues, getEmpriseFile
+from Lib_vector import cutVector, fusionVectors, getAttributeValues, getEmpriseVector
 from CrossingVectorRaster import statisticsVectorRaster
 
 # Niveau de debug (variable globale)
@@ -44,45 +44,46 @@ debug = 3
 ########################################################################
 # FONCTION buildablePlot()                                             #
 ########################################################################
-# ROLE :
-#     Cartographie des parcelles disponibles et constructibles
-#
-# ENTREES DE LA FONCTION :
-#     input_plot_vector : fichier parcellaire en entrée (en format vecteur)
-#     output_plot_vector : fichier parcellaire en sortie (en format vecteur)
-#     footprint_vector : fichier emprise en entrée (en format vecteur)
-#     input_built_file : fichier masque binaire du bâti en entrée (en format raster --> 1:bati; 0:non-bati)
-#     input_built_vector_list : liste des fichiers du bâti en entrée (en format vecteur)
-#     input_plu_vector : fichier PLU en entrée (en format vecteur)
-#     input_ppr_vector : fichier PPRi en entrée (en format vecteur)
-#     min_built_size_list : liste des surfaces minimales de bâti pour considérer la parcelle comme construite, fonction de la taille de la parcelle elle-même. Par défaut : ['None:100:20', '100:None:40']
-#     plu_field : champ du PLU donnant l'information de zonage. Par défaut : 'TYPEZONE'
-#     plu_u_values_list : liste de valeurs du zonage 'U' du PLU. Par défaut : ['U']
-#     plu_au_values_list : liste de valeurs du zonage 'AU' du PLU. Par défaut : ['AU','AUc','AUs']
-#     ppr_field : champ du PPR donnant l'information de zonage. Par défaut : 'CODEZONE'
-#     ppr_red_values_list : liste de valeurs du zonage 'rouge' du PPRi. Par défaut : ['R1','R2','R3']
-#     ppr_blue_values_list : liste de valeurs du zonage 'bleu' du PPRi. Par défaut : ['B1','B2','B2-1','B2-2','B3']
-#     epsg : code EPSG du système de projection. Par défaut : 2154
-#     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
-#     format_raster : format des fichiers raster. Par défaut : 'GTiff'
-#     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
-#     extension_raster : extension des fichiers raster. Par défaut : '.tif'
-#     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
-#     postgis_ip_host : nom du serveur PostGIS. Par défaut : 'localhost'
-#     postgis_num_port : numéro de port du serveur PostGIS. Par défaut : 5432
-#     postgis_user_name : nom d'utilisateur PostGIS. Par défaut : 'postgres'
-#     postgis_password : mot de passe de l'utilisateur PostGIS. Par défaut : 'postgres'
-#     postgis_database_name : nom de la base PostGIS. Par défaut : 'database'
-#     postgis_schema_name : nom du schéma dans la base PostGIS. Par défaut : 'public'
-#     postgis_encoding : l'encodage des fichiers pour l'import de vecteurs dans PostGIS. Par défaut : 'latin1'
-#     path_time_log : fichier log de sortie, par défaut vide
-#     save_results_intermediate : fichiers temporaires conservés, par défaut = False
-#     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
-#
-# SORTIES DE LA FONCTION :
-#     N.A.
-
 def buildablePlot(input_plot_vector, output_plot_vector, footprint_vector, input_built_file, input_built_vector_list, input_plu_vector, input_ppr_vector, min_built_size_list=['None:100:20', '100:None:40'], plu_field='TYPEZONE', plu_u_values_list=['U'], plu_au_values_list=['AU','AUc','AUs'], ppr_field='CODEZONE', ppr_red_values_list=['R1','R2','R3'], ppr_blue_values_list=['B1','B2','B2-1','B2-2','B3'], epsg=2154, no_data_value=0, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster='.tif', extension_vector='.shp', postgis_ip_host='localhost', postgis_num_port=5432, postgis_user_name='postgres', postgis_password='postgres', postgis_database_name='database', postgis_schema_name='public', postgis_encoding='latin1', path_time_log='', save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE :
+    #     Cartographie des parcelles disponibles et constructibles
+    #
+    # ENTREES DE LA FONCTION :
+    #     input_plot_vector : fichier parcellaire en entrée (en format vecteur)
+    #     output_plot_vector : fichier parcellaire en sortie (en format vecteur)
+    #     footprint_vector : fichier emprise en entrée (en format vecteur)
+    #     input_built_file : fichier masque binaire du bâti en entrée (en format raster --> 1:bati; 0:non-bati)
+    #     input_built_vector_list : liste des fichiers du bâti en entrée (en format vecteur)
+    #     input_plu_vector : fichier PLU en entrée (en format vecteur)
+    #     input_ppr_vector : fichier PPRi en entrée (en format vecteur)
+    #     min_built_size_list : liste des surfaces minimales de bâti pour considérer la parcelle comme construite, fonction de la taille de la parcelle elle-même. Par défaut : ['None:100:20', '100:None:40']
+    #     plu_field : champ du PLU donnant l'information de zonage. Par défaut : 'TYPEZONE'
+    #     plu_u_values_list : liste de valeurs du zonage 'U' du PLU. Par défaut : ['U']
+    #     plu_au_values_list : liste de valeurs du zonage 'AU' du PLU. Par défaut : ['AU','AUc','AUs']
+    #     ppr_field : champ du PPR donnant l'information de zonage. Par défaut : 'CODEZONE'
+    #     ppr_red_values_list : liste de valeurs du zonage 'rouge' du PPRi. Par défaut : ['R1','R2','R3']
+    #     ppr_blue_values_list : liste de valeurs du zonage 'bleu' du PPRi. Par défaut : ['B1','B2','B2-1','B2-2','B3']
+    #     epsg : code EPSG du système de projection. Par défaut : 2154
+    #     no_data_value : valeur NoData des pixels des fichiers raster. Par défaut : 0
+    #     format_raster : format des fichiers raster. Par défaut : 'GTiff'
+    #     format_vector : format des fichiers vecteur. Par défaut : 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster. Par défaut : '.tif'
+    #     extension_vector : extension des fichiers vecteur. Par défaut : '.shp'
+    #     postgis_ip_host : nom du serveur PostGIS. Par défaut : 'localhost'
+    #     postgis_num_port : numéro de port du serveur PostGIS. Par défaut : 5432
+    #     postgis_user_name : nom d'utilisateur PostGIS. Par défaut : 'postgres'
+    #     postgis_password : mot de passe de l'utilisateur PostGIS. Par défaut : 'postgres'
+    #     postgis_database_name : nom de la base PostGIS. Par défaut : 'database'
+    #     postgis_schema_name : nom du schéma dans la base PostGIS. Par défaut : 'public'
+    #     postgis_encoding : l'encodage des fichiers pour l'import de vecteurs dans PostGIS. Par défaut : 'latin1'
+    #     path_time_log : fichier log de sortie, par défaut vide
+    #     save_results_intermediate : fichiers temporaires conservés, par défaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    """
 
     if debug >= 3:
         print('\n' + bold + green + "Parcelles disponibles et constructibles - Variables dans la fonction :" + endC)
@@ -175,7 +176,7 @@ def buildablePlot(input_plot_vector, output_plot_vector, footprint_vector, input
         pixel_width, pixel_height = 1, 1
         if input_built_file != "":
             pixel_width, pixel_height = getPixelWidthXYImage(input_built_file)
-        xmin, xmax, ymin, ymax = getEmpriseFile(footprint_vector, format_vector=format_vector)
+        xmin, xmax, ymin, ymax = getEmpriseVector(footprint_vector, format_vector=format_vector)
         xmin, xmax, ymin, ymax = round(xmin-1), round(xmax+1), round(ymin-1), round(ymax+1)
         rasterizeBinaryVectorWithoutReference(footprint_vector, footprint_mask, xmin, ymin, xmax, ymax, pixel_width, pixel_height, burn_value=1, nodata_value=no_data_value, format_raster=format_raster, codage=ENCODING_RASTER_GDAL)
 
@@ -199,7 +200,7 @@ def buildablePlot(input_plot_vector, output_plot_vector, footprint_vector, input
 
     # Récupération des statistiques du zonage PPRi par parcelle
     class_label_dico_built = {no_data_value:'NonBati', 1:'Bati'}
-    statisticsVectorRaster(built_file, plot_vector_cut, "", 1, True, False, False, [], [], class_label_dico_built, path_time_log, clean_small_polygons=True, format_vector=format_vector, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
+    statisticsVectorRaster(built_file, plot_vector_cut, "", 1, True, False, False, [], [], class_label_dico_built, clean_small_polygons=True, no_data_value=no_data_value, format_vector=format_vector, path_time_log=path_time_log, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
 
     print(cyan + "buildablePlot() : " + bold + green + "ETAPE 1/4 - Fin du croisement avec le bâti." + endC + '\n')
 
@@ -401,7 +402,7 @@ def crossingZoningVector(zoning_vector, plot_vector, footprint_mask, temp_direct
 
     # Récupération des statistiques du zonage par parcelle
     rasterizeVector(zoning_vector_new, zoning_file, footprint_mask, zoning_field_int, codage=encoding_raster)
-    statisticsVectorRaster(zoning_file, plot_vector, "", 1, True, False, False, [], [], class_label_dico, path_time_log, clean_small_polygons=True, format_vector=format_vector, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
+    statisticsVectorRaster(zoning_file, plot_vector, "", 1, True, False, False, [], [], class_label_dico, clean_small_polygons=True, no_data_value=no_data_value, format_vector=format_vector, path_time_log=path_time_log, save_results_intermediate=save_results_intermediate, overwrite=overwrite)
 
     return values_list_unique
 
