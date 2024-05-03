@@ -6,7 +6,7 @@
 
     <!-- Donnees generales -->
     <General>
-        <Version>2.7.9</Version>
+        <Version>2.8.1</Version>
         <!-- Paramètres liés à l'execution du sequenceur -->
         <Processing>
             <!--
@@ -89,16 +89,16 @@
                     # Classification
                     #   8 : Etude parametrique de classification pour choisir le pourcentage de points utilisés dans l'ensemble des polygones d'apprentissage
                     #   9 : Etude parametrique de classification pour choisir une texture ou un indice
-                    #   5_TDC : Création d'une emprise vecteur des images contenues dans une arboresence cette emprise peut etre optimiser en ne prenant pas les no-data
                     #  10 : Assemnlage des mosaiques et decoupage selon l'emprise de chaque zone de zones_list
+                    #  11 : Création d'une emprise vecteur des images contenues dans une arboresence cette emprise peut etre optimiser en ne prenant pas les no-data
                     #  12 : Fusion des image panchro et XS parpPansharpening
+                    #  13 : Export de données BD TOPO montées en base PostgreSQL dans l'emprise d'une zone d'étude
                     #  20 : Compression d'images
                     #  30 : Calcul de neocanaux et des indices
+                    #  35 : Creation d'un raster de données MNH (Modèle Numérique de Hauteur), soit à partir des rasters MNS et MNT + données vecteur BDTopo route et bati, soit à partir des données RGE ALTI 1M et MNS-Correl de l'IGN
                     #  40 : Concatenation des neocanaux et des indices a une image et reduction eventuelle de la dimension
-                    #  35 : Creation d'un raster de données MNH (Model Numerique de Hauteur) à partir des rasters MNS et MNT plus données vecteur BDTopo route et bati
                     #  50 : Creation d'echantillons d'Apprentissage a partir de bases de donnee exogenes
                     #  60 : Creation d'un masque binaire a partir d'une image et de polygones de decoupe pour les echantillons d'Apprentissage
-                    #  70_RA : Decoupage des masques d'Apprentissage globaux sur une zone d'etude
                     #  80 : Nettoyage de masques d'Apprentissage a partir de seuils sur neocanaux ou autres images
                     #  90 : Sous echantillonage des echantillons macro (Application d'une classif non supervisee Kmeans utilisant un masque identifiant la macro-classe)
                     # 100 : Vectorisation et simplification de polygones
@@ -115,25 +115,28 @@
                     # 190 : Assemblage des resultats de classification sur les differents zones d'etudes et decoupage
                     # 200 : Vectorisation de la zone d'etude complete avec gestion de l'UMC
                     # 210 : Croisement Vecteur Raster generique pour statistique
-                    # 210_RA : Croisement Vecteur Raster pour l'identifiant unique, le label de l'information d'origine et la date de l'information d'origine (etude RA)
                     # 220 : Decoupage des resultats au formats RASTER et VECTEUR "re-callés" sur des valeurs entiere (etude RA)
                     # 221 : Changement de projection des  RASTER et VECTEUR vers la projecti Epsg definie dans le <Epsg> partie <Image>
                     # 230 : Calcul de la matrice de confusion et les indicateurs de qualité
-                    # 240_RA : Verification et correction des resultats (correction topologique) en SQL pour livraison (etude RA)
-                    # 250_RA : Rasterisation de l'OCS vecteurisé  (etude RA)
+                    # 240 : Verification et correction des resultats (correction topologique) en SQL pour livraison
+                    # 250 : Rasterisation de l'OCS vecteurisé
                     # 260 : Segmentation d'une image
                     # 270 : Classification vecteur
                     # 280 : OCS raster à partir d'une liste de vecteurs
                     # 290 : Utilisation de l'outil BandMathX de l'OTB
                     # 295 : Utilisation du Superimpose de l'OTB
                     #
+                    # 300 : Segmentation morphologique urbaine
+                    #
+                    # RA : Classification Regional (Auvergne Rhone Alpe)
+                    #  70_RA : Decoupage des masques d'Apprentissage globaux sur une zone d'etude
+                    # 210_RA : Croisement Vecteur Raster pour l'identifiant unique, le label de l'information d'origine et la date de l'information d'origine (etude RA)
+                    #
                     # TDC : Extraction TDC (chaîne complète)
-                    # 5_TDC : Création d'une emprise vecteur des images contenues dans une arboresence cette emprise peut etre optimiser en ne prenant pas les no-data
                     # 10_TDC : Extraction du trait de côte à partir de l'image vectorisée
                     # 20_TDC : Optimisation des images en fonction d'un bufer autour du trait de côte et de paysages
                     # 30_TDC : Extraction du trait de côte par seuillage
                     # 40_TDC : Extraction du trait de côte par classification non supervisée k-means
-                    # 50_TDC : Extraction du trait de côte par classification supervisé
                     # 60_TDC : Détection générale des ouvrages en mer
                     # 70_TDC : Détection des ouvrages en mer par la méthode des buffers (à partir d'un trait de côte)
                     # 80_TDC : Détection des ouvrages en mer par la méthode du filtre de Sobel (à partir d'une image)
@@ -195,16 +198,14 @@
                 <Task error_management="false">50</Task>
 
                 <!-- Classification OCS -->
+                <Task dependency="">11</Task>
                 <Task dependency="">10</Task>
                 <Task dependency="10">20</Task>
-                <!--
                 <Task dependency="10">30</Task>
-                -->
                 <Task dependency="20">40</Task>
                 <Task dependency="40">50</Task>
                 <Task dependency="50">60</Task>
-                <Task dependency="60">70_RA</Task>
-                <Task dependency="30,70_RA">80</Task>
+                <Task dependency="30">80</Task>
                 <Task dependency="80">90</Task>
                 <Task position="0" dependency="90">0</Task>
                 <Task dependency="0.0">115</Task>
@@ -219,17 +220,20 @@
                 <Task dependency="180">190</Task>
                 <Task dependency="190">200</Task>
                 <Task dependency="200">210</Task>
-                <Task dependency="210">210_RA</Task>
-                <Task dependency="210_RA">220</Task>
                 <Task dependency="170">230</Task>
-                <Task dependency="210_RA">240_RA</Task>
-                <Task dependency="240_RA">250_RA</Task>
-                <Task dependency="250_RA">290</Task>
+                <Task dependency="210">250</Task>
+                <Task dependency="230">290</Task>
                 <Task dependency="290">295</Task>
+
+                <Task>300</Task>
 
                 <!-- Segmentation et classification vecteur -->
                 <Task>260</Task>
                 <Task dependency="260">270</Task>
+
+                <!-- Classification RA -->
+                <Task dependency="60">70_RA</Task>
+                <Task dependency="">210_RA</Task>
 
                 <!-- Trait De Cote -->
                 <Task dependency="">10_TDC</Task>
@@ -285,7 +289,6 @@
                                 password : pour le mots de passe de l'utilisateur de connexion ssh
                 -->
                 <RemoteComputeur login="scgsi" password="scgsi">172.22.130.229</RemoteComputeur>
-                <!--RemoteComputeur login="scgsi" password="scgsi">172.22.130.221</RemoteComputeur-->
                 <RemoteComputeur login="scgsi" password="scgsi">172.22.130.226</RemoteComputeur>
                 <RemoteComputeur login="scgsi" password="scgsi">172.22.130.231</RemoteComputeur>
             </RemoteComputeursList>
@@ -297,8 +300,16 @@
             <ChannelsOrderList>
                 <!--
                     Identification des cannaux de l'image, à mettre en anglais et dans l'ordre des bandes
-                    Exemple : channel_order = ["Red Green Blue RE NIR MIR"] : Bande 1 = Rouge, Bande 2 = Vert etc...
+                    Exemple : channel_order = [Red, Green, Blue, RE, NIR, MIR, ...] : Bande 1 = Rouge, Bande 2 = Vert etc...
+
+                    Exemple pour pleiades : channel_order = [Red, Green, Blue, NIR] ou attention! seleon livraison brute (non IGN)  [Blue, Green, Red, NIR]
+                    Exemple pour pleiades-NEO : channel_order = [Red, Green, Blue, NIR, RE, DeepBlue] attention! seleon livraison Airbus
+                    Exemple pour spot5 : channel_order = [Green, Red, NIR, MIR]
+                    Exemple pour spot6-7 : channel_order = [Red, Green, Blue, NIR] ou attention! seleon livraison brute (non IGN)  [Blue, Green, Red, NIR]
+                    Exemple pour RapidEye : channel_order = [Blue, Green, Red, RE, NIR]
+                    Exemple pour sentinel2 : channel_order = [Blue, Green, Red, RE1, RE2, RE3, NIR, NIRe, SWIR1, SWIR2]
                 -->
+
                 <Channel>Red</Channel>
                 <Channel>Green</Channel>
                 <Channel>Blue</Channel>
@@ -567,7 +578,8 @@
             </RadiusList>
             <!--
                 Liste des indices sur lesquels on veut faire un calcul de classification
-                "indices :  NDVI NDVIMod TNDVI NDWI ISU GEMI BSI NDBI NDWI2 MNDWI IR NBI PNDVI CI BI
+                indices :  NDVI NDVIMod NDWI2Mod TNDVI NDWI ISU GEMI NDBI, NDWI NDWI2 IR NBI PNDVI CI BI BI2 MSAVI2 SIPI ISI HIS VSSI BLUEI,
+                indices spécifiques sentinel2 : MNDWI NDMI BSI
             -->
             <IndicesList>
                 <Indice>NDVI</Indice>
@@ -575,42 +587,13 @@
             </IndicesList>
         </Task9_ParametricStudyTexturesIndices>
 
-
-        <!-- Create Emprise TDC (Littoral) -->
-        <!-- CREATION DE VECTEURS D'EMPRISE SUR LES IMAGES SOURCES DU TRAIT DE CÔTE  -->
-        <Task5_TDC_CreateEmprise_List>
-            <Task5_TDC_CreateEmprise>
-                <InputPath>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/08_Donnees/Orthos</InputPath>
-                <!-- Fichier emprise de sortie -->
-                <OutputVector>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Tests/Tests_CreateEmprise/Emprise.shp</OutputVector>
-                <!-- L'emprise globale peut etre assemble par nom ou un polygone par image -->
-                <NoAssembled>false</NoAssembled>
-                <!-- On utilise tout les polygones identifiés pour créer l'emprise pas de nettoyage et l'emprise de tous les polygones est fussioné pour n'en faire qu'un seul sans condition -->
-                <AllPolygon>true</AllPolygon>
-                <!-- Les dates d'acquisition ne sont pas prise en compte pour remplire les champs information du shape de sortie -->
-                <NoDate>false</NoDate>
-                <!--Option d'optimisation de l'emprise pour chaque image pas d'emprise globale -->
-                <OptimisationEmprise>false</OptimisationEmprise>
-                <!--Option d'optimisation de l'emprise avec prise en compte des nodata de chaque image-->
-                <OptimisationNoData>false</OptimisationNoData>
-                <!-- Erosion de l'emprise optimisée avec les nodata (valeur en metre) -->
-                <Erode>0.0</Erode>
-                <!-- Séparateur entre la date et le reste du nom de la dalle. Dans l'exemple DateSplitter = '_' -->
-                <DateSplitter>_</DateSplitter>
-                <!-- Position de la date dans le nom des dalles, relatif au séparateur date_splitter. Le début est à 1. Ici : DatePosition = 4 -->
-                <DatePosition>4</DatePosition>
-                <!-- Nombre de caractères dans l'écriture de la date. Ici : DateNumberOfCharacters = 10 -->
-                <DateNumberOfCharacters>10</DateNumberOfCharacters>
-                <!-- Séparateur des différents éléments de la date dans le nom des dalles. Ici IntraDateSplitter = '-' -->
-                <IntraDateSplitter>-</IntraDateSplitter>
-            </Task5_TDC_CreateEmprise>
-        </Task5_TDC_CreateEmprise_List>
-
         <!-- Images Assembly -->
         <!-- MOSAIQUAGE -->
         <Task10_ImagesAssembly_List>
             <Task10_ImagesAssembly>
+                <!-- Vecteur d'emprise et de découpe emprise zone d'etude -->
                 <EmpriseFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/emprise.shp</EmpriseFile>
+                <!-- Liste des répertoires des fichiers raster a prendre en compte -->
                 <SourceImagesDirList>
                     <ImagesDir>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Images1</ImagesDir>
                     <ImagesDir>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Images2</ImagesDir>
@@ -636,6 +619,41 @@
                 <IntraDateSplitter>-</IntraDateSplitter>
             </Task10_ImagesAssembly>
         </Task10_ImagesAssembly_List>
+
+        <!-- Create Emprise -->
+        <!-- CREATION DE VECTEURS D'EMPRISE SUR LES IMAGES SOURCES DU TRAIT DE CÔTE  -->
+        <!-- Remarque pour utiliser CreateEmprise hors TDC avec une emprise optimiser au mieux utiliser : NoAssembled=false, AllPolygon=true , NoDate=true, OptimisationEmprise=false,  OptimisationNoData=true -->
+        <Task11_CreateEmprise_List>
+            <Task11_CreateEmprise>
+                <!-- Liste des répertoires des fichiers raster a prendre en compte. Attention recherche recursive dans les sous repertoires également! -->
+                <SourceImagesDirList>
+                    <ImagesDir>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Images1</ImagesDir>
+                    <ImagesDir>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Images2</ImagesDir>
+                </SourceImagesDirList>
+                <!-- Fichier emprise de sortie -->
+                <OutputVector>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Tests/Tests_CreateEmprise/Emprise.shp</OutputVector>
+                <!-- L'emprise globale peut etre assemble par nom ou un polygone par image -->
+                <NoAssembled>false</NoAssembled>
+                <!-- On utilise tout les polygones identifiés pour créer l'emprise pas de nettoyage et l'emprise de tous les polygones est fussioné pour n'en faire qu'un seul sans condition -->
+                <AllPolygon>true</AllPolygon>
+                <!-- Les dates d'acquisition ne sont pas prise en compte pour remplire les champs information du shape de sortie -->
+                <NoDate>false</NoDate>
+                <!--Option d'optimisation de l'emprise pour chaque image pas d'emprise globale -->
+                <OptimisationEmprise>false</OptimisationEmprise>
+                <!--Option d'optimisation de l'emprise avec prise en compte des nodata de chaque image-->
+                <OptimisationNoData>false</OptimisationNoData>
+                <!-- Erosion de l'emprise optimisée avec les nodata (valeur en metre) -->
+                <Erode>0.0</Erode>
+                <!-- Séparateur entre la date et le reste du nom de la dalle. Dans l'exemple DateSplitter = '_' -->
+                <DateSplitter>_</DateSplitter>
+                <!-- Position de la date dans le nom des dalles, relatif au séparateur date_splitter. Le début est à 1. Ici : DatePosition = 4 -->
+                <DatePosition>4</DatePosition>
+                <!-- Nombre de caractères dans l'écriture de la date. Ici : DateNumberOfCharacters = 10 -->
+                <DateNumberOfCharacters>10</DateNumberOfCharacters>
+                <!-- Séparateur des différents éléments de la date dans le nom des dalles. Ici IntraDateSplitter = '-' -->
+                <IntraDateSplitter>-</IntraDateSplitter>
+            </Task11_CreateEmprise>
+        </Task11_CreateEmprise_List>
 
         <!-- Pansharpening Assembly -->
         <!-- ASSEMBLAGE PANSHARPENING -->
@@ -672,6 +690,27 @@
             </Task12_PansharpeningAssembly>
         </Task12_PansharpeningAssembly_List>
 
+        <!-- Export BD TOPO From Postgres -->
+        <!-- EXPORT BD TOPO D'UNE BASE POSTGRES -->
+        <Task13_ExportBdTopoFromPostgres_List>
+            <Task13_ExportBdTopoFromPostgres>
+                <!-- Fichier vecteur d'emprise d'étude en entrée -->
+                <InputVector>/mnt/RAM_disk/emprise_etude.shp</InputVector>
+                <!-- Répertoire de sortie des fichiers vecteur -->
+                <OutputDirectory>/mnt/RAM_disk/BD_TOPO</OutputDirectory>
+                <!-- Zone BD TOPO à traiter -->
+                <Zone>FXX</Zone>
+                <!-- Paramètres PostGIS où est montée la BD TOPO -->
+                <Postgis>
+                    <ServerName>172.22.130.99</ServerName>
+                    <PortNumber>5432</PortNumber>
+                    <UserName>postgres</UserName>
+                    <Password>postgres</Password>
+                    <DatabaseName>bdtopo_3_3_tousthemes_sql_scr_xxx_2022_12_15</DatabaseName>
+                </Postgis>
+            </Task13_ExportBdTopoFromPostgres>
+        </Task13_ExportBdTopoFromPostgres_List>
+
         <!-- Image Compression -->
         <!-- COMPRESSION -->
         <Task20_ImageCompression_List>
@@ -681,6 +720,10 @@
                 <OutputFile8bCompress>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_8Bits_compressed.tif</OutputFile8bCompress>
                 <!-- optimise l'utilisation du passage a 8 bits calcule sur le centrage de l'histograme -->
                 <Optimize8bits>false</Optimize8bits>
+                <!-- Image en sortie en RVB -->
+                <NeedRvb>false</NeedRvb>
+                <!-- Image en sortie en IRC -->
+                <NeedIrc>false</NeedIrc>
             </Task20_ImageCompression>
         </Task20_ImageCompression_List>
 
@@ -725,10 +768,12 @@
                 </RadiusList>
                 <!--
                     Liste des couches indicielles a calculer
-                    Exemple : "NDVI NDVIMod TNDVI NDWI ISU GEMI BSI NDBI NDWI2 MNDWI IR NBI PNDVI CI BI"
+                    Exemple : "NDVI NDVIMod NDMI TNDVI NDWI ISU GEMI BSI NDBI NDWI2 MNDWI IR NBI PNDVI CI BI BI2 VSSI"
                     Nécessitent le NIR : NDVI, NDWI2, ...
                     Nécessitent le MIR : NDBI, MNDWI, NBI, ...
                     Nécessitent le RedEdge : NDVIMod, NDWI, ...
+                    Nécessitent le SWIR1 : MNDWI, NDMI, BSI ...
+                    Nécessitent le DeepBlue :...
                 -->
                 <IndicesList>
                     <!--Indice>TNDVI</Indice>
@@ -758,6 +803,7 @@
                 <InputMntFile>/mnt/RAM_disk/MNT_1m.tif</InputMntFile>
                 <!-- Fichier utiliser pour filter les bases de données routes (arbre par exemple avec utilisation du NDVI -->
                 <InputFilterFile>/mnt/Data/10_Agents_travaux_en_cours/Gilles/Test_QualityMNS/Bordeaux_Metropole_Est_NDVI.tif</InputFilterFile>
+                <InputReferenceRaster></InputReferenceRaster>
                 <!-- Fichier raster de sortie contenant le MNH crée -->
                 <OutputMnhFile>/mnt/RAM_disk/MNH_zone_test.tif</OutputMnhFile>
 
@@ -802,6 +848,41 @@
                 </InterpolationBco>
                 <!-- Le paramétrage de SimplificationPolygon permet de gommer l'effet escalier du aux pixels. Généralement la valeur 10 convient  -->
                 <SimplificationPolygon>10.0</SimplificationPolygon>
+                <Year></Year>
+                <Zone></Zone>
+            </Task35_MnhCreation>
+            <Task35_MnhCreation>
+                <!--
+                Creation d'un raster de données MNH (Modèle Numérique de Hauteur)
+                A partir des archives MNS-Correl et RGE ALTI 1M
+                -->
+                <!-- Fichier vecteur d'emprise d'étude en entrée -->
+                <InputVector>/mnt/RAM_disk/emprise2.shp</InputVector>
+                <!-- Répertoire d'entrée des archives MNS-Correl -->
+                <InputMnsFile>/mnt/RAM_disk/MNS_50cm.tif</InputMnsFile>
+                <!-- Répertoire d'entrée des archives RGE ALTI 1M -->
+                <InputMntFile>/mnt/RAM_disk/MNT_1m.tif</InputMntFile>
+                <InputFilterFile></InputFilterFile>
+                <!-- Fichier raster de référence en entrée -->
+                <InputReferenceRaster>/mnt/RAM_disk/CreateMnhFromMnsCorrel/reference.tif</InputReferenceRaster>
+                <!-- Fichier raster MNH de sortie -->
+                <OutputMnhFile>/mnt/RAM_disk/MNH_zone_test.tif</OutputMnhFile>
+                <DataBaseRoadFilesList>
+                </DataBaseRoadFilesList>
+                <Bias></Bias>
+                <ThresholdFilterFile></ThresholdFilterFile>
+                <DataBaseBuildFilesList>
+                </DataBaseBuildFilesList>
+                <ThresholdDeltaH></ThresholdDeltaH>
+                <InterpolationMode></InterpolationMode>
+                <InterpolationMethod></InterpolationMethod>
+                <InterpolationBco>
+                </InterpolationBco>
+                <SimplificationPolygon>10.0</SimplificationPolygon>
+                <!-- Millésime MNS-Correl / RGE ALTI 1M à traiter -->
+                <Year>2022</Year>
+                <!-- Zone MNS-Correl / RGE ALTI 1M à traiter -->
+                <Zone>FXX</Zone>
             </Task35_MnhCreation>
         </Task35_MnhCreation_List>
 
@@ -933,33 +1014,6 @@
                 </ClassMacroSampleList>
             </Task60_MaskCreation>
         </Task60_MaskCreation_List>
-
-        <!-- Macro Sample Cutting -->
-        <!-- DECOUPAGE DES ECHANTILLONS D'APPRENTISSAGE SUR LA ZONE D ETUDE -->
-        <Task70_RA_MacroSampleCutting_List>
-            <Task70_RA_MacroSampleCutting>
-                <!-- CAS OU LES ECHANTILLONS SONT OBTENUS PAR AILLEURS EN FORMAT RASTER -->
-                <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_assembly_emprise.shp</InputVector>
-                <!-- Forcer la compatibilité géométrique entre les rasters d'Apprentissage et l'image satellite de référence (SuperImpose...) -->
-                <Superposition>true</Superposition>
-                <ReferenceImage>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_assembly.tif</ReferenceImage>
-                <!-- Liste pour chaque macro classe (attibut 'name' pour information non utilisé!) fichier d'entrée et fichier de sortie -->
-                <ClassMacroSampleList>
-                    <ClassMacroSample name="bati">
-                        <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_bati_raw.tif</InputFile>
-                        <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_bati_mask.tif</OutputFile>
-                    </ClassMacroSample>
-                    <ClassMacroSample name="route">
-                        <InputFile>/mnt/DonneTask220_VectorRasterCutting_Listes_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route_raw.tif</InputFile>
-                        <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route_mask.tif</OutputFile>
-                    </ClassMacroSample>
-                    <ClassMacroSample name="eau">
-                        <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_eau_raw.tif</InputFile>
-                        <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_eau_mask.tif</OutputFile>
-                    </ClassMacroSample>
-                </ClassMacroSampleList>
-            </Task70_RA_MacroSampleCutting>
-        </Task70_RA_MacroSampleCutting_List>
 
         <!-- Macro Sample Amelioration -->
         <!-- NETTOYAGE DE MASQUES D'APPRENTISSAGE A PARTIR DE SEUILS SUR NEOCANAUX -->
@@ -1205,27 +1259,27 @@
                 <!-- Dimension des carreaux de la grille idem en X et en Y des carreaux du quadrillage, puissance de 2 (en pixels) -->
                 <GridSize>256</GridSize>
                 <!-- Debord dans la grille de la partie utile des données pour eviter les effets de bord, multiple de 2 (en pixels) -->
-                <!-- 
+                <!--
                     Taille optimale lorsque KernelSize est à 3 : 6
                     Si KernelSize est supérieur, il faut selon le cas augmenter OverflowSize :
                     Débord = 6 pour KernelSize 3/5
                     Débord = 12 pour KernelSize 7/9/11
                     ...
                     Privilègier une valeur minimale car le temps d'exécution augmente à mesure que la taille du débord augmente
-                --> 
+                -->
                 <OverflowSize>6</OverflowSize>
                 <!-- Augmentation des donnees d'apprentissage -->
-                <!-- 
+                <!--
                     Par défaut laisser à true
                     Pour gagner un peu en temps d'exécution, mettre à false, mais risque d'avoir une classification moins bonne
-                --> 
+                -->
                 <IncreaseSample>true</IncreaseSample>
                 <!-- Nombre de classe pour la classification de l'image si 1 reseau en mono classe (exemple identification du bati) -->
                 <NumberClass>5</NumberClass>
                 <!-- Type de reseau de neurone : "Unet" ou "ResUnet" -->
-                <!-- 
+                <!--
                     ResUnet à utiliser car il s'entraîne plus facilement
-                --> 
+                -->
                 <NetworkType>ResUnet</NetworkType>
                 <!-- Pourcentage de pixel no data autorisé dans les images d'entrainement -->
                 <PercentNoData>10</PercentNoData>
@@ -1234,37 +1288,37 @@
                 <!-- Choix de la carte graphique si plusieurs cartes graphiques par defaut la première disponible -->
                 <IdGpuCard>0</IdGpuCard>
                 <!-- Valeur pour fixer la partie random de tirage des points aléatoires -->
-                <!-- 
+                <!--
                     Nimporte quel nombre fonctionne pour ce paramètre
                     Si le but est de fixer l'aléatoire dans l'application, il faut en plus que ComputeMode soit en cpu
-                --> 
+                -->
                 <Rand>5</Rand>
 
                 <!-- Paramètres des reseaux de neurone -->
                 <NN>
                     <!-- Nombre d'échantillons par mise à jour du gradient -->
-                    <!-- 
+                    <!--
                         Faible impact sur le temps d'exécution.
                         Valeurs admises sur serveur : 3/6/12/24/32/48/64
                         Privilègier valeurs entre 3 et 32.
                         Si NumberConvFilter est élevé, il faut prendre un Batch faible
-                    --> 
+                    -->
                     <Batch>32</Batch>
                     <!-- Nombre de filtres convolutifs dans une couche du réseau de neurone -->
-                    <!-- 
+                    <!--
                         Fort impact sur le temps d'exécution.
                         Valeurs admises sur serveur : 8/16/24/32/40/48/56/64/72
                         Privilègier valeurs entre 8 et 32.
                         Si Batch est élevé, il faut prendre un NumberConvFilter faible
-                    --> 
+                    -->
                     <NumberConvFilter>8</NumberConvFilter>
                     <!-- Dimension des filtres convolutifs du reseau de neurone -->
-                    <!-- 
+                    <!--
                         Fort impact sur le temps d'exécution.
                         Valeurs admises sur serveur : 3/5/7/9/11/13/15
                         Privilègier la valeur 3.
                         Si KernelSize est élevé, mettre un débord adéquat
-                    -->                     
+                    -->
                     <KernelSize>5</KernelSize>
                     <!-- NE PAS MODIFIER LES PARAMETRES SUIVANTS -->
                     <!-- Lors de la prédiction des réseaux de neurones, prédire tous les masques dans un ou plusieurs  -->
@@ -1378,8 +1432,8 @@
                 <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Classification/imageTest_classif_merged_filtered.tif</InputFile>
                 <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Classification/imageTest_classif_final.tif</OutputFile>
                 <SimplificationPolygon>10.0</SimplificationPolygon>
-                <!--Task220_VectorRasterCutting_List
-                    Pour image de correction  des classes (définit pat un nom et un label) à corriger par superposition définir les paramètres :
+                <!--
+                    Pour image de correction  des classes (définit par un nom et un label) à corriger par superposition définir les paramètres :
                         buffer : taille du buffer des polygones
                  -->
                 <ClassMacroSuperpositionList>
@@ -1435,6 +1489,8 @@
                 <!-- Fenetres de découpage pour la vectorisation. Plus TileSize est élevé, plus la surface vectorisable est grande, mais risque d'arriver aux limites de la machine -->
                 <!-- Pour une machine puissante, tilesize = 3000, pour une machine peu puissante, tilesize = 600 -->
                 <TileSize>3000</TileSize>
+                <!-- Vectorisation avec Grass choix de la méthode de simplication des polygones (doulas ou hermite, chaiken) si vide pas de lissage realiser -->
+                <GrassMethodeSmoothing>chaiken</GrassMethodeSmoothing>
                 <!-- Execute une correction topologique à la sortie en SQL par postgis true(execution) / false(pas de traitement topologique) -->
                 <TopologicalCorrectionSQL>true</TopologicalCorrectionSQL>
             </Task200_ClassificationVectorization>
@@ -1457,55 +1513,6 @@
                 <StatsColumnsReal>true</StatsColumnsReal>
             </Task210_CrossingVectorRaster>
         </Task210_CrossingVectorRaster_List>
-
-        <!-- Crossing Vector Raster (Prod RA)-->
-        <!-- CROISEMENT RASTER VECTEUR POUR LA COUVERTURE ET POUR LA DATE ET LA SOURCE D'ORIGINE -->
-        <Task210_RA_CrossingVectorRaster_List>
-            <Task210_RA_CrossingVectorRaster>
-                <InputClassifFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_final_ass.tif</InputClassifFile>
-                <InputCorrectionFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_correction_BD.tif</InputCorrectionFile>
-                <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_final_ass.shp</InputVector>
-                <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_final_ass_stat.shp</OutputVector>
-                <!-- Pour la couverture -->
-                <Couverture>
-                    <!-- Liste des colonnes à ajoutées dans la table attributaire -->
-                    <ColumToAddCouvList>Task220_VectorRasterCutting_List
-                        <!-- un identifiant unique -->
-                        <ColumToAddCouv>UniqueID</ColumToAddCouv>
-                    </ColumToAddCouvList>
-                    <!-- Liste des colonnes à supprimmées dans la table attributaire-->
-                    <ColumToDeleteCouvlist>
-                        <ColumToDeleteCouv>nbPixels</ColumToDeleteCouv>
-                        <ColumToDeleteCouv>meanB0</ColumToDeleteCouv>
-                        <ColumToDeleteCouv>varB0</ColumToDeleteCouv>
-                    </ColumToDeleteCouvlist>
-                </Couverture>
-                <!-- Pour l'information date d'origine -->
-                <DateOrigine>
-                    <!-- Liste des colonnes à ajoutées dans la table attributaire -->
-                    <ColumToAddDateList>
-                        <!-- la date de la source -->
-                        <ColumToAddDate>DateMaj</ColumToAddDate>
-                    </ColumToAddDateList>
-                    <!-- Mise en place du dictionnaire des labels de classe à utiliser. ATTENTION : Mettre moins de 10 caracteres par classe -->
-                    <!-- Exemple : "0:2011 101:2010 201:2011 202:2011 203:2011 204:2011 205:2011 206:2011 207:2011 208:2011 209:2011 210:2011 211:2011 212:2011 213:2011 301:2011 302:2011 303:2011 304:2005 305:2005 306:2005 307:2005 308:2005 309:2005 401:2005 402:2005 501:2010 601:2011 602:2011 603:2011 604:2011 605:2011 606:2011 607:2011 608:2011 609:2011 610:2011 611:2011 612:2011 613:2011 614:2011 615:2011 616:2011 617:2011 618:2011 619:2011 620:2011 621:2011 622:2011 623:2011 624:2011 625:2011 626:2011 627:2011 701:2012 801:2011 802:2011 803:Oss_IGN2011 804:2011 805:2011 806:2011" -->
-                    <ClassLabelDateDico>0:2011 101:2010 201:2011 202:2011 203:2011 204:2011 205:2011 206:2011 207:2011 208:2011 209:2011 210:2011 211:2011 212:2011 213:2011 301:2011 302:2011 303:2011 304:2005 305:2005 306:2005 307:2005 308:2005 309:2005 401:2005 402:2005 501:2010 601:2011 602:2011 603:2011 604:2011 605:2011 606:2011 607:2011 608:2011 609:2011 610:2011 611:2011 612:2011 613:2011 614:2011 615:2011 616:2011 617:2011 618:2011 619:2011 620:2011 621:2011 622:2011 623:2011 624:2011 625:2011 626:2011 627:2011 701:2012 801:2011 802:2011 803:Oss_IGN2011 804:2011 805:2011 806:2011</ClassLabelDateDico>
-                </DateOrigine>
-                <!-- Pour l'information origine de la source -->
-                <SourceOrigine>
-                    <!-- Liste des colonnes àajoutées dans la table attributaire -->
-                    <ColumToAddSrcList>
-                        <!-- la bd source -->
-                        <ColumToAddSrc>SrcMaj</ColumToAddSrc>
-                        <ColumToAddSrc>all</ColumToAddSrc>
-                        <ColumToAddSrc>count</ColumToAddSrc>
-                    </ColumToAddSrcList>
-                    <!-- Mise en place du dictionnaire des labels de classe à utiliser. ATTENTION : Mettre moins de 10 caracteres par classe -->
-                    <!-- Exemple : "0:Img_Sat 101:BD_Carto 201:BD_Topo 202:BD_Topo 203:BD_Topo 204:BD_Topo 205:BD_Topo 206:BD_Topo 207:BD_Topo 208:BD_Topo 209:BD_Topo 210:BD_Topo 211:BD_Topo 212:BD_Topo 213:BD_Topo 301:BD_Topo 302:BD_Topo 303:BD_Topo 304:BD_Foret 305:BD_Foret 306:BD_Foret 307:BD_Foret 308:BD_Foret 309:BD_Foret 401:BD_Foret 402:BD_Foret 501:CVI 601:RPG 602:RPG 603:RPG 604:RPG 605:RPG 606:RPG 607:RPG 608:RPG 609:RPG 610:RPG 611:RPG 612:RPG 613:RPG 614:RPG 615:RPG 616:RPG 617:RPG 618:RPG 619:RPG 620:RPG 621:RPG 622:RPG 623:RPG 624:RPG 625:RPG 626:RPG 627:RPG 701:VrgPrunus 801:Oss_IGN 802:Oss_IGN 803:Oss_IGN 804:Oss_IGN 805:Oss_IGN 806:Oss_IGN"-->
-                    <ClassLabelSrcDico>0:Img_Sat 101:BD_Carto 201:BD_Topo 202:BD_Topo 203:BD_Topo 204:BD_Topo 205:BD_Topo 206:BD_Topo 207:BD_Topo 208:BD_Topo 209:BD_Topo 210:BD_Topo 211:BD_Topo 212:BD_Topo 213:BD_Topo 301:BD_Topo 302:BD_Topo 303:BD_Topo 304:BD_Foret 305:BD_Foret 306:BD_Foret 307:BD_Foret 308:BD_Foret 309:BD_Foret 401:BD_Foret 402:BD_Foret 501:CVI 601:RPG 602:RPG 603:RPG 604:RPG 605:RPG 606:RPG 607:RPG 608:RPG 609:RPG 610:RPG 611:RPG 612:RPG 613:RPG 614:RPG 615:RPG 616:RPG 617:RPG 618:RPG 619:RPG 620:RPG 621:RPG 622:RPG 623:RPG 624:RPG 625:RPG 626:RPG 627:RPG 701:VrgPrunus 801:Oss_IGN 802:Oss_IGN 803:Oss_IGN 804:Oss_IGN 805:Oss_IGN 806:Oss_IGN</ClassLabelSrcDico>
-                </SourceOrigine>
-            </Task210_RA_CrossingVectorRaster>
-        </Task210_RA_CrossingVectorRaster_List>
 
         <!-- Vector Raster Cutting (Prod RA) -->
         <!-- DECOUPAGE ET CALAGE AUTOMATIQUE DES IMAGES ET VECTEURS RESULTATS  -->
@@ -1589,10 +1596,10 @@
             </Task230_QualityIndicatorComputation>
         </Task230_QualityIndicatorComputation_List>
 
-        <!-- Product Ocs Verification Correction SQL  (Prod RA) -->
+        <!-- Product Ocs Verification Correction SQL -->
         <!-- VERIFICATION ET CORRECTION DES RÉSULTATS DE PRODUCTION EN SQL -->
-        <Task240_RA_ProductOcsVerificationCorrectionSQL_List>
-            <Task240_RA_ProductOcsVerificationCorrectionSQL>
+        <Task240_ProductOcsVerificationCorrectionSQL_List>
+            <Task240_ProductOcsVerificationCorrectionSQL>
                 <!-- Fichier vecteur de référence emprise -->
                 <InputEmpriseVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/DEP43.shp</InputEmpriseVector>
                 <InputVectorsList>
@@ -1605,13 +1612,13 @@
                     <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Resultats/imageTest2_classif_200m2_clean.shp</OutputVector>
                     <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Resultats/imageTest2_classif_500m2_clean.shp</OutputVector>
                 </OutputVectorsList>
-            </Task240_RA_ProductOcsVerificationCorrectionSQL>
-        </Task240_RA_ProductOcsVerificationCorrectionSQL_List>
+            </Task240_ProductOcsVerificationCorrectionSQL>
+        </Task240_ProductOcsVerificationCorrectionSQL_List>
 
-        <!-- Rasterisation de l'OCS vectorisée avec UMC (Prod RA) -->
-        <!-- RESTERISATION DE COUCHES OCS VECTORISE  -->
-        <Task250_RA_ProductOcsRasterisation_List>
-            <Task250_RA_ProductOcsRasterisation>
+        <!-- Rasterisation de l'OCS vectorisée avec UMC -->
+        <!-- RESTERISATION DE COUCHES VECTORISE  -->
+        <Task250_OcsRasterisation_List>
+            <Task250_OcsRasterisation>
                 <!-- Fichier vecteur OCS d'entrée -->
                 <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/DEP43_500M2.shp</InputVector>
                 <!-- Fichier raster de référence (entrée) -->
@@ -1622,8 +1629,8 @@
                 <Label>label</Label>
                 <NodataOutput>65535</NodataOutput>
                 <EncodingOutput>uint16</EncodingOutput>
-            </Task250_RA_ProductOcsRasterisation>
-        </Task250_RA_ProductOcsRasterisation_List>
+            </Task250_OcsRasterisation>
+        </Task250_OcsRasterisation_List>
 
         <!-- Segmentation d'une image raster -->
         <!-- SEGMENTATION DE RASTERS  -->
@@ -1751,6 +1758,152 @@
             </Task295_RasterSuperimpose>
         </Task295_RasterSuperimpose_List>
 
+        <!-- Outil de Segmentation Morphologique pour les zones Urbaine -->
+        <!-- SEGMENTATION MORPHOLOGIQUE URBAINE  -->
+        <Task300_UrbanMorphologicalSegmentation_List>
+            <Task300_UrbanMorphologicalSegmentation>
+
+                <!-- Répertoire de travail -->
+                <BaseDir>/mnt/RAM_disk/INTEGRATION</BaseDir>
+                <!-- Répertoire outil CCM -->
+                <CcmDir>/home/scgsi/CCM</CcmDir>
+                <!-- Vecteur d'emprise et de découpe emprise zone d'etude -->
+                <InputEmpriseVector>/mnt/RAM_disk/INTEGRATION/emprise/toulouse_emprise.shp</InputEmpriseVector>
+
+                <!-- Rasters Copernicus HR Layer d'entrées GRA, TCD, IMD -->
+                <InputFileGRA>/mnt/RAM_disk/INTEGRATION/GRA_2018_010m_E36N23_03035_v010.tif</InputFileGRA>
+                <InputFileTCD>/mnt/RAM_disk/INTEGRATION/TCD_2018_010m_E36N23_03035_v020.tif</InputFileTCD>
+                <InputFileIMD>mnt/RAM_disk/INTEGRATION/IMD_2018_010m_E36N23_03035_v020.tif</InputFileIMD>
+
+                <!-- Vecteurs BD Topo d'entrées Route,Bâti, Eau -->
+                <!-- Données vecteurs Bâti -->
+                <InputVectorsBuildList>
+                    <DataBaseFile sql="">/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDIFFERENCIE_BDT_031.shp</DataBaseFile>
+                    <DataBaseFile sql="NATURE !='Serre'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDUSTRIEL_BDT_031.shp</DataBaseFile>
+                    <DataBaseFile sql="">/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_REMARQUABLE_BDT_031.shp</DataBaseFile>
+                </InputVectorsBuildList>
+                <!-- Données vecteurs Route -->
+                <InputVectorsRoadList>
+                    <DataBaseFile sql="FRANCHISST !='Tunnel'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_PRIMAIRE_BDT_031.SHP</DataBaseFile>
+                    <DataBaseFile sql="FRANCHISST !='Tunnel'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_SECONDAIRE_BDT_031.SHP</DataBaseFile>
+                </InputVectorsRoadList>
+                <!-- Données vecteurs Eau -->
+                <InputVectorsWaterList>
+                    <DataBaseFile sql="REGIME ='Permanent'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_SURFACE_EAU_BDT_031.shp</DataBaseFile>
+                </InputVectorsWaterList>
+
+                <!-- Fichiers de sortie intermédiaires des données -->
+                <!-- Raster de sortie PeusdoRGB -->
+                <OutputFilePeusdoRGB>/mnt/RAM_disk/INTEGRATION/create_data/result/pseudoRGB_seg_res5.tif</OutputFilePeusdoRGB>
+
+                <!-- Raster de sortie hauteur des bâtis-->
+                <OutputFileBuildHeight>/mnt/RAM_disk/INTEGRATION/create_data/result/builds_height.tif </OutputFileBuildHeight>
+                <!-- Raster de sortie largeur des routes -->
+                <OutputFileRoadWidth>/mnt/RAM_disk/INTEGRATION/create_data/result/roads_width.tif</OutputFileRoadWidth>
+                <!-- Vecteur de sortie des routes -->
+                <OutputVectorRoad>/mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp</OutputVectorRoad>
+                <!-- Vecteur de sortie surface en eau-->
+                <OutputVectorWatersArea>/mnt/RAM_disk/INTEGRATION2/create_data/result/all_waters_area.shp</OutputVectorWatersArea>
+
+                <!-- Fichiers de sortie des segmentations intermédiaires et finale -->
+                <!-- Vecteur segmentation de sortie intermédiaire CCM -->
+                <OutputVectorCCM>mnt/RAM_disk/INTEGRATION/ccm/result/toulouse_seg_ccm.shp</OutputVectorCCM>
+                <!-- Vecteur segmentation de sortie intermédiaire post traitement -->
+                <OutputVectorPost>/mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouseseg_post.shp</OutputVectorPost>
+                <!-- Vecteur segmentation de sortie final fusion -->
+                <OutputVector>/mnt/RAM_disk/INTEGRATION/seg_res_fusion/res/toulouse_seg_end.shp</OutputVector>
+
+                <!-- Les Paramètres -->
+                <!-- Paramètre champs largeurs de routes -->
+                <FieldWidthRoad>LARGEUR</FieldWidthRoad>
+                <!-- Paramètre champs importance des routes -->
+                <FieldImportanceRoad>IMPORTANCE</FieldImportanceRoad>
+                <!-- Paramètre seuil minimun importance des routes -->
+                <ThresholdImportanceRoad>4</ThresholdImportanceRoad>
+                <!-- Paramètre taille buffer importance des routes -->
+                <BufferSizeImportanceRoad>35.0</BufferSizeImportanceRoad>
+                <!-- Paramètre seuil minimun surface en eau (en mêtre²) -->
+                <ThresholdMiniWaterArea>50000.0</ThresholdMiniWaterArea>
+
+            </Task300_UrbanMorphologicalSegmentation>
+        </Task300_UrbanMorphologicalSegmentation_List>
+
+        <!-- Macro Sample Cutting -->
+        <!-- DECOUPAGE DES ECHANTILLONS D'APPRENTISSAGE SUR LA ZONE D ETUDE -->
+        <Task70_RA_MacroSampleCutting_List>
+            <Task70_RA_MacroSampleCutting>
+                <!-- CAS OU LES ECHANTILLONS SONT OBTENUS PAR AILLEURS EN FORMAT RASTER -->
+                <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_assembly_emprise.shp</InputVector>
+                <!-- Forcer la compatibilité géométrique entre les rasters d'Apprentissage et l'image satellite de référence (SuperImpose...) -->
+                <Superposition>true</Superposition>
+                <ReferenceImage>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_assembly.tif</ReferenceImage>
+                <!-- Liste pour chaque macro classe (attibut 'name' pour information non utilisé!) fichier d'entrée et fichier de sortie -->
+                <ClassMacroSampleList>
+                    <ClassMacroSample name="bati">
+                        <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_bati_raw.tif</InputFile>
+                        <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_bati_mask.tif</OutputFile>
+                    </ClassMacroSample>
+                    <ClassMacroSample name="route">
+                        <InputFile>/mnt/DonneTask220_VectorRasterCutting_Listes_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route_raw.tif</InputFile>
+                        <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route_mask.tif</OutputFile>
+                    </ClassMacroSample>
+                    <ClassMacroSample name="eau">
+                        <InputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_eau_raw.tif</InputFile>
+                        <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_eau_mask.tif</OutputFile>
+                    </ClassMacroSample>
+                </ClassMacroSampleList>
+            </Task70_RA_MacroSampleCutting>
+        </Task70_RA_MacroSampleCutting_List>
+
+        <!-- Crossing Vector Raster (Prod RA)-->
+        <!-- CROISEMENT RASTER VECTEUR POUR LA COUVERTURE ET POUR LA DATE ET LA SOURCE D'ORIGINE -->
+        <Task210_RA_CrossingVectorRaster_List>
+            <Task210_RA_CrossingVectorRaster>
+                <InputClassifFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_final_ass.tif</InputClassifFile>
+                <InputCorrectionFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_correction_BD.tif</InputCorrectionFile>
+                <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_final_ass.shp</InputVector>
+                <OutputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/imageTest_classif_final_ass_stat.shp</OutputVector>
+                <!-- Pour la couverture -->
+                <Couverture>
+                    <!-- Liste des colonnes à ajoutées dans la table attributaire -->
+                    <ColumToAddCouvList>Task220_VectorRasterCutting_List
+                        <!-- un identifiant unique -->
+                        <ColumToAddCouv>UniqueID</ColumToAddCouv>
+                    </ColumToAddCouvList>
+                    <!-- Liste des colonnes à supprimmées dans la table attributaire-->
+                    <ColumToDeleteCouvlist>
+                        <ColumToDeleteCouv>nbPixels</ColumToDeleteCouv>
+                        <ColumToDeleteCouv>meanB0</ColumToDeleteCouv>
+                        <ColumToDeleteCouv>varB0</ColumToDeleteCouv>
+                    </ColumToDeleteCouvlist>
+                </Couverture>
+                <!-- Pour l'information date d'origine -->
+                <DateOrigine>
+                    <!-- Liste des colonnes à ajoutées dans la table attributaire -->
+                    <ColumToAddDateList>
+                        <!-- la date de la source -->
+                        <ColumToAddDate>DateMaj</ColumToAddDate>
+                    </ColumToAddDateList>
+                    <!-- Mise en place du dictionnaire des labels de classe à utiliser. ATTENTION : Mettre moins de 10 caracteres par classe -->
+                    <!-- Exemple : "0:2011 101:2010 201:2011 202:2011 203:2011 204:2011 205:2011 206:2011 207:2011 208:2011 209:2011 210:2011 211:2011 212:2011 213:2011 301:2011 302:2011 303:2011 304:2005 305:2005 306:2005 307:2005 308:2005 309:2005 401:2005 402:2005 501:2010 601:2011 602:2011 603:2011 604:2011 605:2011 606:2011 607:2011 608:2011 609:2011 610:2011 611:2011 612:2011 613:2011 614:2011 615:2011 616:2011 617:2011 618:2011 619:2011 620:2011 621:2011 622:2011 623:2011 624:2011 625:2011 626:2011 627:2011 701:2012 801:2011 802:2011 803:Oss_IGN2011 804:2011 805:2011 806:2011" -->
+                    <ClassLabelDateDico>0:2011 101:2010 201:2011 202:2011 203:2011 204:2011 205:2011 206:2011 207:2011 208:2011 209:2011 210:2011 211:2011 212:2011 213:2011 301:2011 302:2011 303:2011 304:2005 305:2005 306:2005 307:2005 308:2005 309:2005 401:2005 402:2005 501:2010 601:2011 602:2011 603:2011 604:2011 605:2011 606:2011 607:2011 608:2011 609:2011 610:2011 611:2011 612:2011 613:2011 614:2011 615:2011 616:2011 617:2011 618:2011 619:2011 620:2011 621:2011 622:2011 623:2011 624:2011 625:2011 626:2011 627:2011 701:2012 801:2011 802:2011 803:Oss_IGN2011 804:2011 805:2011 806:2011</ClassLabelDateDico>
+                </DateOrigine>
+                <!-- Pour l'information origine de la source -->
+                <SourceOrigine>
+                    <!-- Liste des colonnes àajoutées dans la table attributaire -->
+                    <ColumToAddSrcList>
+                        <!-- la bd source -->
+                        <ColumToAddSrc>SrcMaj</ColumToAddSrc>
+                        <ColumToAddSrc>all</ColumToAddSrc>
+                        <ColumToAddSrc>count</ColumToAddSrc>
+                    </ColumToAddSrcList>
+                    <!-- Mise en place du dictionnaire des labels de classe à utiliser. ATTENTION : Mettre moins de 10 caracteres par classe -->
+                    <!-- Exemple : "0:Img_Sat 101:BD_Carto 201:BD_Topo 202:BD_Topo 203:BD_Topo 204:BD_Topo 205:BD_Topo 206:BD_Topo 207:BD_Topo 208:BD_Topo 209:BD_Topo 210:BD_Topo 211:BD_Topo 212:BD_Topo 213:BD_Topo 301:BD_Topo 302:BD_Topo 303:BD_Topo 304:BD_Foret 305:BD_Foret 306:BD_Foret 307:BD_Foret 308:BD_Foret 309:BD_Foret 401:BD_Foret 402:BD_Foret 501:CVI 601:RPG 602:RPG 603:RPG 604:RPG 605:RPG 606:RPG 607:RPG 608:RPG 609:RPG 610:RPG 611:RPG 612:RPG 613:RPG 614:RPG 615:RPG 616:RPG 617:RPG 618:RPG 619:RPG 620:RPG 621:RPG 622:RPG 623:RPG 624:RPG 625:RPG 626:RPG 627:RPG 701:VrgPrunus 801:Oss_IGN 802:Oss_IGN 803:Oss_IGN 804:Oss_IGN 805:Oss_IGN 806:Oss_IGN"-->
+                    <ClassLabelSrcDico>0:Img_Sat 101:BD_Carto 201:BD_Topo 202:BD_Topo 203:BD_Topo 204:BD_Topo 205:BD_Topo 206:BD_Topo 207:BD_Topo 208:BD_Topo 209:BD_Topo 210:BD_Topo 211:BD_Topo 212:BD_Topo 213:BD_Topo 301:BD_Topo 302:BD_Topo 303:BD_Topo 304:BD_Foret 305:BD_Foret 306:BD_Foret 307:BD_Foret 308:BD_Foret 309:BD_Foret 401:BD_Foret 402:BD_Foret 501:CVI 601:RPG 602:RPG 603:RPG 604:RPG 605:RPG 606:RPG 607:RPG 608:RPG 609:RPG 610:RPG 611:RPG 612:RPG 613:RPG 614:RPG 615:RPG 616:RPG 617:RPG 618:RPG 619:RPG 620:RPG 621:RPG 622:RPG 623:RPG 624:RPG 625:RPG 626:RPG 627:RPG 701:VrgPrunus 801:Oss_IGN 802:Oss_IGN 803:Oss_IGN 804:Oss_IGN 805:Oss_IGN 806:Oss_IGN</ClassLabelSrcDico>
+                </SourceOrigine>
+            </Task210_RA_CrossingVectorRaster>
+        </Task210_RA_CrossingVectorRaster_List>
+
         <!-- Polygon mer to TDC (Littoral) -->
         <!-- PASSAGE DE L'IMAGE VECTORISÉE AU TRAIT DE CÔTE  -->
         <Task10_TDC_PolygonMerToTDC_List>
@@ -1834,58 +1987,6 @@
             </Task40_TDC_TDCKmeans>
         </Task40_TDC_TDCKmeans_List>
 
-        <!-- TDC Classif (Littoral) -->
-        <!-- EXTRACTION DU TRAIT DE CÔTE PAR CLASSIFICATION SUPERVISÉE -->
-        <Task50_TDC_TDCClassif_List>
-            <Task50_TDC_TDCClassif>
-                <InputFile>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Images_test/image2.tif</InputFile>
-                <ClassSampleList>
-                    <ClassSample name="sample_foret" label="20000">
-                        <ClassPropertiesList>
-                            <ClassProperty>4</ClassProperty>
-                            <ClassProperty>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Images_test/CLC_LanRou/CLC06_R91_veget.shp</ClassProperty>
-                            <ClassProperty>-5</ClassProperty>
-                            <ClassProperty>NDVI</ClassProperty>
-                            <ClassProperty>0.3</ClassProperty>
-                            <ClassProperty>1</ClassProperty>
-                        </ClassPropertiesList>
-                    </ClassSample>
-                    <ClassSample name="sample_artif" label="11000">
-                        <ClassPropertiesList>
-                            <ClassProperty>2</ClassProperty>
-                            <ClassProperty>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Images_test/CLC_LanRou/CLC06_R91_terr_artif.shp</ClassProperty>
-                            <ClassProperty>-10</ClassProperty>
-                        </ClassPropertiesList>
-                    </ClassSample>
-                    <ClassSample name="sample_sable" label="12100">
-                        <ClassPropertiesList>
-                            <ClassProperty>1</ClassProperty>
-                            <ClassProperty>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Images_test/apprentissable.shp</ClassProperty>
-                            <ClassProperty>0</ClassProperty>
-                        </ClassPropertiesList>
-                    </ClassSample>
-                </ClassSampleList>
-                <OutputPath>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Tests/Tests_XML_TDCClassif</OutputPath>
-                <InputSeaPointsFile>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/05_Travail/Images_test/points_mer.shp</InputSeaPointsFile>
-                <InputCutVector>/mnt/Donnees_Etudes/30_Stages/2016/Stage_Littoral_chaine/08_Donnees/Histolitt/TCH_simplifie2_buffer270_adapte_mediterranee_simpl200.shp</InputCutVector>
-                <UseExogenDB>true</UseExogenDB>
-                <Cut>false</Cut>
-                <RadiusMajority>5</RadiusMajority>
-                <MicroClassFusionExpression>rint(im1b1/100)*100</MicroClassFusionExpression>
-                <Step1Execution>false</Step1Execution>
-                <Step2Execution>true</Step2Execution>
-                <Step3Execution>false</Step3Execution>
-                <Step4Execution>false</Step4Execution>
-                <ExogenDBSuperp>true</ExogenDBSuperp>
-                <ClassMacroSuperpositionList>
-                    <ClassMacroSuperposition name="sample_artif" label="11000">
-                        <DataBaseFilesList>
-                            <DataBaseFile buffer="1">/mnt/Geomatique/REF_GEO/BD_Topo/D17/ED15/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_TRONCON_CHEMIN_BDT_017.SHP</DataBaseFile>
-                        </DataBaseFilesList>
-                    </ClassMacroSuperposition>
-                </ClassMacroSuperpositionList>
-            </Task50_TDC_TDCClassif>
-        </Task50_TDC_TDCClassif_List>
 
         <!-- Detection ouvrages (Littoral) -->
         <!-- EXTRACTION DES OUVRAGES EN MER PAR LA MÉTHODE DES BUFFERS, DE SOBEL, OU LES DEUX -->
@@ -2475,8 +2576,11 @@
                 <IdPopulationField>IdINSPIRE</IdPopulationField>
                 <!-- Nom du champ ID du fichier de donnée du bâti -->
                 <IdBuiltField>ID</IdBuiltField>
-                <!-- Nom du champ des enjeux du fichier de donnée de population -->
-                <StakeField>Ind</StakeField>
+                <!-- Liste des noms de champs des enjeux du fichier de donnée de population -->
+                <StakesFieldsList>
+                    <StakesField>Ind</StakesField>
+                    <StakesField>Men</StakesField>
+                </StakesFieldsList>
                 <!-- Liste des noms de champs de population sanitairement vulnérable du fichier de donnée de population -->
                 <HealthVulnFieldsList>
                     <HealthVulnField>Ind_0_3</HealthVulnField>
@@ -2491,7 +2595,7 @@
                 <!-- Nom du champ de hauteur du fichier de donnée du bâti -->
                 <HeightField>HAUTEUR</HeightField>
                 <!-- Requête SQL de filtrage de la donnée du bâti -->
-                <BuiltSqlFilter>NATURE LIKE 'Indiff%renci%e' AND (USAGE1 LIKE 'Indiff%renci%e' OR USAGE1 LIKE 'R%sidentiel' OR USAGE2 LIKE 'R%sidentiel' OR USAGE2 IS NULL) AND HAUTEUR IS NOT NULL AND ST_Area(geom) >= 20</BuiltSqlFilter>
+                <BuiltSqlFilter>NATURE LIKE 'Indiff%renci%e' AND ((USAGE1 LIKE 'R%sidentiel' OR USAGE1 LIKE 'Indiff%renci%') OR (USAGE2 LIKE 'R%sidentiel' OR USAGE2 LIKE 'Indiff%renci%' OR USAGE2 IS NULL)) AND LEGER LIKE 'Non' AND ETAT LIKE 'En service' AND PREC_PLANI != 9999 AND PREC_ALTI != 9999 AND (HAUTEUR IS NOT NULL AND HAUTEUR > 0) AND ST_Area(geom) >= 20</BuiltSqlFilter>
             </Task40_RSQ_UhiVulnerability>
         </Task40_RSQ_UhiVulnerability_List>
 

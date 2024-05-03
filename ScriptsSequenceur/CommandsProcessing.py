@@ -2,7 +2,7 @@
 #!/usr/bin/python
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,6 +10,9 @@
 # FONCTION QUI EXECUTE DES COMMANDES A PARTIR D'UN FICHIER DE LISTE DE COMMANDES                                                            #
 #                                                                                                                                           #
 #############################################################################################################################################
+"""
+ Ce module contient les fonctions qui executent des commandes a partir d'un fichier de liste de commandes du séquenceur.
+"""
 
 # IMPORTS UTILES
 from __future__ import print_function
@@ -26,19 +29,20 @@ lock_commands_file = False
 #############################################################################################
 # FONCTION executeCommands()                                                                #
 #############################################################################################
-# ROLE :
-#   La fonction lit des commandes dans un fichier texte et execute ces commandes en local-direct ou en local-background ou en distant-background
-#
-# ENTREES :
-#   command_doc : fichier dont on lit et execute les commandes
-#   debug : niveau de trace log
-#   link : le lien etenet utilisé
-#   port : le port utiliser pour le serveur gestion des commandes
-#
-# SORTIES :
-#   N.A.
-
 def executeCommands(command_doc, debug, link, port):
+    """
+    # ROLE :
+    #   La fonction lit des commandes dans un fichier texte et execute ces commandes en local-direct ou en local-background ou en distant-background
+    #
+    # ENTREES :
+    #   command_doc : fichier dont on lit et execute les commandes
+    #   debug : niveau de trace log
+    #   link : le lien etenet utilisé
+    #   port : le port utiliser pour le serveur gestion des commandes
+    #
+    # SORTIES :
+    #   N.A.
+    """
 
     # Variable de lock (semaphore) d'acces sur le fichier de commande : command_doc
     global lock_commands_file
@@ -230,29 +234,29 @@ def executeCommands(command_doc, debug, link, port):
 
     return
 
-
 #############################################################################################
 # FONCTION executeCommand()                                                                 #
 #############################################################################################
-# ROLE :
-#   La fonction lance l'execution d'une commande
-#
-# ENTREES :
-#   ip_serveur : adresse ip du serveur
-#   port : numero de port d'écoute du serveur
-#   id_command : l'identifiant de la commande
-#   command_to_execute : la commande de la chage à exécuter
-#   type_execution : le type d'execution de la commande
-#   error_management : gestion des erreurs
-#   base_name_shell_command : path ou l'on va creer les fichiers .sh et .err
-#   ip_remote : en mode d'execution remote, contien l'ip de la machine  sur lequel sera executer la commande
-#   login  : mode de passe pour le mode d'execution remote
-#   password : mode de passe pour le mode d'execution remote
-#
-# SORTIES :
-#   new_state : info sur l'etat de l'execution (correcte ou en erreur)
-
 def executeCommand(ip_serveur, port, id_command, command_to_execute, type_execution, error_management, base_name_shell_command, ip_remote="", login="", password=""):
+    """
+    # ROLE :
+    #   La fonction lance l'execution d'une commande
+    #
+    # ENTREES :
+    #   ip_serveur : adresse ip du serveur
+    #   port : numero de port d'écoute du serveur
+    #   id_command : l'identifiant de la commande
+    #   command_to_execute : la commande de la chage à exécuter
+    #   type_execution : le type d'execution de la commande
+    #   error_management : gestion des erreurs
+    #   base_name_shell_command : path ou l'on va creer les fichiers .sh et .err
+    #   ip_remote : en mode d'execution remote, contien l'ip de la machine  sur lequel sera executer la commande
+    #   login  : mode de passe pour le mode d'execution remote
+    #   password : mode de passe pour le mode d'execution remote
+    #
+    # SORTIES :
+    #   new_state : info sur l'etat de l'execution (correcte ou en erreur)
+    """
 
     EXT_SHELL = '.sh'
     EXT_ERR = '.err'
@@ -336,15 +340,6 @@ def executeCommand(ip_serveur, port, id_command, command_to_execute, type_execut
 #############################################################################################
 # FONCTION listenReturnCommand()                                                            #
 #############################################################################################
-# ROLE :
-#   La fonction gére la fin des commandes par écoute de socket
-#
-# ENTREES :
-#   port : numero du port d'écoute du serveur
-#   command_doc : fichier dont on lit et execute les commandes
-#
-# SORTIES :
-#   N.A.
 '''
 def listenReturnCommand(port, command_doc):
     socket_serveur = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # connection en mode UDP
@@ -366,7 +361,19 @@ def listenReturnCommand(port, command_doc):
     return
 
 '''
+
 def listenReturnCommand(port, command_doc):
+    """
+    # ROLE :
+    #   La fonction gére la fin des commandes par écoute de socket
+    #
+    # ENTREES :
+    #   port : numero du port d'écoute du serveur
+    #   command_doc : fichier dont on lit et execute les commandes
+    #
+    # SORTIES :
+    #   N.A.
+    """
 
     socket_serveur = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # connection en mode TCP
     socket_serveur.bind(('', port))
@@ -399,19 +406,20 @@ def listenReturnCommand(port, command_doc):
 #############################################################################################
 # FONCTION managementEndCommand()                                                           #
 #############################################################################################
-# ROLE :
-#   La fonction gére le retour de commande terminer (ok ou en erreur)
-#
-# ENTREES :
-#   command_doc : fichier dont on lit et execute les commandes
-#   id_command : l'identifiant de la commande
-#   new_state : nouvel etat de la commande
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   Return "True" pour continuer ou "False" pour arreter le serveur
-
 def managementEndCommand(command_doc, id_command, new_state, debug) :
+    """
+    # ROLE :
+    #   La fonction gére le retour de commande terminer (ok ou en erreur)
+    #
+    # ENTREES :
+    #   command_doc : fichier dont on lit et execute les commandes
+    #   id_command : l'identifiant de la commande
+    #   new_state : nouvel etat de la commande
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   Return "True" pour continuer ou "False" pour arreter le serveur
+    """
 
     # Variable de lock (semaphore) d'acces sur le fichier de commande : command_doc
     global lock_commands_file
@@ -454,21 +462,22 @@ def managementEndCommand(command_doc, id_command, new_state, debug) :
     return retContinu
 
 #############################################################################################
-# FONCTION updateEndCommand()                                                           #
+# FONCTION updateEndCommand()                                                               #
 #############################################################################################
-# ROLE :
-#   La fonction gére le retour de commande terminer (ok ou en erreur)
-#
-# ENTREES :
-#   commands_list : la liste des commandes
-#   id_command : l'identifiant de la commande
-#   new_state : nouvel etat de la commande
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   Return commands_list modifié
-
 def updateEndCommand(commands_list, id_command, new_state, debug) :
+    """
+    # ROLE :
+    #   La fonction gére le retour de commande terminer (ok ou en erreur)
+    #
+    # ENTREES :
+    #   commands_list : la liste des commandes
+    #   id_command : l'identifiant de la commande
+    #   new_state : nouvel etat de la commande
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   Return commands_list modifié
+    """
 
     if debug >= 3:
         print(cyan + "updateEndCommand : " + endC + bold + green + "FIN D EXECUTION DE LA COMMANDE id  : " + str (id_command) + endC)
@@ -500,16 +509,18 @@ def updateEndCommand(commands_list, id_command, new_state, debug) :
 #############################################################################################
 # FONCTION testEndAllCommands()                                                             #
 #############################################################################################
-# ROLE :
-#   La fonction permet de tester si toutes les commandes sont soient termininées normalement ou en erreur ou bloqué
-#
-# ENTREES :
-#   commands_list : la liste des commandes
-#
-# SORTIES :
-#   return True si ce n'est pas terminer False si toutes les commandes sont finies
-
 def testEndAllCommands(commands_list):
+    """
+    # ROLE :
+    #   La fonction permet de tester si toutes les commandes sont soient termininées normalement ou en erreur ou bloqué
+    #
+    # ENTREES :
+    #   commands_list : la liste des commandes
+    #
+    # SORTIES :
+    #   return True si ce n'est pas terminer False si toutes les commandes sont finies
+    """
+
     # Test si toutes les commandes sont terminés
     for l in range(len(commands_list)):  # Parcours des différentes lignes de commande
         if commands_list[l] != "\n":
@@ -521,21 +532,22 @@ def testEndAllCommands(commands_list):
     return False
 
 #############################################################################################
-# FONCTION stopServer()                                                                    #
+# FONCTION stopServer()                                                                     #
 #############################################################################################
-# ROLE :
-#   La fonction permet d'arreter le serveur lorsque toutes les commandes sont termininées
-#
-# ENTREES :
-#   ip_serveur : adresse ip du serveur
-#   port : numero du port utilisé
-#
-# SORTIES :
-#   N.A.
-
 def stopServer(ip_serveur, port):
-    # Send socket End all commends to stop serveur
+    """
+    # ROLE :
+    #   La fonction permet d'arreter le serveur lorsque toutes les commandes sont termininées
+    #
+    # ENTREES :
+    #   ip_serveur : adresse ip du serveur
+    #   port : numero du port utilisé
+    #
+    # SORTIES :
+    #   N.A.
+    """
 
+    # Send socket End all commends to stop serveur
     socket_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # connection en mode TCP
     try:
         socket_client.connect((ip_serveur, port))
@@ -554,17 +566,19 @@ def stopServer(ip_serveur, port):
 #############################################################################################
 # FONCTION getSemaphoreLockCommands()                                                       #
 #############################################################################################
-# ROLE :
-#   La fonction permet de recuperer le semaphore "lock_commands_file" pour securiser l'acces au fichier command_doc.txt
-#   si il n'est pas disponible on reste en boucle d'attente de 0.1s jusqu'a ce qu'il soit disponible
-#
-# ENTREES :
-#   N.A.
-#
-# SORTIES :
-#   N.A.
-
 def getSemaphoreLockCommands():
+    """
+    # ROLE :
+    #   La fonction permet de recuperer le semaphore "lock_commands_file" pour securiser l'acces au fichier command_doc.txt
+    #   si il n'est pas disponible on reste en boucle d'attente de 0.1s jusqu'a ce qu'il soit disponible
+    #
+    # ENTREES :
+    #   N.A.
+    #
+    # SORTIES :
+    #   N.A.
+    """
+
     # Variable de lock (semaphore) d'acces sur le fichier de commande : command_doc
     global lock_commands_file
     while lock_commands_file:

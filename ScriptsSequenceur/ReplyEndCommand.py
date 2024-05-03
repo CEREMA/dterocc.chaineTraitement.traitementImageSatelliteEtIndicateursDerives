@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,6 +10,9 @@
 # SCRIPT QUI INFORME AU SERVEUR LA FIN DE LA COMMANDE PAR COMMUNICATION SOCKET                                                              #
 #                                                                                                                                           #
 #############################################################################################################################################
+"""
+ Ce module contient le script qui informe au serveur la fin de la commande par communication socket pour le séquenceur.
+"""
 
 import os,argparse,socket
 

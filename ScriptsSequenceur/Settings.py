@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,6 +10,9 @@
 # STRUCTURE QUI DEFINIT LES PARAMETRES NECESSAIRES A LA CHAINE DE TRAITEMENTS                                                               #
 #                                                                                                                                           #
 #############################################################################################################################################
+"""
+ Ce module contient la structure générale qui definit l'ensemble des parametres necessaires à la chaine de traitements pour le séquenceur.
+"""
 
 # Définition des constantes
 TAG_ACTION_TO_MAKE_NOW = "Immediat"
@@ -227,6 +230,22 @@ class StructTask10_ImagesAssembly:
         self.dateNumberOfCharacters = 0
         self.intraDateSplitter = ''
 
+# Task11_CreateEmprise
+class StructTask11_CreateEmprise:
+    def __init__(self):
+        self.sourceImagesDirList = []
+        self.outputVector = ''
+        self.noAssembled = False
+        self.allPolygon = False
+        self.noDate = False
+        self.optimisationEmprise = False
+        self.optimisationNoData = False
+        self.erode = 0.0
+        self.dateSplitter = ''
+        self.datePosition = 0
+        self.dateNumberOfCharacters = 0
+        self.intraDateSplitter = ''
+
 # Task12_iansharpeningAssembly
 class StructTask12_PansharpeningAssembly:
     def __init__(self):
@@ -242,6 +261,22 @@ class StructTask12_PansharpeningAssembly:
         self.pansharpeningBayes_lambda = 0.0
         self.pansharpeningBayes_scoef = 0.0
 
+# Task13_ExportBdTopoFromPostgres
+class StructExportBdTopoFromPostgres_Postgis:
+    def __init__(self):
+        self.serverName = ''
+        self.portNumber = 0
+        self.userName = ''
+        self.password = ''
+        self.databaseName = ''
+
+class StructTask13_ExportBdTopoFromPostgres:
+    def __init__(self):
+        self.inputVector = ''
+        self.outputDirectory = ''
+        self.zone = ''
+        self.postgis = StructExportBdTopoFromPostgres_Postgis()
+
 # Task20_imageCompression
 class StructTask20_ImageCompression:
     def __init__(self):
@@ -249,6 +284,8 @@ class StructTask20_ImageCompression:
         self.outputFile8b = ''
         self.outputFile8bCompress = ''
         self.Optimize8bits = False
+        self.needRvb = False
+        self.needIrc = False
 
 # Task30_NeoChannelsComputation
 class StructTask30_NeoChannelsComputation:
@@ -261,7 +298,7 @@ class StructTask30_NeoChannelsComputation:
         self.indicesList = []
         self.binNumber = 0
 
-# StructCreation Task35 et Task50 et Task180
+# StructCreation Task35 et Task50 et Task180 et Task300
 class StructCreation_DatabaseFile:
     def __init__(self):
         self.inputVector = ''
@@ -275,6 +312,7 @@ class StructTask35_MnhCreation:
         self.inputMnsFile = ''
         self.inputMntFile = ''
         self.inputFilterFile = ''
+        self.inputReferenceRaster = ''
         self.outputMnhFile = ''
         self.dataBaseRoadFileList = []
         self.dataBaseBuildFilesList = []
@@ -285,6 +323,8 @@ class StructTask35_MnhCreation:
         self.interpolationMethod = ''
         self.interpolationBco_radius = 0
         self.simplificationPolygon = 0.0
+        self.year = 0
+        self.zone = ''
 
 # Task40_ChannelsConcatenantion
 class StructChannelsConcatenantion_Concatenation:
@@ -340,19 +380,6 @@ class StructMaskCreation_ClassMacro:
 class StructTask60_MaskCreation:
     def __init__(self):
         self.inputFile = ''
-        self.classMacroSampleList = []
-
-# Task70_RA_MacroSampleCutting
-class StructMacroSampleCutting_ClassMacro:
-    def __init__(self):
-        self.inputFile = ''
-        self.outputFile = ''
-
-class StructTask70_RA_MacroSampleCutting:
-    def __init__(self):
-        self.inputVector = ''
-        self.superposition = False
-        self.referenceImage = ''
         self.classMacroSampleList = []
 
 # Task80_MacroSampleAmelioration
@@ -580,6 +607,7 @@ class StructTask200_ClassificationVectorization:
         self.expression = ''
         self.umc = 0
         self.tileSize = 0
+        self.grassMethodeSmoothing = ''
         self.topologicalCorrectionSQL = False
 
 # Task210_CrossingVectorRaster
@@ -592,20 +620,6 @@ class StructTask210_CrossingVectorRaster:
         self.statsAllCount = False
         self.statsColumnsStr = False
         self.statsColumnsReal = False
-
-# Task210_RA_CrossingVectorRaster
-class StructTask210_RA_CrossingVectorRaster:
-    def __init__(self):
-        self.inputClassifFile = ''
-        self.inputCorrectionFile = ''
-        self.inputVector = ''
-        self.outputVector = ''
-        self.columToAddCouvList = []
-        self.columToDeleteCouvlist = []
-        self.columToAddDateList = []
-        self.columToAddSrcList = []
-        self.classLabelDateDico = ''
-        self.classLabelSrcDico = ''
 
 # Task220_VectorRasterCutting
 class StructTask220_VectorRasterCutting:
@@ -637,15 +651,15 @@ class StructTask230_QualityIndicatorComputation:
         self.outputFile = ''
         self.outputMatrix = ''
 
-# Task240_RA_ProductOcsVerificationCorrectionSQL
-class StructTask240_RA_ProductOcsVerificationCorrectionSQL:
+# Task240_ProductOcsVerificationCorrectionSQL
+class StructTask240_ProductOcsVerificationCorrectionSQL:
     def __init__(self):
         self.inputEmpriseVector = ''
         self.inputVectorsList = []
         self.outputVectorsList = []
 
-# Task250_RA_ProductOcsRasterisation
-class StructTask250_RA_ProductOcsRasterisation:
+# Task250_OcsRasterisation
+class StructTask250_OcsRasterisation:
     def __init__(self):
         self.inputVector = ''
         self.inputFile = ''
@@ -708,21 +722,58 @@ class StructTask295_RasterSuperimpose:
         self.mode = ''
         self.encodingOutput = ''
 
-# Task5_TDC_CreateEmprise
-class StructTask5_TDC_CreateEmprise:
+# Task300_UrbanMorphologicalSegmentation
+class StructTask300_UrbanMorphologicalSegmentation:
     def __init__(self):
-        self.inputPath = ''
+        self.baseDir = ''
+        self.ccmDir = ''
+        self.inputEmpriseVector = ''
+        self.inputFileGRA = ''
+        self.inputFileTCD = ''
+        self.inputFileIMD = ''
+        self.inputVectorsBuildList = []
+        self.inputVectorsRoadList = []
+        self.inputVectorsWaterList = []
+        self.outputFilePeusdoRGB = ''
+        self.outputFileBuildHeight = ''
+        self.outputFileRoadWidth = ''
+        self.outputVectorRoad = ''
+        self.outputVectorWatersArea = ''
+        self.outputVectorCCM = ''
+        self.outputVectorPost = ''
         self.outputVector = ''
-        self.noAssembled = False
-        self.allPolygon = False
-        self.noDate = False
-        self.optimisationEmprise = False
-        self.optimisationNoData = False
-        self.erode = 0.0
-        self.dateSplitter = ''
-        self.datePosition = 0
-        self.dateNumberOfCharacters = 0
-        self.intraDateSplitter = ''
+        self.fieldWidthRoad = ''
+        self.fieldImportanceRoad = ''
+        self.thresholdImportanceRoad = 0
+        self.bufferSizeImportanceRoad = 0.0
+        self.thresholdMiniWaterArea = 0.0
+
+# Task70_RA_MacroSampleCutting
+class StructMacroSampleCutting_ClassMacro:
+    def __init__(self):
+        self.inputFile = ''
+        self.outputFile = ''
+
+class StructTask70_RA_MacroSampleCutting:
+    def __init__(self):
+        self.inputVector = ''
+        self.superposition = False
+        self.referenceImage = ''
+        self.classMacroSampleList = []
+
+# Task210_RA_CrossingVectorRaster
+class StructTask210_RA_CrossingVectorRaster:
+    def __init__(self):
+        self.inputClassifFile = ''
+        self.inputCorrectionFile = ''
+        self.inputVector = ''
+        self.outputVector = ''
+        self.columToAddCouvList = []
+        self.columToDeleteCouvlist = []
+        self.columToAddDateList = []
+        self.columToAddSrcList = []
+        self.classLabelDateDico = ''
+        self.classLabelSrcDico = ''
 
 # Task10_TDC_PolygonMerToTDC
 class StructTask10_TDC_PolygonMerToTDC:
@@ -781,36 +832,6 @@ class StructTask40_TDC_TDCKmeans:
         self.inputSeaPointsFile = ''
         self.inputCutVector = ''
         self.classesNumber = 0
-
-# Task50_TDC_TDCClassif
-class StructTDCClassif_ClassSample:
-    def __init__(self):
-        self.name = ''
-        self.label = 0
-        self.classPropertiesList = []
-
-class StructTDCClassif_ClassMacroSuperposition:
-    def __init__(self):
-        self.label = 0
-        self.dataBaseFileDico = {}
-
-class StructTask50_TDC_TDCClassif:
-    def __init__(self):
-        self.inputFile = ''
-        self.classSampleList = []
-        self.outputPath = ''
-        self.inputSeaPointsFile = ''
-        self.inputCutVector = ''
-        self.useExogenDB = False
-        self.cut = False
-        self.radiusMajority = 0.0
-        self.microClassFusionExpression = ''
-        self.step1Execution = False
-        self.step2Execution = False
-        self.step3Execution = False
-        self.step4Execution = False
-        self.exogenDBSuperp = False
-        self.classMacroSuperpositionList = []
 
 # Task60_TDC_DetectOuvrages
 class StructTask60_TDC_DetectOuvrages:
@@ -1094,7 +1115,7 @@ class StructTask40_RSQ_UhiVulnerability:
         self.idDivisionField = ''
         self.idPopulationField = ''
         self.idBuiltField = ''
-        self.stakeField = ''
+        self.stakesFieldsList = []
         self.healthVulnFieldsList = []
         self.socialVulnFieldsList = []
         self.heightField = ''
@@ -1113,6 +1134,7 @@ class StructTasks:
         self.task8_ParametricStudySamples = None
         self.task9_parametricStudyTexturesIndices = None
         self.task10_ImagesAssembly = []
+        self.task11_CreateEmprise = []
         self.task12_PansharpeningAssembly = []
         self.task20_ImageCompression = []
         self.task30_NeoChannelsComputation = []
@@ -1120,7 +1142,6 @@ class StructTasks:
         self.task40_ChannelsConcatenantion = []
         self.task50_MacroSampleCreation = []
         self.task60_MaskCreation = []
-        self.task70_RA_MacroSampleCutting = []
         self.task80_MacroSampleAmelioration = []
         self.task90_KmeansMaskApplication = []
         self.task100_MicroSamplePolygonization = []
@@ -1137,23 +1158,23 @@ class StructTasks:
         self.task190_ClassificationRasterAssembly = []
         self.task200_ClassificationVectorization = []
         self.task210_CrossingVectorRaster = []
-        self.task210_RA_CrossingVectorRaster = []
         self.task220_VectorRasterCutting = []
         self.task221_VectorRasterChangeEpsg = []
         self.task230_QualityIndicatorComputation = []
-        self.task240_RA_ProductOcsVerificationCorrectionSQL = []
-        self.task250_RA_ProductOcsRasterisation = []
+        self.task240_ProductOcsVerificationCorrectionSQL = []
+        self.task250_OcsRasterisation = []
         self.task260_SegmentationImage = []
         self.task270_ClassificationVector = []
         self.task280_GenerateOcsWithVectors = []
         self.task290_RasterBandMathX = []
         self.task295_RasterSuperimpose = []
-        self.task5_TDC_CreateEmprise = []
+        self.task300_UrbanMorphologicalSegmentation = []
+        self.task70_RA_MacroSampleCutting = []
+        self.task210_RA_CrossingVectorRaster = []
         self.task10_TDC_PolygonMerToTDC = []
         self.task20_TDC_PrepareData = []
         self.task30_TDC_TDCSeuil = []
         self.task40_TDC_TDCKmeans = []
-        self.task50_TDC_TDCClassif = []
         self.task60_TDC_DetectOuvrages = []
         self.task70_TDC_DetectOuvragesBuffers = []
         self.task80_TDC_DetectOuvragesEdgeExtraction = []

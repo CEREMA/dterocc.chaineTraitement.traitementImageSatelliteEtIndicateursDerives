@@ -2,7 +2,7 @@
 #!/usr/bin/python
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -10,6 +10,9 @@
 # FONCTIONS QUI AFFICHE L'ETATS DES COMMANDES A PARTIR DU FICHIER DE COMMANDES                                                              #
 #                                                                                                                                           #
 #############################################################################################################################################
+"""
+ Ce module contient les fonctions qui affichent l'état des commandes a partir du fichier de commandes pour séquenceur.
+"""
 
 # IMPORTS UTILES
 import os, sys, time, threading, subprocess
@@ -27,17 +30,19 @@ from Settings import *
 #############################################################################################
 # FONCTION readCommands()                                                                   #
 #############################################################################################
-# ROLE :
-#   La fonction lit des commandes dans un fichier texte et convertie en dico
-#
-# ENTREES :
-#   command_doc : fichier dont on lit et execute les commandes
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   structure contenant les commandes et leur état
-
 def readCommands(command_doc, debug):
+    """
+    # ROLE :
+    #   La fonction lit des commandes dans un fichier texte et convertie en dico
+    #
+    # ENTREES :
+    #   command_doc : fichier dont on lit et execute les commandes
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   structure contenant les commandes et leur état
+    """
+
     struct_cmd_dico = {}
     try:
         # Ouverture du fichier de commande et chargement de toutes les lignes
@@ -93,19 +98,21 @@ def readCommands(command_doc, debug):
 #############################################################################################
 # FONCTION convert2dot()                                                                    #
 #############################################################################################
-# ROLE :
-#   La fonction convertie les infos des commandes en un fichier .dot
-#
-# ENTREES :
-#   command_doc : nom du fichier commande
-#   struct_cmd_dico : structure contenant les infos des commandes
-#   graph_name : le nom du graphe
-#   dot_file : le fichier .dot resultat en sortie
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   N.A.
 def convert2dot(command_doc, struct_cmd_dico, graph_name, dot_file, debug):
+    """
+    # ROLE :
+    #   La fonction convertie les infos des commandes en un fichier .dot
+    #
+    # ENTREES :
+    #   command_doc : nom du fichier commande
+    #   struct_cmd_dico : structure contenant les infos des commandes
+    #   graph_name : le nom du graphe
+    #   dot_file : le fichier .dot resultat en sortie
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   N.A.
+    """
 
     EXT_ERR = '.err'
 
@@ -231,17 +238,19 @@ def convert2dot(command_doc, struct_cmd_dico, graph_name, dot_file, debug):
 #############################################################################################
 # FONCTION displayCommands()                                                                #
 #############################################################################################
-# ROLE :
-#   La fonction affiche les commandes sous forme de graph de type workflow
-#
-# ENTREES :
-#   command_doc : le fichier des commandes
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   N.A.
-
 def displayCommands(command_doc, debug):
+    """
+    # ROLE :
+    #   La fonction affiche les commandes sous forme de graph de type workflow
+    #
+    # ENTREES :
+    #   command_doc : le fichier des commandes
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   N.A.
+    """
+
     # Constantes
     EXT_DOT = ".dot"
     EXT_PNG = ".png"
@@ -282,20 +291,20 @@ def displayCommands(command_doc, debug):
 #############################################################################################
 # FONCTION supervisionCommands()                                                            #
 #############################################################################################
-# ROLE :
-#   La fonction affiche les commandes en boucle
-#
-# ENTREES :
-#   command_doc : le fichier des commandes
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   N.A.
-
 def supervisionCommands(command_doc, debug):
+    """
+    # ROLE :
+    #   La fonction affiche les commandes en boucle
+    #
+    # ENTREES :
+    #   command_doc : le fichier des commandes
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   N.A.
+    """
 
     # Display image en thread indepandant => displayCommands(command_doc, debug)
     thread = threading.Thread(target=displayCommands, args=(command_doc, debug))
 
     return thread
-

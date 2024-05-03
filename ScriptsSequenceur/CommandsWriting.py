@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -9,6 +9,9 @@
 # SCRIPT QUI TRANSFORME UN LABEL DE TACHE EN COMMANDE                                                                                       #
 #                                                                                                                                           #
 #############################################################################################################################################
+"""
+ Ce module contient les fonctions qui transforment un label de tache en commande pour le séquenceur.
+"""
 
 import os,glob, time, shutil, platform
 import six
@@ -21,17 +24,18 @@ from Settings import *
 #################################################################################
 # FONCTION endCommandUpdate()                                                   #
 #################################################################################
-# ROLE :
-#    Fonction mutualisé pour la creation de certaines commandes, realise la fin de la commande
-#
-# ENTREES :
-#   settings_struct : La structure contenant des settings
-#   command_doc : le fichier contenant les commandes
-#   command : la commande courante à modifier
-#   debug : niveau de trace log
-#   call_python : Utilise PYTHON pour s'executer
-
 def endCommandUpdate(settings_struct, command_doc, command, debug, call_python=True):
+    """
+    # ROLE :
+    #    Fonction mutualisé pour la creation de certaines commandes, realise la fin de la commande
+    #
+    # ENTREES :
+    #   settings_struct : La structure contenant des settings
+    #   command_doc : le fichier contenant les commandes
+    #   command : la commande courante à modifier
+    #   debug : niveau de trace log
+    #   call_python : Utilise PYTHON pour s'executer
+    """
 
     # Gestion des option de sauvegarde des resultats intermediaires et ecrassement des fichiers existants
     if call_python :
@@ -61,28 +65,29 @@ def endCommandUpdate(settings_struct, command_doc, command, debug, call_python=T
 #################################################################################
 # FONCTION getCallPythonActionToMake()                                          #
 #################################################################################
-# ROLE :
-#   Fonction mutualisé pour la creation de certaines commandes, realise le début de la commande
-#
-# ENTREES :
-#   settings_struct : La structure contenant des settings
-#   name_setting : nom du fichier contenant les settings
-#   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
-#   task_position : postion de la tache si plusieurs même tache
-#   mode_execution_command : Le mode d'execution choisi
-#   error_management : Type gestion des erreurs
-#   dependency_commands_list_string : La liste des dépendences de taches
-#   id_command : compteur d'id de commande
-#   index_remote_ip : index sur la machine remote disponible courante
-#   id_task_commands_list : liste des id des commandes dont dépend la tache
-#   call_python : Utilise PYTHON pour s'executer
-#
-# SORTIES :
-#   id_command : compte de commande incrementé
-#   index_remote_ip : index sur la machine remote disponible incrementer
-#   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
-
 def getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, call_python=True):
+    """
+    # ROLE :
+    #   Fonction mutualisé pour la creation de certaines commandes, realise le début de la commande
+    #
+    # ENTREES :
+    #   settings_struct : La structure contenant des settings
+    #   name_setting : nom du fichier contenant les settings
+    #   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
+    #   task_position : postion de la tache si plusieurs même tache
+    #   mode_execution_command : Le mode d'execution choisi
+    #   error_management : Type gestion des erreurs
+    #   dependency_commands_list_string : La liste des dépendences de taches
+    #   id_command : compteur d'id de commande
+    #   index_remote_ip : index sur la machine remote disponible courante
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache
+    #   call_python : Utilise PYTHON pour s'executer
+    #
+    # SORTIES :
+    #   id_command : compte de commande incrementé
+    #   index_remote_ip : index sur la machine remote disponible incrementer
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
+    """
 
     # Si execution en remote
     remote_ip = ''
@@ -117,18 +122,19 @@ def getCallPythonActionToMake(settings_struct, name_setting, task_label, task_po
 #################################################################################
 # FONCTION createDependencyList()                                               #
 #################################################################################
-# ROLE :
-#   Fonction pour la creation de liste de id de commandes dont va dépendre la tache
-#
-# ENTREES :
-#   settings_struct_dico : La structure dico contenant tout les settings
-#   dependency_task_list : La liste des dépendences de taches
-#   name_setting : nom du fichier contenant les settings
-#
-# SORTIES :
-#   dependency_commands_list_string : La liste des dépendances (commandes) dont la tache va dépendre
-
 def createDependencyList(settings_struct_dico, dependency_task_list, name_setting) :
+    """
+    # ROLE :
+    #   Fonction pour la creation de liste de id de commandes dont va dépendre la tache
+    #
+    # ENTREES :
+    #   settings_struct_dico : La structure dico contenant tout les settings
+    #   dependency_task_list : La liste des dépendences de taches
+    #   name_setting : nom du fichier contenant les settings
+    #
+    # SORTIES :
+    #   dependency_commands_list_string : La liste des dépendances (commandes) dont la tache va dépendre
+    """
 
     # Creation des dépendences
     dependency_commands_list_string = ''
@@ -183,14 +189,15 @@ def createDependencyList(settings_struct_dico, dependency_task_list, name_settin
 #################################################################################
 # FONCTION updateCommandsError()                                                #
 #################################################################################
-# ROLE :
-#   Mettre à jour le fichier de commande, passer toutes les commande en erreur en cours et bloqué à faire
-#
-# ENTREES :
-#   command_doc : le fichier contenant les commandes
-#   debug : niveau de trace log
-
 def updateCommandsError(command_doc, debug):
+    """
+    # ROLE :
+    #   Mettre à jour le fichier de commande, passer toutes les commande en erreur en cours et bloqué à faire
+    #
+    # ENTREES :
+    #   command_doc : le fichier contenant les commandes
+    #   debug : niveau de trace log
+    """
 
     try:
         # Ouverture du fichier de commande et chargement de toutes les lignes
@@ -229,37 +236,38 @@ def updateCommandsError(command_doc, debug):
 ###########################################################################################################################################
 # FONCTION writeCommands()                                                                                                                #
 ###########################################################################################################################################
-# ROLE :
-#   Ecriture de liste de tache python dans un fichier texte
-#   Liste exhaustive des tâches disponibles ici : # https://docs.google.com/spreadsheets/d/1YKAz5VQNchUrCNuIQslcgEEn0FZRId9HK6hYbm8XRU0/edit#gid=1374414977
-#
-# ENTREES :
-#   settings_struct_dico : La structure dico contenant tout les settings
-#   id_command : compteur de commande à éxecuter
-#   index_remote_ip : index courant sur la liste des machines remotes disponibles
-#   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
-#   task_position : postion de la tache si plusieurs même tache
-#   dependency_task_list : La liste des taches dont dépend la tache à exécuter
-#   type_execution : défini le type d'execution immediat ou backgroud ou remote
-#   error_management : Type gestion des erreurs
-#   name_setting : nom du fichier contenant les settings
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   id_command : incrementer du nombre de tache à executer
-#   index_remote_ip : incrementer l'index de la machine remote à utiliser
-#   id_task_commands_list : liste des id des commandes qui seront reelement executé
-#
-# INFOS :
-# Les tâches sont écrites dans le fichier Commands_File.txt
-#   Lorsque la ligne commence par "A_Faire"    : Commande à Faire sans conditions
-#   Lorsque la ligne commence par "En_Cours"   : Commande en cours d'éxécution
-#   Lorsque la ligne commence par "En_Attente" : Commande en attente d'éxécution attend la fin d'éxécution de (ou des) tache(s) dont elle dépend
-#   Lorsque la ligne commence par "Bloque"     : Commande bloqué car en attente d'une tache en erreur
-#   Lorsque la ligne commence par "Termine"    : Commande Terminée sans erreur
-#   Lorsque la ligne commence par "En_Erreur"  : Commande fini en erreur ou dependante d'une tache en erreur
-
 def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label, task_position, dependency_task_list, type_execution, error_management, name_setting, debug):
+    """
+    # ROLE :
+    #   Ecriture de liste de tache python dans un fichier texte
+    #   Liste exhaustive des tâches disponibles ici : # https://docs.google.com/spreadsheets/d/1YKAz5VQNchUrCNuIQslcgEEn0FZRId9HK6hYbm8XRU0/edit#gid=1374414977
+    #
+    # ENTREES :
+    #   settings_struct_dico : La structure dico contenant tout les settings
+    #   id_command : compteur de commande à éxecuter
+    #   index_remote_ip : index courant sur la liste des machines remotes disponibles
+    #   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
+    #   task_position : postion de la tache si plusieurs même tache
+    #   dependency_task_list : La liste des taches dont dépend la tache à exécuter
+    #   type_execution : défini le type d'execution immediat ou backgroud ou remote
+    #   error_management : Type gestion des erreurs
+    #   name_setting : nom du fichier contenant les settings
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   id_command : incrementer du nombre de tache à executer
+    #   index_remote_ip : incrementer l'index de la machine remote à utiliser
+    #   id_task_commands_list : liste des id des commandes qui seront reelement executé
+    #
+    # INFOS :
+    # Les tâches sont écrites dans le fichier Commands_File.txt
+    #   Lorsque la ligne commence par "A_Faire"    : Commande à Faire sans conditions
+    #   Lorsque la ligne commence par "En_Cours"   : Commande en cours d'éxécution
+    #   Lorsque la ligne commence par "En_Attente" : Commande en attente d'éxécution attend la fin d'éxécution de (ou des) tache(s) dont elle dépend
+    #   Lorsque la ligne commence par "Bloque"     : Commande bloqué car en attente d'une tache en erreur
+    #   Lorsque la ligne commence par "Termine"    : Commande Terminée sans erreur
+    #   Lorsque la ligne commence par "En_Erreur"  : Commande fini en erreur ou dependante d'une tache en erreur
+    """
 
     # Recuper la structure courante
     settings_struct = settings_struct_dico[name_setting]
@@ -551,6 +559,42 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Mosaique et decoupage) aux images de %s" %(task_label, dir_source_images_str) + endC)
             break
 
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('11'): # Creation d'un vecteur d'emprise sur les images du trait de côte
+
+            if settings_struct.tasks.task11_CreateEmprise[task_position].dateSplitter == '':
+                date_splitter_option  = ''
+            else :
+                date_splitter_option  = " -sepn " + settings_struct.tasks.task11_CreateEmprise[task_position].dateSplitter
+
+            if settings_struct.tasks.task11_CreateEmprise[task_position].intraDateSplitter != '':
+                date_splitter_option  += " -sepd " + settings_struct.tasks.task11_CreateEmprise[task_position].intraDateSplitter
+
+            dir_source_images_str = ''
+            for dir_source in  settings_struct.tasks.task11_CreateEmprise[task_position].sourceImagesDirList:
+                dir_source_images_str += dir_source + ' '
+
+            # Commande
+            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+
+            command = call_python_action_to_make + "CreateEmprises -dir " + dir_source_images_str + " -outf " + settings_struct.tasks.task11_CreateEmprise[task_position].outputVector  + " -epsg " + str(settings_struct.general.image.epsg)
+            command += " -posd " + str(settings_struct.tasks.task11_CreateEmprise[task_position].datePosition) + " -nbcd " + str (settings_struct.tasks.task11_CreateEmprise[task_position].dateNumberOfCharacters) + date_splitter_option + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+
+            if settings_struct.tasks.task11_CreateEmprise[task_position].noAssembled:
+                command += " -na"
+            if settings_struct.tasks.task11_CreateEmprise[task_position].allPolygon:
+                command += " -all"
+            if settings_struct.tasks.task11_CreateEmprise[task_position].noDate:
+                command += " -nd"
+            if settings_struct.tasks.task11_CreateEmprise[task_position].optimisationEmprise:
+                command += " -op"
+            if settings_struct.tasks.task11_CreateEmprise[task_position].optimisationNoData:
+                command += " -op_nodata -erode " + str(settings_struct.tasks.task11_CreateEmprise[task_position].erode) + " -ndv " + str(settings_struct.general.image.nodataValue)
+            endCommandUpdate(settings_struct, command_doc, command, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Creation d'un vecteur d'emprise sur les images du trait de côte %s)" %(task_label, str(settings_struct.tasks.task11_CreateEmprise[task_position].outputVector)) + endC)
+            break
+
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('12'): # Application d'assemblage pansharpening
 
@@ -591,6 +635,23 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('13'): # Export BD TOPO depuis Postgres
+
+            # Initialisation de la commande
+            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+            # Paramètres spécifiques à l'appli
+            command = call_python_action_to_make + "ExportBdTopoFromPostgres -in " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].inputVector + " -out " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].outputDirectory + " -zone " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].zone
+            # Paramètres liés aux fichiers
+            command += " -vef " + settings_struct.general.vector.formatVector + " -vee " + settings_struct.general.vector.extensionVector
+            # Paramètres liés à PostGIS
+            command += " -pgh " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].postgis.serverName + " -pgp " + str(settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].postgis.portNumber) + " -pgu " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].postgis.userName + " -pgw " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].postgis.password + " -pgd " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].postgis.databaseName
+            # Finalisation de la commande
+            endCommandUpdate(settings_struct, command_doc, command, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succès de la commande %s (Export BD TOPO depuis Postgres) pour le répertoire %s." % (task_label, settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].outputDirectory) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('20'): # Compression d'image
 
             # Commande
@@ -605,6 +666,12 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             if settings_struct.tasks.task20_ImageCompression[task_position].optimize8bits :
                 command += " -opt8b"
+
+            if settings_struct.tasks.task20_ImageCompression[task_position].needRvb :
+                command += " -rvb"
+
+            if settings_struct.tasks.task20_ImageCompression[task_position].needIrc :
+                command += " -irc"
 
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -688,38 +755,49 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "MnhCreation -is " + settings_struct.tasks.task35_MnhCreation[task_position].inputMnsFile + " -it " + settings_struct.tasks.task35_MnhCreation[task_position].inputMntFile + " -v " + settings_struct.tasks.task35_MnhCreation[task_position].inputVector + " -o " + settings_struct.tasks.task35_MnhCreation[task_position].outputMnhFile + " -auto -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -bias " + str(settings_struct.tasks.task35_MnhCreation[task_position].bias) + " -simp " + str(settings_struct.tasks.task35_MnhCreation[task_position].simplificationPolygon) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
 
-            if settings_struct.tasks.task35_MnhCreation[task_position].inputFilterFile != "":
-                command += " -ithr " + settings_struct.tasks.task35_MnhCreation[task_position].inputFilterFile + " -thrval " + str(settings_struct.tasks.task35_MnhCreation[task_position].thresholdFilterFile)
+            if os.path.isfile(image_mns_input) and os.path.isfile(image_mnt_input):
+                command = call_python_action_to_make + "MnhCreation -is " + settings_struct.tasks.task35_MnhCreation[task_position].inputMnsFile + " -it " + settings_struct.tasks.task35_MnhCreation[task_position].inputMntFile + " -v " + settings_struct.tasks.task35_MnhCreation[task_position].inputVector + " -o " + settings_struct.tasks.task35_MnhCreation[task_position].outputMnhFile + " -auto -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -bias " + str(settings_struct.tasks.task35_MnhCreation[task_position].bias) + " -simp " + str(settings_struct.tasks.task35_MnhCreation[task_position].simplificationPolygon) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
 
-            if settings_struct.tasks.task35_MnhCreation[task_position].interpolationMode != "":
-                command += " -modi " + str(settings_struct.tasks.task35_MnhCreation[task_position].interpolationMode).lower()
+                if settings_struct.tasks.task35_MnhCreation[task_position].inputFilterFile != "":
+                    command += " -ithr " + settings_struct.tasks.task35_MnhCreation[task_position].inputFilterFile + " -thrval " + str(settings_struct.tasks.task35_MnhCreation[task_position].thresholdFilterFile)
 
-            if settings_struct.tasks.task35_MnhCreation[task_position].interpolationMethod != "":
-                command += " -methi " + str(settings_struct.tasks.task35_MnhCreation[task_position].interpolationMethod).lower()
+                if settings_struct.tasks.task35_MnhCreation[task_position].interpolationMode != "":
+                    command += " -modi " + str(settings_struct.tasks.task35_MnhCreation[task_position].interpolationMode).lower()
 
-            if settings_struct.tasks.task35_MnhCreation[task_position].interpolationMethod.lower() == "bco" and settings_struct.tasks.task35_MnhCreation[task_position].interpolationBco_radius != 0:
-                command += " -interp.bco.r " + str(settings_struct.tasks.task35_MnhCreation[task_position].interpolationBco_radius)
+                if settings_struct.tasks.task35_MnhCreation[task_position].interpolationMethod != "":
+                    command += " -methi " + str(settings_struct.tasks.task35_MnhCreation[task_position].interpolationMethod).lower()
 
-            if bd_vector_input_road_list_str != "":
-                command += " -ibdrl " + bd_vector_input_road_list_str
+                if settings_struct.tasks.task35_MnhCreation[task_position].interpolationMethod.lower() == "bco" and settings_struct.tasks.task35_MnhCreation[task_position].interpolationBco_radius != 0:
+                    command += " -interp.bco.r " + str(settings_struct.tasks.task35_MnhCreation[task_position].interpolationBco_radius)
 
-            if bd_buff_list_str != "":
-                command += " -bufrl " + bd_buff_list_str
+                if bd_vector_input_road_list_str != "":
+                    command += " -ibdrl " + bd_vector_input_road_list_str
 
-            if sql_expression:
-                if six.PY2:
-                    command += " -sqlrl " + bd_sql_list_str.decode("latin1")
-                    command = command.encode("utf-8")
-                else :
-                    command += " -sqlrl " + bd_sql_list_str
+                if bd_buff_list_str != "":
+                    command += " -bufrl " + bd_buff_list_str
 
-            if bd_vector_input_build_list_str != "":
-                command += " -ibdbl " + bd_vector_input_build_list_str + " -deltah " + str(settings_struct.tasks.task35_MnhCreation[task_position].thresholdDeltaH)
+                if sql_expression:
+                    if six.PY2:
+                        command += " -sqlrl " + bd_sql_list_str.decode("latin1")
+                        command = command.encode("utf-8")
+                    else :
+                        command += " -sqlrl " + bd_sql_list_str
 
-            if settings_struct.general.processing.ram != 0:
-                command += " -ram " + str(settings_struct.general.processing.ram)
+                if bd_vector_input_build_list_str != "":
+                    command += " -ibdbl " + bd_vector_input_build_list_str + " -deltah " + str(settings_struct.tasks.task35_MnhCreation[task_position].thresholdDeltaH)
+
+                if settings_struct.general.processing.ram != 0:
+                    command += " -ram " + str(settings_struct.general.processing.ram)
+
+            else:
+                command = call_python_action_to_make + "MnhCreation -is " + settings_struct.tasks.task35_MnhCreation[task_position].inputMnsFile + " -it " + settings_struct.tasks.task35_MnhCreation[task_position].inputMntFile + " -v " + settings_struct.tasks.task35_MnhCreation[task_position].inputVector + " -ref " + settings_struct.tasks.task35_MnhCreation[task_position].inputReferenceRaster + " -o " + settings_struct.tasks.task35_MnhCreation[task_position].outputMnhFile
+
+                if settings_struct.tasks.task35_MnhCreation[task_position].year != 0:
+                    command += " -year " + str(settings_struct.tasks.task35_MnhCreation[task_position].year)
+
+                if settings_struct.tasks.task35_MnhCreation[task_position].zone != "":
+                    command += " -zone " + str(settings_struct.tasks.task35_MnhCreation[task_position].zone)
 
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -825,25 +903,6 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
                 endCommandUpdate(settings_struct, command_doc, command, debug)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (creation d'un masque binaire) à l'image %s" %(task_label, str(settings_struct.tasks.task60_MaskCreation[task_position].inputFile)) + endC)
-            break
-
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('70_RA'): # Extraction sur la zone d echantillons d'apprentissages calcules sur un territoire global (Utilisation production RA)
-
-            for class_macro_sample_struct in settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].classMacroSampleList:
-
-                # Commande
-                call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-                command = call_python_action_to_make + "MacroSamplesCutting -i " + class_macro_sample_struct.inputFile + " -v " +  settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].inputVector + " -o " + class_macro_sample_struct.outputFile + " -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) +  " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster
-
-                if settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].superposition: # Cas où on vérifie la superposition géométrique avec l'image satellite
-                   command += " -spos"
-                   command += " -r "
-                   command += settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].referenceImage
-
-                endCommandUpdate(settings_struct, command_doc, command, debug)
-
-            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Decoupage des echantillons d'apprentissage par l emprise %s" %(task_label, str(settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].inputVector)) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1156,6 +1215,8 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             post_traitement_raster_buffer_dico_str = post_traitement_raster_buffer_dico_str[1:]
             post_traitement_raster_sql_dico_str = post_traitement_raster_sql_dico_str[2:]
             post_traitement_raster_sql_dico_str = post_traitement_raster_sql_dico_str.replace("'","\\'")
+            post_traitement_raster_sql_dico_str = post_traitement_raster_sql_dico_str.replace("(","\\(")
+            post_traitement_raster_sql_dico_str = post_traitement_raster_sql_dico_str.replace(")","\\)")
             if six.PY2:
                 post_traitement_raster_sql_dico_str = post_traitement_raster_sql_dico_str.decode("latin1")
                 post_traitement_raster_sql_dico_str = post_traitement_raster_sql_dico_str.encode("utf-8")
@@ -1209,6 +1270,9 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             elif settings_struct.tasks.task200_ClassificationVectorization[task_position].vectorizationType == "GRASS" :
                 command += " -grass "
 
+            if settings_struct.tasks.task200_ClassificationVectorization[task_position].grassMethodeSmoothing != "" :
+                command += " -smooth " + settings_struct.tasks.task200_ClassificationVectorization[task_position].grassMethodeSmoothing
+
             if settings_struct.tasks.task200_ClassificationVectorization[task_position].topologicalCorrectionSQL :
                 command += " -csql" + " -epsg " + str(settings_struct.general.image.epsg) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName
 
@@ -1246,14 +1310,6 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Croisement %s avec %s)" %(task_label, str(settings_struct.tasks.task210_CrossingVectorRaster[task_position].inputFile), str(settings_struct.tasks.task210_CrossingVectorRaster[task_position].inputVector)) + endC)
-            break
-
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('210_RA'): # Croisement Vecteur - Raster (Utilisation production RA)
-
-            id_command, index_remote_ip, id_task_commands_list = crossingVectorRasterRA(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, command_doc, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, debug)
-
-            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Croisement %s avec %s)" %(task_label, str(settings_struct.tasks.task210_RA_CrossingVectorRaster[task_position].inputClassifFile), str(settings_struct.tasks.task210_RA_CrossingVectorRaster[task_position].inputVector)) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1358,21 +1414,21 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('240_RA'): # Verification et correction des résultats de production en sql (Utilisation production RA)
+        if case('240'): # Verification et correction des résultats de production en sql
 
             # Préparation de la liste des vecteurs à découper
             vectors_input_list_str = ""
-            for vector_input_file in settings_struct.tasks.task240_RA_ProductOcsVerificationCorrectionSQL[task_position].inputVectorsList :
+            for vector_input_file in settings_struct.tasks.task240_ProductOcsVerificationCorrectionSQL[task_position].inputVectorsList :
                  vectors_input_list_str += vector_input_file + " "
 
             vectors_output_list_str = ""
-            for vector_output_file in settings_struct.tasks.task240_RA_ProductOcsVerificationCorrectionSQL[task_position].outputVectorsList :
+            for vector_output_file in settings_struct.tasks.task240_ProductOcsVerificationCorrectionSQL[task_position].outputVectorsList :
                  vectors_output_list_str += vector_output_file + " "
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
 
-            command = call_python_action_to_make + "ProductOcsVerificationCorrectionSQL -c " + settings_struct.tasks.task240_RA_ProductOcsVerificationCorrectionSQL[task_position].inputEmpriseVector + " -vl " + vectors_input_list_str + " -vol " +  vectors_output_list_str + " -epsg " + str(settings_struct.general.image.epsg) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName
+            command = call_python_action_to_make + "ProductOcsVerificationCorrectionSQL -c " + settings_struct.tasks.task240_ProductOcsVerificationCorrectionSQL[task_position].inputEmpriseVector + " -vl " + vectors_input_list_str + " -vol " +  vectors_output_list_str + " -epsg " + str(settings_struct.general.image.epsg) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName
 
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -1380,19 +1436,19 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('250_RA'): # Rasterisation OTB des fichiers OCS vecteurisés avec UMC (Utilisation production RA)
+        if case('250'): # Rasterisation OTB des fichiers OCS vecteurisés avec UMC
 
             # Commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, False)
 
-            command = call_python_action_to_make + "otbcli_Rasterization -in " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].inputVector + " -out " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].outputFile + " " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].encodingOutput.lower() + " -im " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].inputFile + " -background " + str(settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].nodataOutput) + " -mode attribute -mode.attribute.field " + settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].label
+            command = call_python_action_to_make + "otbcli_Rasterization -in " + settings_struct.tasks.task250_OcsRasterisation[task_position].inputVector + " -out " + settings_struct.tasks.task250_OcsRasterisation[task_position].outputFile + " " + settings_struct.tasks.task250_OcsRasterisation[task_position].encodingOutput.lower() + " -im " + settings_struct.tasks.task250_OcsRasterisation[task_position].inputFile + " -background " + str(settings_struct.tasks.task250_OcsRasterisation[task_position].nodataOutput) + " -mode attribute -mode.attribute.field " + settings_struct.tasks.task250_OcsRasterisation[task_position].label
 
             if settings_struct.general.processing.ram != 0:
                 command += " -ram " + str(settings_struct.general.processing.ram)
 
             endCommandUpdate(settings_struct, command_doc, command, debug, False)
 
-            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Rasterisation du vecteur de livraison %s" %(task_label, str(settings_struct.tasks.task250_RA_ProductOcsRasterisation[task_position].inputVector)) + endC)
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Rasterisation du vecteur de livraison %s" %(task_label, str(settings_struct.tasks.task250_OcsRasterisation[task_position].inputVector)) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1506,37 +1562,107 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Resultat du superimpose reference raster %s" %(task_label, str(settings_struct.tasks.task295_RasterSuperimpose[task_position].inputFileRef)) + endC)
             break
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('300'): # Degmentation Morphologique Urbaine
 
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('5_TDC'): # Creation d'un vecteur d'emprise sur les images du trait de côte
+            # Préparation des listes de données d'entrée
+            # Liste bâti
+            bd_build_vector_input_list_str = ""
+            bd_build_buff_list_str = ""
+            bd_build_sql_list_str = ""
+            sql_build_expression = False
 
-            if settings_struct.tasks.task5_TDC_CreateEmprise[task_position].dateSplitter == '':
-                date_splitter_option  = ''
-            else :
-                date_splitter_option  = " -sepn " + settings_struct.tasks.task5_TDC_CreateEmprise[task_position].dateSplitter
+            for database_file_struct in settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputVectorsBuildList:
+                bd_build_vector_input_list_str += database_file_struct.inputVector + " "
+                bd_build_buff_list_str += str(database_file_struct.bufferValue) + " "
+                if database_file_struct.sqlExpression != "" :
+                    sql_build_expression = True
+                bd_build_sql_list_str += '"' + database_file_struct.sqlExpression + '"' + ":"
+            bd_build_sql_list_str = bd_build_sql_list_str[0:len(bd_build_sql_list_str)-1]
 
-            if settings_struct.tasks.task5_TDC_CreateEmprise[task_position].intraDateSplitter != '':
-                date_splitter_option  += " -sepd " + settings_struct.tasks.task5_TDC_CreateEmprise[task_position].intraDateSplitter
+            # Liste route
+            bd_road_vector_input_list_str = ""
+            bd_road_buff_list_str = ""
+            bd_road_sql_list_str = ""
+            sql_road_expression = False
 
-            # Commande
+            for database_file_struct in settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputVectorsRoadList:
+                bd_road_vector_input_list_str += database_file_struct.inputVector + " "
+                bd_road_buff_list_str += str(database_file_struct.bufferValue) + " "
+                if database_file_struct.sqlExpression != "" :
+                    sql_road_expression = True
+                bd_road_sql_list_str += '"' + database_file_struct.sqlExpression + '"' + ":"
+            bd_road_sql_list_str = bd_road_sql_list_str[0:len(bd_road_sql_list_str)-1]
+
+            # Liste eau
+            bd_water_vector_input_list_str = ""
+            bd_water_buff_list_str = ""
+            bd_water_sql_list_str = ""
+            sql_water_expression = False
+
+            for database_file_struct in settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputVectorsWaterList:
+                bd_water_vector_input_list_str += database_file_struct.inputVector + " "
+                bd_water_buff_list_str += str(database_file_struct.bufferValue) + " "
+                if database_file_struct.sqlExpression != "" :
+                    sql_water_expression = True
+                bd_water_sql_list_str += '"' + database_file_struct.sqlExpression + '"' + ":"
+            bd_water_sql_list_str = bd_water_sql_list_str[0:len(bd_water_sql_list_str)-1]
+
+            # Commande de la segmentation
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+            command = call_python_action_to_make + "UrbanMorphologySegmentation -r " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].baseDir + " -ccm " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].ccmDir + " -e " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputEmpriseVector + " -gra " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileGRA + " -tcd " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileTCD + " -imd " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileIMD + " -vrl " + bd_road_vector_input_list_str + " -vbl " + bd_build_vector_input_list_str + " -vwl " + bd_water_vector_input_list_str + " -rgb " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFilePeusdoRGB + " -rrw " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFileRoadWidth + " -rbh " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFileBuildHeight + " -vro " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorRoad + " -vwo " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorWatersArea + " -vccm " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorCCM + " -vpost " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorPost + " -vseg " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVector + " -rwf " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldWidthRoad) + " -rif " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldImportanceRoad) + " -rit " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].thresholdImportanceRoad) + " -bsr " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].bufferSizeImportanceRoad) + " -mwa " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].thresholdMiniWaterArea) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName + " -res " + str(settings_struct.general.image.resolution) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -epsg " + str(settings_struct.general.image.epsg) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
 
-            command = call_python_action_to_make + "CreateEmprises -dir " + settings_struct.tasks.task5_TDC_CreateEmprise[task_position].inputPath + " -outf " + settings_struct.tasks.task5_TDC_CreateEmprise[task_position].outputVector  + " -epsg " + str(settings_struct.general.image.epsg)
-            command += " -posd " + str(settings_struct.tasks.task5_TDC_CreateEmprise[task_position].datePosition) + " -nbcd " + str (settings_struct.tasks.task5_TDC_CreateEmprise[task_position].dateNumberOfCharacters) + date_splitter_option + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+            if sql_road_expression:
+                if six.PY2:
+                    command += " -sqlr " + bd_road_sql_list_str.decode("latin1")
+                    command = command.encode("utf-8")
+                else :
+                    command += " -sqlr " + bd_road_sql_list_str
 
-            if settings_struct.tasks.task5_TDC_CreateEmprise[task_position].noAssembled:
-                command += " -na"
-            if settings_struct.tasks.task5_TDC_CreateEmprise[task_position].allPolygon:
-                command += " -all"
-            if settings_struct.tasks.task5_TDC_CreateEmprise[task_position].noDate:
-                command += " -nd"
-            if settings_struct.tasks.task5_TDC_CreateEmprise[task_position].optimisationEmprise:
-                command += " -op"
-            if settings_struct.tasks.task5_TDC_CreateEmprise[task_position].optimisationNoData:
-                command += " -op_nodata -erode " + str(settings_struct.tasks.task5_TDC_CreateEmprise[task_position].erode) + " -ndv " + str(settings_struct.general.image.nodataValue)
+            if sql_build_expression:
+                if six.PY2:
+                    command += " -sqlb " + bd_build_sql_list_str.decode("latin1")
+                    command = command.encode("utf-8")
+                else :
+                    command += " -sqlb " + bd_build_sql_list_str
+
+            if sql_water_expression:
+                if six.PY2:
+                    command += " -sqlw " + bd_water_sql_list_str.decode("latin1")
+                    command = command.encode("utf-8")
+                else :
+                    command += " -sqlw " + bd_water_sql_list_str
+
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
-            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Creation d'un vecteur d'emprise sur les images du trait de côte %s)" %(task_label, str(settings_struct.tasks.task5_TDC_CreateEmprise[task_position].outputVector)) + endC)
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s. Resultat de la segmentation morphologique urbaine %s" %(task_label, str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVector)) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('70_RA'): # Extraction sur la zone d echantillons d'apprentissages calcules sur un territoire global (Utilisation production RA)
+
+            for class_macro_sample_struct in settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].classMacroSampleList:
+
+                # Commande
+                call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
+                command = call_python_action_to_make + "MacroSamplesCutting -i " + class_macro_sample_struct.inputFile + " -v " +  settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].inputVector + " -o " + class_macro_sample_struct.outputFile + " -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) +  " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster
+
+                if settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].superposition: # Cas où on vérifie la superposition géométrique avec l'image satellite
+                   command += " -spos"
+                   command += " -r "
+                   command += settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].referenceImage
+
+                endCommandUpdate(settings_struct, command_doc, command, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Decoupage des echantillons d'apprentissage par l emprise %s" %(task_label, str(settings_struct.tasks.task70_RA_MacroSampleCutting[task_position].inputVector)) + endC)
+            break
+
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        if case('210_RA'): # Croisement Vecteur - Raster (Utilisation production RA)
+
+            id_command, index_remote_ip, id_task_commands_list = crossingVectorRasterRA(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, command_doc, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, debug)
+
+            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Croisement %s avec %s)" %(task_label, str(settings_struct.tasks.task210_RA_CrossingVectorRaster[task_position].inputClassifFile), str(settings_struct.tasks.task210_RA_CrossingVectorRaster[task_position].inputVector)) + endC)
             break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -1638,6 +1764,9 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
                 if channel_order_list_str != "" :
                     command += " -chao " + channel_order_list_str
 
+            if settings_struct.general.processing.ram != 0:
+                command += " -ram " + str(settings_struct.general.processing.ram)
+
             endCommandUpdate(settings_struct, command_doc, command, debug)
 
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Extraction du trait de côte par seuillage à partir de l'image %s)" %(task_label, str(settings_struct.tasks.task30_TDC_TDCSeuil[task_position].inputFile)) + endC)
@@ -1656,56 +1785,6 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (Extraction du trait de côte à partir de l'image %s)" %(task_label, str(settings_struct.tasks.task40_TDC_TDCKmeans[task_position].inputFile)) + endC)
             break
 
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        if case('50_TDC'): # Extraction du trait de côte par classification supervisée
-
-            input_im_app_dico_str = settings_struct.tasks.task50_TDC_TDCClassif[task_position].inputFile + ':'
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].useExogenDB:
-                for class_sample_struct in settings_struct.tasks.task50_TDC_TDCClassif[task_position].classSampleList:
-                    input_im_app_dico_str += '[' + class_sample_struct.name + ':' + str(class_sample_struct.label) + ','
-                    for prop in class_sample_struct.class_properties_list:
-                        input_im_app_dico_str += prop + ','
-                    input_im_app_dico_str = input_im_app_dico_str[:-1]
-                    input_im_app_dico_str += '],'
-            else:
-                for class_sample_struct in settings_struct.tasks.task50_TDC_TDCClassif[task_position].classSampleList:
-                    for prop in class_sample_struct.class_properties_list:
-                        input_im_app_dico_str += prop + ','
-            input_im_app_dico_str = input_im_app_dico_str[:-1]
-
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].exogenDBSuperp:
-                # Récupération du dictionnaire
-                post_traitement_raster_complete_dico_str = ""
-                for classMacroSuperposition in settings_struct.tasks.task50_TDC_TDCClassif[task_position].classMacroSuperpositionList :
-                    post_traitement_raster_complete_dico_str +=  str(classMacroSuperposition.label)
-                    for database_file in classMacroSuperposition.dataBaseFileDico :
-                        post_traitement_raster_complete_dico_str +=  ":" + str(database_file) + "," + str(classMacroSuperposition.dataBaseFileDico[database_file])
-                    post_traitement_raster_complete_dico_str += ' '
-                post_traitement_raster_complete_dico_str = post_traitement_raster_complete_dico_str[:-1]
-
-            # Commande
-            call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-
-            command = call_python_action_to_make + "TDCClassif -dico " + input_im_app_dico_str + " -outd " + settings_struct.tasks.task50_TDC_TDCClassif[task_position].outputPath + " -mer " + settings_struct.tasks.task50_TDC_TDCClassif[task_position].inputSeaPointsFile + " -d " + settings_struct.tasks.task50_TDC_TDCClassif[task_position].inputCutVector + " -radiusmf " + str(settings_struct.tasks.task50_TDC_TDCClassif[task_position].radiusMajority) + " -exp " + '"' + settings_struct.tasks.task50_TDC_TDCClassif[task_position].microClassFusionExpression + '"' + " -pe UTF-8 -epsg " + str(settings_struct.general.image.epsg) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector  + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
-
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].useExogenDB:
-                command += " -bdext"
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].cut:
-                command += " -cut"
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].step1Execution:
-                command += " -st1"
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].step2Execution:
-                command += " -st2"
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].step3Execution:
-                command += " -st3"
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].step4Execution:
-                command += " -st4"
-            if settings_struct.tasks.task50_TDC_TDCClassif[task_position].exogenDBSuperp:
-                command += " -superp " + post_traitement_raster_complete_dico_str
-            endCommandUpdate(settings_struct, command_doc, command, debug)
-
-            print(cyan + "writeCommands() : " + bold + green + "Création avec succes de la commande %s (superposition de bases de données) à l'image %s" %(task_label, str(settings_struct.tasks.task50_TDC_TDCClassif[task_position].inputFile)) + endC)
-            break
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if case('60_TDC'): # Extraction des ouvrages avec la méthode des buffers, de Sobel ou les deux combinées
@@ -2291,6 +2370,9 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
         if case('40_RSQ'): # Cartographie des vulnérabilités aux ICU
 
             # Gestion des paramètres liste
+            stakes_fields_list_str = ""
+            for stakes_field in settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].stakesFieldsList:
+                stakes_fields_list_str += stakes_field + ' '
             health_vuln_fields_list_str = ""
             for health_vuln_field in settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].healthVulnFieldsList:
                 health_vuln_fields_list_str += health_vuln_field + ' '
@@ -2301,7 +2383,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             # Initialisation de la commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
             # Paramètres spécifiques à l'appli
-            command = call_python_action_to_make + "UhiVulnerability -div " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].inputDivisionVector + " -ftp " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].footprintVector + " -pop " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].populationVector + " -blt " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].builtVector + " -out " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].outputVulnerabilityVector + " -idd " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idDivisionField + " -idp " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idPopulationField + " -idb " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idBuiltField + " -sta " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].stakeField + " -hevl " + health_vuln_fields_list_str[:-1] + " -sovl " + social_vuln_fields_list_str[:-1] + " -hei " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].heightField + " -bsf " + '"' + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].builtSqlFilter + '"'
+            command = call_python_action_to_make + "UhiVulnerability -div " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].inputDivisionVector + " -ftp " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].footprintVector + " -pop " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].populationVector + " -blt " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].builtVector + " -out " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].outputVulnerabilityVector + " -idd " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idDivisionField + " -idp " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idPopulationField + " -idb " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].idBuiltField + " -stal " + stakes_fields_list_str[:-1] + " -hevl " + health_vuln_fields_list_str[:-1] + " -sovl " + social_vuln_fields_list_str[:-1] + " -hei " + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].heightField + " -bsf " + '"' + settings_struct.tasks.task40_RSQ_UhiVulnerability[task_position].builtSqlFilter + '"'
             # Paramètres liés aux fichiers
             command += " -epsg " + str(settings_struct.general.image.epsg) + " -vef " + settings_struct.general.vector.formatVector
             # Paramètres liés à PostGIS
@@ -2323,28 +2405,29 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 #################################################################################
 # FONCTION crossingVectorRasterRA()                                             #
 #################################################################################
-# ROLE :
-#   Fonction permettant de creer le fichier de sortie vecteur de l'étude RhoneAlpe par 3 croisements vecteur-rasteur
-#
-# ENTREES :
-#   settings_struct : La structure contenant des settings
-#   name_setting : nom du fichier contenant les settings
-#   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
-#   mode_execution_command : Le mode d'execution choisi
-#   error_management : Type gestion des erreurs
-#   command_doc : le fichier contenant les commandes
-#   dependency_commands_list_string : La liste des dépendences de taches
-#   id_command : compteur d'id de commande
-#   index_remote_ip : index sur la machine remote disponible courante
-#   id_task_commands_list : liste des id des commandes dont dépend la tache
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   id_command : compte de commande incrementé
-#   index_remote_ip : index sur la machine remote disponible incrementer
-#   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
-
 def crossingVectorRasterRA(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, command_doc, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, debug):
+    """
+    # ROLE :
+    #   Fonction permettant de creer le fichier de sortie vecteur de l'étude RhoneAlpe par 3 croisements vecteur-rasteur
+    #
+    # ENTREES :
+    #   settings_struct : La structure contenant des settings
+    #   name_setting : nom du fichier contenant les settings
+    #   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
+    #   mode_execution_command : Le mode d'execution choisi
+    #   error_management : Type gestion des erreurs
+    #   command_doc : le fichier contenant les commandes
+    #   dependency_commands_list_string : La liste des dépendences de taches
+    #   id_command : compteur d'id de commande
+    #   index_remote_ip : index sur la machine remote disponible courante
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   id_command : compte de commande incrementé
+    #   index_remote_ip : index sur la machine remote disponible incrementer
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
+    """
 
     # Gestion de la couverture des polygones et l'identifiant unique
     #---------------------------------------------------------------
@@ -2415,30 +2498,31 @@ def crossingVectorRasterRA(settings_struct, name_setting, task_label, task_posit
     return  id_command, index_remote_ip, id_task_commands_list
 
 #################################################################################
-# FONCTION parametricStudyTexturesIndices()                                       #
+# FONCTION parametricStudyTexturesIndices()                                     #
 #################################################################################
-# ROLE :
-#   Fonction permettant d'enchainer une étude parametrique pour le choix des textures et des indices
-#
-# ENTREES :
-#   settings_struct : La structure contenant des settings
-#   name_setting : nom du fichier contenant les settings
-#   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
-#   mode_execution_command : Le mode d'execution choisi
-#   error_management : Type gestion des erreurs
-#   command_doc : le fichier contenant les commandes
-#   dependency_commands_list_string : La liste des dépendences de taches
-#   id_command : compteur d'id de commande
-#   index_remote_ip : index sur la machine remote disponible courante
-#   id_task_commands_list : liste des id des commandes dont dépend la tache
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   id_command : compte de commande incrementé
-#   index_remote_ip : index sur la machine remote disponible incrementer
-#   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
-
 def parametricStudyTexturesIndices(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, command_doc, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, debug):
+    """
+    # ROLE :
+    #   Fonction permettant d'enchainer une étude parametrique pour le choix des textures et des indices
+    #
+    # ENTREES :
+    #   settings_struct : La structure contenant des settings
+    #   name_setting : nom du fichier contenant les settings
+    #   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
+    #   mode_execution_command : Le mode d'execution choisi
+    #   error_management : Type gestion des erreurs
+    #   command_doc : le fichier contenant les commandes
+    #   dependency_commands_list_string : La liste des dépendences de taches
+    #   id_command : compteur d'id de commande
+    #   index_remote_ip : index sur la machine remote disponible courante
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   id_command : compte de commande incrementé
+    #   index_remote_ip : index sur la machine remote disponible incrementer
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
+    """
 
     study_list = []
     # Pour chaque cannal demandé
@@ -2516,64 +2600,6 @@ def parametricStudyTexturesIndices(settings_struct, name_setting, task_label, ta
                 command += " -redce.norm "
 
         endCommandUpdate(settings_struct, command_doc, command, debug)
-        """
-        # KmeansMaskApplication
-
-        macro_classes_cleaned_mask_list_str = ""
-        micro_classes_mask_list_str = ""
-        centroids_list_str = ""
-        macroclass_sampling_list_str = ""
-        macroclass_labels_list_str = ""
-
-        for class_macro_sample_struct in settings_struct.tasks.task90_KmeansMaskApplication[task_position].classMacroSampleList:
-            macro_classes_cleaned_mask_list_str += class_macro_sample_struct.inputFile + ' '
-            micro_classes_mask_list_str += os.path.splitext(class_macro_sample_struct.outputFile)[0] + suffix + os.path.splitext(class_macro_sample_struct.outputFile)[1] + ' '
-            centroids_list_str += os.path.splitext(class_macro_sample_struct.outputCentroidFile)[0] + suffix + os.path.splitext(class_macro_sample_struct.outputCentroidFile)[1] + ' '
-            macroclass_sampling_list_str += str(class_macro_sample_struct.sampling) + ' '
-            macroclass_labels_list_str += str(class_macro_sample_struct.label) + ' '
-
-        if dependency_commands_list_string == "":
-            dependency_commands_list_string_temp = str(id_command - 1)
-        else :
-            dependency_commands_list_string_temp = dependency_commands_list_string + "," + str(id_command - 1)
-
-        call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string_temp, id_command, index_remote_ip, id_task_commands_list)
-
-        command = call_python_action_to_make + "KmeansMaskApplication -i " + os.path.splitext(settings_struct.tasks.task90_KmeansMaskApplication[task_position].inputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task90_KmeansMaskApplication[task_position].inputFile)[1] + " -o " + os.path.splitext(settings_struct.tasks.task90_KmeansMaskApplication[task_position].outputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task90_KmeansMaskApplication[task_position].outputFile)[1] + " -t " + os.path.splitext(settings_struct.tasks.task90_KmeansMaskApplication[task_position].proposalTable)[0] + suffix + os.path.splitext(settings_struct.tasks.task90_KmeansMaskApplication[task_position].proposalTable)[1] + " -ml " + macro_classes_cleaned_mask_list_str + " -ol " + micro_classes_mask_list_str + " -cl " + centroids_list_str + " -msl " + macroclass_sampling_list_str + " -mll " + macroclass_labels_list_str + " -kmp.it " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].iterations) + " -kmp.th " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].threshold) + " -kmp.pr " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].propPixels) + " -kmp.sz " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].sizeTraining) + " -npt " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].minNumberTrainingSize) + " -rcmc " + str(settings_struct.tasks.task90_KmeansMaskApplication[task_position].rateCleanMicroclass)
-
-        if settings_struct.general.processing.ram != 0:
-            command += " -ram " + str(settings_struct.general.processing.ram)
-
-        endCommandUpdate(settings_struct, command_doc, command, debug)
-
-        # MicroSamplePolygonization
-
-        micro_classes_mask_list_str = ""
-        raster_erode_list_str = ""
-        buffer_size_list_str = ""
-        buffer_approximate_list_str = ""
-        minimal_area_list_str = ""
-        simplification_tolerance_list_str = ""
-
-        for input_file_struct in settings_struct.tasks.task100_MicroSamplePolygonization[task_position].inputFileList:
-            micro_classes_mask_list_str += os.path.splitext(input_file_struct.inputFile)[0] + suffix + os.path.splitext(input_file_struct.inputFile)[1] + ' '
-            raster_erode_list_str += str(input_file_struct.rasterErode) + ' '
-            buffer_size_list_str += str(input_file_struct.bufferSize) + ' '
-            buffer_approximate_list_str += str(input_file_struct.bufferApproximate) + ' '
-            minimal_area_list_str += str(input_file_struct.minimalArea) + ' '
-            simplification_tolerance_list_str += str(input_file_struct.simplificationTolerance) + ' '
-
-        if dependency_commands_list_string == "":
-            dependency_commands_list_string_temp = str(id_command - 1)
-        else :
-            dependency_commands_list_string_temp = dependency_commands_list_string + "," + str(id_command - 1)
-
-        call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string_temp, id_command, index_remote_ip, id_task_commands_list)
-
-        command = call_python_action_to_make + "MicroSamplePolygonization -il " + micro_classes_mask_list_str + " -o " + os.path.splitext(settings_struct.tasks.task100_MicroSamplePolygonization[task_position].outputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task100_MicroSamplePolygonization[task_position].outputFile)[1] + " -t " + os.path.splitext(settings_struct.tasks.task100_MicroSamplePolygonization[task_position].proposalTable)[0] + suffix + os.path.splitext(settings_struct.tasks.task100_MicroSamplePolygonization[task_position].proposalTable)[1] + " -ero " + raster_erode_list_str + " -umc " + str(settings_struct.tasks.task100_MicroSamplePolygonization[task_position].umc) + " -ts " + str(settings_struct.tasks.task100_MicroSamplePolygonization[task_position].tileSize) + " -bsl " + buffer_size_list_str + " -bal " + buffer_approximate_list_str + " -mal " + minimal_area_list_str + " -stl " + simplification_tolerance_list_str + " -rcmc " + str(settings_struct.tasks.task100_MicroSamplePolygonization[task_position].rateCleanMicroclass) + " -sgf GEOMETRY -vgt POLYGON -vef " + settings_struct.general.vector.formatVector + " -pe UTF-8 -epsg " + str(settings_struct.general.image.epsg) + " -col " + str(settings_struct.general.classification.columnName)
-
-        endCommandUpdate(settings_struct, command_doc, command, debug)
-        """
 
         # SupervisedClassification
 
@@ -2583,10 +2609,6 @@ def parametricStudyTexturesIndices(settings_struct, name_setting, task_label, ta
             dependency_commands_list_string_temp = dependency_commands_list_string + "," + str(id_command - 1)
 
         call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string_temp, id_command, index_remote_ip, id_task_commands_list)
-
-        """
-        command = call_python_action_to_make + "SupervisedClassification -i " + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].inputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].inputFile)[1] + " -v " + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].inputVector)[0] + suffix + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].inputVector)[1] + " -o " + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].outputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].outputFile)[1] + " -c " + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].confidenceOutputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].confidenceOutputFile)[1] + " -sm " + str(settings_struct.tasks.task120_SupervisedClassification[task_position].samplerMode) + " -per " + str(settings_struct.tasks.task120_SupervisedClassification[task_position].periodicJitter) + " -fc " +str(settings_struct.general.classification.columnName) + " -cm " + settings_struct.tasks.task120_SupervisedClassification[task_position].method.lower()
-        """
 
         command = call_python_action_to_make + "SupervisedClassification -i " + os.path.splitext(settings_struct.tasks.task40_ChannelsConcatenantion[task_position].concatenation.outputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task40_ChannelsConcatenantion[task_position].concatenation.outputFile)[1] + " -se " + settings_struct.tasks.task9_parametricStudyTexturesIndices.inputSample + " -o " + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].outputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].outputFile)[1] + " -c " + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].confidenceOutputFile)[0] + suffix + os.path.splitext(settings_struct.tasks.task120_SupervisedClassification[task_position].confidenceOutputFile)[1] + " -sm " + str(settings_struct.tasks.task120_SupervisedClassification[task_position].samplerMode) + " -per " + str(settings_struct.tasks.task120_SupervisedClassification[task_position].periodicJitter) + " -fc " +str(settings_struct.general.classification.columnName) + " -cm " + settings_struct.tasks.task120_SupervisedClassification[task_position].method.lower()
 
@@ -2640,34 +2662,34 @@ def parametricStudyTexturesIndices(settings_struct, name_setting, task_label, ta
 
         endCommandUpdate(settings_struct, command_doc, command, debug)
 
-
     return  id_command, index_remote_ip, id_task_commands_list
 
 #################################################################################
 # FONCTION parametricStudySamples()                                             #
 #################################################################################
-# ROLE :
-#   Fonction permettant d'enchainer une étude parametrique pour le choix du taux d'echantillons
-#
-# ENTREES :
-#   settings_struct : La structure contenant des settings
-#   name_setting : nom du fichier contenant les settings
-#   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
-#   mode_execution_command : Le mode d'execution choisi
-#   error_management : Type gestion des erreurs
-#   command_doc : le fichier contenant les commandes
-#   dependency_commands_list_string : La liste des dépendences de taches
-#   id_command : compteur d'id de commande
-#   index_remote_ip : index sur la machine remote disponible courante
-#   id_task_commands_list : liste des id des commandes dont dépend la tache
-#   debug : niveau de trace log
-#
-# SORTIES :
-#   id_command : compte de commande incrementé
-#   index_remote_ip : index sur la machine remote disponible incrementer
-#   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
-
 def parametricStudySamples(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, command_doc, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list, debug):
+    """
+    # ROLE :
+    #   Fonction permettant d'enchainer une étude parametrique pour le choix du taux d'echantillons
+    #
+    # ENTREES :
+    #   settings_struct : La structure contenant des settings
+    #   name_setting : nom du fichier contenant les settings
+    #   task_label : label de la tâche que l'on souhaite transformer en ligne de commande
+    #   mode_execution_command : Le mode d'execution choisi
+    #   error_management : Type gestion des erreurs
+    #   command_doc : le fichier contenant les commandes
+    #   dependency_commands_list_string : La liste des dépendences de taches
+    #   id_command : compteur d'id de commande
+    #   index_remote_ip : index sur la machine remote disponible courante
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache
+    #   debug : niveau de trace log
+    #
+    # SORTIES :
+    #   id_command : compte de commande incrementé
+    #   index_remote_ip : index sur la machine remote disponible incrementer
+    #   id_task_commands_list : liste des id des commandes dont dépend la tache mis à jour avec la nouvelle tache
+    """
 
     study_rate_list = []
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
@@ -9,12 +9,12 @@
 # SCRIPT GENERAL D'EXECUTION DE LA CHAINE                                                                                                   #
 #                                                                                                                                           #
 #############################################################################################################################################
-
-'''
+"""
 Nom de l'objet : TaskSequencer.py
 Description :
-    Objectif : Exécuter une chaine de traitement complète composée d'une liste de tache à éxécuter
-               la configuration de la chaine est définie dans un fichier de settings (en .xml) à passer en paramètre
+-------------
+Objectif : Exécuter une chaine de traitement complète composée d'une liste de tache à éxécuter
+la configuration de la chaine est définie dans un fichier de settings (en .xml) à passer en paramètre
 
 Date de creation : 08/08/2016
 ----------
@@ -23,13 +23,12 @@ Histoire :
 Origine : Nouveau
 08/08/2016 : Création
 -----------------------------------------------------------------------------------------------------
-Modifications
+Modifications :
 
 ------------------------------------------------------
-A Reflechir/A faire
- -
- -
-'''
+A Reflechir/A faire :
+
+"""
 
 # IMPORT DES BIBLIOTHEQUES, VARIABLES ET FONCTIONS UTILES
 
@@ -51,22 +50,24 @@ INDEX_REMOTE_IP = 0
 #################################################################################
 # FONCTION commandsWritingManagement()                                          #
 #################################################################################
-# ROLE :
-#    Gestion de la mise en place des commandes
-#
-# ENTREES DE LA FONCTION :
-#    name_setting : le nom du setting utilisé
-#    settings_struct_dico : La structure dico contenant tout les settings
-#    command_doc_pres : le nom du fichier de commande deja creer par un setting precedant
-#    setting_file : nom du fichier contenant les settings
-#    id_command : compteur de commande à éxecuter
-#    correspondence_task_process_dico : table de correspondance entre le nom de la la tache et la liste d'id process correspondant
-#
-# SORTIES DE LA FONCTION :
-#    command_doc : Nom du fichier contenant les commandes à éxécuter
-#
-
 def commandsWritingManagement (name_setting, settings_struct_dico, correspondence_task_process_dico, setting_file, id_command, command_doc_pres):
+    """
+    # ROLE :
+    #    Gestion de la mise en place des commandes
+    #
+    # ENTREES DE LA FONCTION :
+    #    name_setting : le nom du setting utilisé
+    #    settings_struct_dico : La structure dico contenant tout les settings
+    #    command_doc_pres : le nom du fichier de commande deja creer par un setting precedant
+    #    setting_file : nom du fichier contenant les settings
+    #    id_command : compteur de commande à éxecuter
+    #    correspondence_task_process_dico : table de correspondance entre le nom de la la tache et la liste d'id process correspondant
+    #
+    # SORTIES DE LA FONCTION :
+    #    command_doc : Nom du fichier contenant les commandes à éxécuter
+    #
+    """
+
     print(bold + green + "####################################################################" + endC)
     print(bold + green + "# GESTION DE LA MISE EN PLACE DES COMMANDES                        #" + endC)
     print(bold + green + "####################################################################" + endC)
@@ -132,6 +133,11 @@ def commandsWritingManagement (name_setting, settings_struct_dico, correspondenc
                 taskIdTaskCommandsList_str = taskIdTaskCommandsList_str[:-1]
             correspondence_task_process_dico["@" + name_setting + "." + str(task.taskLabel) + "." + str(task.position)]  = taskIdTaskCommandsList_str
 
+        # Verification si des taches existes
+        if  len(settings_struct_dico[name_setting].general.processing.taskList) == 0 :
+            print(bold + red + "ATTENTION !!!! Auccune tache demandéé le fichier commande est vide : " + str(command_doc) + endC)
+            exit()
+
         print(endC)
         print(cyan + "TaskSequencer : " + endC + bold + green + "Les commandes à effectuer sont visualisables ici : " + str (command_doc)  + endC)
 
@@ -146,12 +152,13 @@ def commandsWritingManagement (name_setting, settings_struct_dico, correspondenc
 ########################################################################################################################################################################
 # EXECUTION DE LA CHAINE                                                                                                                                               #
 ########################################################################################################################################################################
-
-# Code executé depuis une ligne de commande
-# Exemple de lancement en ligne de commande:
-# python TaskSequencer.py -i setting.xml
-
 def main(gui=False):
+    """
+    # Code executé depuis une ligne de commande
+    # Exemple de lancement en ligne de commande:
+    # python TaskSequencer.py -i setting.xml
+    """
+
     print(endC)
     print(bold + green + "#######################################################################################################" + endC)
     print(bold + green + "# DEBUT DE L'EXECUTION GENERALE DE LA CHAINE                                                          #" + endC)

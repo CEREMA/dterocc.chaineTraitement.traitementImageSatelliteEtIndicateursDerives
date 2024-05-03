@@ -2,14 +2,17 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 #############################################################################################################################################
 #                                                                                                                                           #
-# FONCTIONS DE PARSEUR DU FICHIER XML DES SETTINGS                                                                                          #
+# FONCTION DE PARSEUR DU FICHIER XML DES SETTINGS                                                                                           #
 #                                                                                                                                           #
 #############################################################################################################################################
+"""
+ Ce module contient la fonction de parseur du fichier xml des settings pour le séquenceur.
+"""
 
 # Import des bibliothèques python
 import os, sys
@@ -21,17 +24,18 @@ from Settings import *
 ###########################################################################################################################################
 # FONCTION xmlSettingsParser()                                                                                                            #
 ###########################################################################################################################################
-# ROLE:
-#    Parser un fichier de setting au format xml contenant les settings de la chaine (parser méthode dom)
-#
-# ENTREES DE LA FONCTION :
-#    settings_file : Fichier d'entrée des settings (.xml)
-#
-# SORTIES DE LA FONCTION :
-#    Une structure contenant tous les paramètres contenu dans le fichier de setting
-#
-
 def xmlSettingsParser(settings_file) :
+    """
+    # ROLE:
+    #    Parser un fichier de setting au format xml contenant les settings de la chaine (parser méthode dom)
+    #
+    # ENTREES DE LA FONCTION :
+    #    settings_file : Fichier d'entrée des settings (.xml)
+    #
+    # SORTIES DE LA FONCTION :
+    #    Une structure contenant tous les paramètres contenu dans le fichier de setting
+    #
+    """
 
     # Initialisation de la structure
     settings_struct = StructSettings()
@@ -329,6 +333,34 @@ def xmlSettingsParser(settings_file) :
             settings_struct.tasks.task10_ImagesAssembly[pos].dateNumberOfCharacters = int(value)
         settings_struct.tasks.task10_ImagesAssembly[pos].intraDateSplitter = getValueNodeDataDom(task10_ImagesAssembly_elem, 'IntraDateSplitter')
 
+    # Task11_CreateEmprise
+    task11_CreateEmprise_elem_list = findAllElement(xmldoc, 'Task11_CreateEmprise','Tasks/Task11_CreateEmprise_List')
+    for pos in range (len(task11_CreateEmprise_elem_list)):
+        task11_CreateEmprise_elem = task11_CreateEmprise_elem_list[pos]
+        settings_struct.tasks.task11_CreateEmprise.append(StructTask11_CreateEmprise())
+        inputPath = getValueNodeDataDom(task11_CreateEmprise_elem, 'InputPath')
+        if inputPath != "" :
+            settings_struct.tasks.task11_CreateEmprise[pos].sourceImagesDirList.append(inputPath)
+        else :
+            settings_struct.tasks.task11_CreateEmprise[pos].sourceImagesDirList = getListNodeDataDom(task11_CreateEmprise_elem, 'SourceImagesDirList','ImagesDir')
+        settings_struct.tasks.task11_CreateEmprise[pos].outputVector = getValueNodeDataDom(task11_CreateEmprise_elem, 'OutputVector')
+        settings_struct.tasks.task11_CreateEmprise[pos].noAssembled = getValueNodeDataDom(task11_CreateEmprise_elem, 'NoAssembled').lower() == 'true'
+        settings_struct.tasks.task11_CreateEmprise[pos].allPolygon = getValueNodeDataDom(task11_CreateEmprise_elem, 'AllPolygon').lower() == 'true'
+        settings_struct.tasks.task11_CreateEmprise[pos].noDate = getValueNodeDataDom(task11_CreateEmprise_elem, 'NoDate').lower() == 'true'
+        settings_struct.tasks.task11_CreateEmprise[pos].optimisationEmprise = getValueNodeDataDom(task11_CreateEmprise_elem, 'OptimisationEmprise').lower() == 'true'
+        settings_struct.tasks.task11_CreateEmprise[pos].optimisationNoData = getValueNodeDataDom(task11_CreateEmprise_elem, 'OptimisationNoData').lower() == 'true'
+        value = getValueNodeDataDom(task11_CreateEmprise_elem, 'Erode')
+        if value != "" and value is not None:
+            settings_struct.tasks.task11_CreateEmprise[pos].erode = float(value)
+        settings_struct.tasks.task11_CreateEmprise[pos].dateSplitter = getValueNodeDataDom(task11_CreateEmprise_elem, 'DateSplitter')
+        value = getValueNodeDataDom(task11_CreateEmprise_elem, 'DatePosition')
+        if value != "" and value is not None:
+            settings_struct.tasks.task11_CreateEmprise[pos].datePosition = int(value)
+        value = getValueNodeDataDom(task11_CreateEmprise_elem, 'DateNumberOfCharacters')
+        if value != "" and value is not None:
+            settings_struct.tasks.task11_CreateEmprise[pos].dateNumberOfCharacters = int(value)
+        settings_struct.tasks.task11_CreateEmprise[pos].intraDateSplitter = getValueNodeDataDom(task11_CreateEmprise_elem, 'IntraDateSplitter')
+
     # Task12_PansharpeningAssembly
     task12_PansharpeningAssembly_elem_list = findAllElement(xmldoc, 'Task12_PansharpeningAssembly','Tasks/Task12_PansharpeningAssembly_List')
     for pos in range (len(task12_PansharpeningAssembly_elem_list)):
@@ -356,6 +388,20 @@ def xmlSettingsParser(settings_file) :
         if value != "" and value is not None:
             settings_struct.tasks.task12_PansharpeningAssembly[pos].pansharpeningBayes_scoef = float(value)
 
+    # Task13_ExportBdTopoFromPostgres
+    task13_ExportBdTopoFromPostgres_elem_list = findAllElement(xmldoc, 'Task13_ExportBdTopoFromPostgres','Tasks/Task13_ExportBdTopoFromPostgres_List')
+    for pos in range (len(task13_ExportBdTopoFromPostgres_elem_list)):
+        task13_ExportBdTopoFromPostgres_elem = task13_ExportBdTopoFromPostgres_elem_list[pos]
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres.append(StructTask13_ExportBdTopoFromPostgres())
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].inputVector = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'InputVector')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].outputDirectory = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'OutputDirectory')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].zone = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'Zone')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].postgis.serverName = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'ServerName')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].postgis.portNumber = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'PortNumber')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].postgis.userName = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'UserName')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].postgis.password = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'Password')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].postgis.databaseName = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'DatabaseName')
+
     # Task20_ImageCompression
     task20_ImageCompression_elem_list = findAllElement(xmldoc, 'Task20_ImageCompression','Tasks/Task20_ImageCompression_List')
     for pos in range (len(task20_ImageCompression_elem_list)):
@@ -365,6 +411,8 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task20_ImageCompression[pos].outputFile8b = getValueNodeDataDom(task20_ImageCompression_elem, 'OutputFile8b')
         settings_struct.tasks.task20_ImageCompression[pos].outputFile8bCompress = getValueNodeDataDom(task20_ImageCompression_elem, 'OutputFile8bCompress')
         settings_struct.tasks.task20_ImageCompression[pos].optimize8bits = getValueNodeDataDom(task20_ImageCompression_elem, 'Optimize8bits').lower() == 'true'
+        settings_struct.tasks.task20_ImageCompression[pos].needRvb = getValueNodeDataDom(task20_ImageCompression_elem, 'NeedRvb').lower() == 'true'
+        settings_struct.tasks.task20_ImageCompression[pos].needIrc = getValueNodeDataDom(task20_ImageCompression_elem, 'NeedIrc').lower() == 'true'
 
     # Task30_NeoChannelsComputation
     task30_NeoChannelsComputation_elem_list = findAllElement(xmldoc, 'Task30_NeoChannelsComputation','Tasks/Task30_NeoChannelsComputation_List')
@@ -390,6 +438,7 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task35_MnhCreation[pos].inputMnsFile = getValueNodeDataDom(task35_MnhCreation_elem, 'InputMnsFile')
         settings_struct.tasks.task35_MnhCreation[pos].inputMntFile = getValueNodeDataDom(task35_MnhCreation_elem, 'InputMntFile')
         settings_struct.tasks.task35_MnhCreation[pos].inputFilterFile = getValueNodeDataDom(task35_MnhCreation_elem, 'InputFilterFile')
+        settings_struct.tasks.task35_MnhCreation[pos].inputReferenceRaster = getValueNodeDataDom(task35_MnhCreation_elem, 'InputReferenceRaster')
         settings_struct.tasks.task35_MnhCreation[pos].outputMnhFile = getValueNodeDataDom(task35_MnhCreation_elem, 'OutputMnhFile')
         database_files_list = getListNodeDataDom(task35_MnhCreation_elem, 'DataBaseRoadFilesList', 'DataBaseFile')
         buffers_list = getListValueAttributeDom(task35_MnhCreation_elem, 'DataBaseRoadFilesList', 'DataBaseFile', 'buffer')
@@ -424,6 +473,8 @@ def xmlSettingsParser(settings_file) :
         value = getValueNodeDataDom(task35_MnhCreation_elem, 'SimplificationPolygon')
         if value != "" and value is not None:
             settings_struct.tasks.task35_MnhCreation[pos].simplificationPolygon = float(value)
+        settings_struct.tasks.task35_MnhCreation[pos].year = getValueNodeDataDom(task35_MnhCreation_elem, 'Year')
+        settings_struct.tasks.task35_MnhCreation[pos].zone = getValueNodeDataDom(task35_MnhCreation_elem, 'Zone')
 
     # Task40_ChannelsConcatenantion
     task40_ChannelsConcatenantion_elem_list = findAllElement(xmldoc, 'Task40_ChannelsConcatenantion','Tasks/Task40_ChannelsConcatenantion_List')
@@ -481,7 +532,7 @@ def xmlSettingsParser(settings_file) :
                 database_file = database_files_list[index]
                 sql_expression = sql_expressions_list[index]
                 if buffers_list[index] != "" and buffers_list[index] is not None:
-                    buffer_value = float(buffers_list[index])
+                    buffer_value = str(buffers_list[index])
                 else:
                     buffer_value = 0
                 database_file_struct = StructCreation_DatabaseFile()
@@ -504,22 +555,6 @@ def xmlSettingsParser(settings_file) :
             class_macro_sample_struct.inputVector = getValueNodeDataDom(element, 'InputVector')
             class_macro_sample_struct.outputFile = getValueNodeDataDom(element, 'OutputFile')
             settings_struct.tasks.task60_MaskCreation[pos].classMacroSampleList.append(class_macro_sample_struct)
-
-    # Task70_RA_MacroSampleCutting
-    task70_RA_MacroSampleCutting_elem_list = findAllElement(xmldoc, 'Task70_RA_MacroSampleCutting','Tasks/Task70_RA_MacroSampleCutting_List')
-    for pos in range (len(task70_RA_MacroSampleCutting_elem_list)):
-        task70_RA_MacroSampleCutting_elem = task70_RA_MacroSampleCutting_elem_list[pos]
-        settings_struct.tasks.task70_RA_MacroSampleCutting.append(StructTask70_RA_MacroSampleCutting())
-        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].inputVector = getValueNodeDataDom(task70_RA_MacroSampleCutting_elem, 'InputVector')
-        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].superposition = getValueNodeDataDom(task70_RA_MacroSampleCutting_elem, 'Superposition').lower() == 'true'
-        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].referenceImage = getValueNodeDataDom(task70_RA_MacroSampleCutting_elem, 'ReferenceImage')
-        elements_list = findAllElement(task70_RA_MacroSampleCutting_elem, 'ClassMacroSample', 'ClassMacroSampleList')
-        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].classMacroSampleList = []
-        for element in elements_list:
-            class_macro_sample_struct = StructMacroSampleCutting_ClassMacro()
-            class_macro_sample_struct.inputFile = getValueNodeDataDom(element, 'InputFile')
-            class_macro_sample_struct.outputFile = getValueNodeDataDom(element, 'OutputFile')
-            settings_struct.tasks.task70_RA_MacroSampleCutting[pos].classMacroSampleList.append(class_macro_sample_struct)
 
     # Task80_MacroSampleAmelioration
     task80_MacroSampleAmelioration_elem_list = findAllElement(xmldoc, 'Task80_MacroSampleAmelioration','Tasks/Task80_MacroSampleAmelioration_List')
@@ -769,7 +804,7 @@ def xmlSettingsParser(settings_file) :
         value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NumberClass')
         if value != "" and value is not None:
             settings_struct.tasks.task125_DeepLearningClassification[pos].numberClass = int(value)
-        settings_struct.tasks.task125_DeepLearningClassification[pos].networkType = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NetworkType')        
+        settings_struct.tasks.task125_DeepLearningClassification[pos].networkType = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'NetworkType')
         value = getValueNodeDataDom(task125_DeepLearningClassification_elem, 'PercentNoData')
         if value != "" and value is not None:
             settings_struct.tasks.task125_DeepLearningClassification[pos].percentNoData = int(value)
@@ -976,6 +1011,7 @@ def xmlSettingsParser(settings_file) :
         value = getValueNodeDataDom(task200_ClassificationVectorization_elem, 'TileSize')
         if value != "" and value is not None:
             settings_struct.tasks.task200_ClassificationVectorization[pos].tileSize = int(value)
+        settings_struct.tasks.task200_ClassificationVectorization[pos].topologicalCorrectionSQL = getValueNodeDataDom(task200_ClassificationVectorization_elem,'GrassMethodeSmoothing').lower()
         settings_struct.tasks.task200_ClassificationVectorization[pos].topologicalCorrectionSQL = getValueNodeDataDom(task200_ClassificationVectorization_elem, 'TopologicalCorrectionSQL').lower() == 'true'
 
     # Task210_CrossingVectorRaster
@@ -992,22 +1028,6 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task210_CrossingVectorRaster[pos].statsAllCount = getValueNodeDataDom(task210_CrossingVectorRaster_elem, 'StatsAllCount').lower() == 'true'
         settings_struct.tasks.task210_CrossingVectorRaster[pos].statsColumnsStr = getValueNodeDataDom(task210_CrossingVectorRaster_elem, 'StatsColumnsStr').lower() == 'true'
         settings_struct.tasks.task210_CrossingVectorRaster[pos].statsColumnsReal = getValueNodeDataDom(task210_CrossingVectorRaster_elem, 'StatsColumnsReal').lower() == 'true'
-
-    # Task210_RA_CrossingVectorRaster
-    task210_RA_CrossingVectorRaster_elem_list = findAllElement(xmldoc, 'Task210_RA_CrossingVectorRaster','Tasks/Task210_RA_CrossingVectorRaster_List')
-    for pos in range (len(task210_RA_CrossingVectorRaster_elem_list)):
-        task210_RA_CrossingVectorRaster_elem = task210_RA_CrossingVectorRaster_elem_list[pos]
-        settings_struct.tasks.task210_RA_CrossingVectorRaster.append(StructTask210_RA_CrossingVectorRaster())
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].inputClassifFile = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'InputClassifFile')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].inputCorrectionFile = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'InputCorrectionFile')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].inputVector = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'InputVector')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].outputVector = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'OutputVector')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToAddCouvList = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToAddCouvList', 'ColumToAddCouv', 'Couverture')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToDeleteCouvlist = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToDeleteCouvlist', 'ColumToDeleteCouv', 'Couverture')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToAddDateList = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToAddDateList', 'ColumToAddDate', 'DateOrigine')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToAddSrcList = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToAddSrcList', 'ColumToAddSrc', 'SourceOrigine')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].classLabelDateDico = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'ClassLabelDateDico', 'DateOrigine')
-        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].classLabelSrcDico = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'ClassLabelSrcDico', 'SourceOrigine')
 
     # Task220_VectorRasterCutting
     task220_VectorRasterCutting_elem_list = findAllElement(xmldoc, 'Task220_VectorRasterCutting','Tasks/Task220_VectorRasterCutting_List')
@@ -1049,28 +1069,28 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task230_QualityIndicatorComputation[pos].outputFile = getValueNodeDataDom(task230_QualityIndicatorComputation_elem, 'OutputFile')
         settings_struct.tasks.task230_QualityIndicatorComputation[pos].outputMatrix = getValueNodeDataDom(task230_QualityIndicatorComputation_elem, 'OutputMatrix')
 
-    # Task240_RA_ProductOcsVerificationCorrectionSQL
-    task240_RA_ProductOcsVerificationCorrectionSQL_elem_list = findAllElement(xmldoc, 'Task240_RA_ProductOcsVerificationCorrectionSQL','Tasks/Task240_RA_ProductOcsVerificationCorrectionSQL_List')
-    for pos in range (len(task240_RA_ProductOcsVerificationCorrectionSQL_elem_list)):
-        task240_RA_ProductOcsVerificationCorrectionSQL_elem = task240_RA_ProductOcsVerificationCorrectionSQL_elem_list[pos]
-        settings_struct.tasks.task240_RA_ProductOcsVerificationCorrectionSQL.append(StructTask240_RA_ProductOcsVerificationCorrectionSQL())
-        settings_struct.tasks.task240_RA_ProductOcsVerificationCorrectionSQL[pos].inputEmpriseVector = getValueNodeDataDom(task240_RA_ProductOcsVerificationCorrectionSQL_elem,'InputEmpriseVector')
-        settings_struct.tasks.task240_RA_ProductOcsVerificationCorrectionSQL[pos].inputVectorsList = getListNodeDataDom(task240_RA_ProductOcsVerificationCorrectionSQL_elem, 'InputVectorsList', 'InputVector')
-        settings_struct.tasks.task240_RA_ProductOcsVerificationCorrectionSQL[pos].outputVectorsList = getListNodeDataDom(task240_RA_ProductOcsVerificationCorrectionSQL_elem, 'OutputVectorsList', 'OutputVector')
+    # Task240_ProductOcsVerificationCorrectionSQL
+    task240_ProductOcsVerificationCorrectionSQL_elem_list = findAllElement(xmldoc, 'Task240_ProductOcsVerificationCorrectionSQL','Tasks/Task240_ProductOcsVerificationCorrectionSQL_List')
+    for pos in range (len(task240_ProductOcsVerificationCorrectionSQL_elem_list)):
+        task240_ProductOcsVerificationCorrectionSQL_elem = task240_ProductOcsVerificationCorrectionSQL_elem_list[pos]
+        settings_struct.tasks.task240_ProductOcsVerificationCorrectionSQL.append(StructTask240_ProductOcsVerificationCorrectionSQL())
+        settings_struct.tasks.task240_ProductOcsVerificationCorrectionSQL[pos].inputEmpriseVector = getValueNodeDataDom(task240_ProductOcsVerificationCorrectionSQL_elem,'InputEmpriseVector')
+        settings_struct.tasks.task240_ProductOcsVerificationCorrectionSQL[pos].inputVectorsList = getListNodeDataDom(task240_ProductOcsVerificationCorrectionSQL_elem, 'InputVectorsList', 'InputVector')
+        settings_struct.tasks.task240_ProductOcsVerificationCorrectionSQL[pos].outputVectorsList = getListNodeDataDom(task240_ProductOcsVerificationCorrectionSQL_elem, 'OutputVectorsList', 'OutputVector')
 
-   # Task250_RA_ProductOcsRasterisation
-    task250_RA_ProductOcsRasterisation_elem_list = findAllElement(xmldoc, 'Task250_RA_ProductOcsRasterisation','Tasks/Task250_RA_ProductOcsRasterisation_List')
-    for pos in range (len(task250_RA_ProductOcsRasterisation_elem_list)):
-        task250_RA_ProductOcsRasterisation_elem = task250_RA_ProductOcsRasterisation_elem_list[pos]
-        settings_struct.tasks.task250_RA_ProductOcsRasterisation.append(StructTask250_RA_ProductOcsRasterisation())
-        settings_struct.tasks.task250_RA_ProductOcsRasterisation[pos].inputVector = getValueNodeDataDom(task250_RA_ProductOcsRasterisation_elem, 'InputVector')
-        settings_struct.tasks.task250_RA_ProductOcsRasterisation[pos].inputFile = getValueNodeDataDom(task250_RA_ProductOcsRasterisation_elem, 'InputFile')
-        settings_struct.tasks.task250_RA_ProductOcsRasterisation[pos].outputFile = getValueNodeDataDom(task250_RA_ProductOcsRasterisation_elem, 'OutputFile')
-        settings_struct.tasks.task250_RA_ProductOcsRasterisation[pos].label = getValueNodeDataDom(task250_RA_ProductOcsRasterisation_elem, 'Label')
-        value = getValueNodeDataDom(task250_RA_ProductOcsRasterisation_elem, 'NodataOutput')
+   # Task250_OcsRasterisation
+    task250_OcsRasterisation_elem_list = findAllElement(xmldoc, 'Task250_OcsRasterisation','Tasks/Task250_OcsRasterisation_List')
+    for pos in range (len(task250_OcsRasterisation_elem_list)):
+        task250_OcsRasterisation_elem = task250_OcsRasterisation_elem_list[pos]
+        settings_struct.tasks.task250_OcsRasterisation.append(StructTask250_OcsRasterisation())
+        settings_struct.tasks.task250_OcsRasterisation[pos].inputVector = getValueNodeDataDom(task250_OcsRasterisation_elem, 'InputVector')
+        settings_struct.tasks.task250_OcsRasterisation[pos].inputFile = getValueNodeDataDom(task250_OcsRasterisation_elem, 'InputFile')
+        settings_struct.tasks.task250_OcsRasterisation[pos].outputFile = getValueNodeDataDom(task250_OcsRasterisation_elem, 'OutputFile')
+        settings_struct.tasks.task250_OcsRasterisation[pos].label = getValueNodeDataDom(task250_OcsRasterisation_elem, 'Label')
+        value = getValueNodeDataDom(task250_OcsRasterisation_elem, 'NodataOutput')
         if value != "" and value is not None:
-            settings_struct.tasks.task250_RA_ProductOcsRasterisation[pos].nodataOutput = int(value)
-        settings_struct.tasks.task250_RA_ProductOcsRasterisation[pos].encodingOutput = getValueNodeDataDom(task250_RA_ProductOcsRasterisation_elem, 'EncodingOutput')
+            settings_struct.tasks.task250_OcsRasterisation[pos].nodataOutput = int(value)
+        settings_struct.tasks.task250_OcsRasterisation[pos].encodingOutput = getValueNodeDataDom(task250_OcsRasterisation_elem, 'EncodingOutput')
 
     # Task260_SegmentationImage
     task260_SegmenationImage_elem_list = findAllElement(xmldoc, 'Task260_SegmentationImage','Tasks/Task260_SegmentationImage_List')
@@ -1154,29 +1174,118 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task295_RasterSuperimpose[pos].mode = getValueNodeDataDom(task295_RasterSuperimpose_elem, 'Mode')
         settings_struct.tasks.task295_RasterSuperimpose[pos].encodingOutput = getValueNodeDataDom(task295_RasterSuperimpose_elem, 'EncodingOutput')
 
-    # Task5_TDC_CreateEmprise
-    task5_TDC_CreateEmprise_elem_list = findAllElement(xmldoc, 'Task5_TDC_CreateEmprise','Tasks/Task5_TDC_CreateEmprise_List')
-    for pos in range (len(task5_TDC_CreateEmprise_elem_list)):
-        task5_TDC_CreateEmprise_elem = task5_TDC_CreateEmprise_elem_list[pos]
-        settings_struct.tasks.task5_TDC_CreateEmprise.append(StructTask5_TDC_CreateEmprise())
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].inputPath = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'InputPath')
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].outputVector = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'OutputVector')
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].noAssembled = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'NoAssembled').lower() == 'true'
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].allPolygon = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'AllPolygon').lower() == 'true'
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].noDate = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'NoDate').lower() == 'true'
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].optimisationEmprise = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'OptimisationEmprise').lower() == 'true'
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].optimisationNoData = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'OptimisationNoData').lower() == 'true'
-        value = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'Erode')
+   # Task300_UrbanMorphologicalSegmentation
+    task300_UrbanMorphologicalSegmentation_elem_list = findAllElement(xmldoc, 'Task300_UrbanMorphologicalSegmentation','Tasks/Task300_UrbanMorphologicalSegmentation_List')
+    for pos in range (len(task300_UrbanMorphologicalSegmentation_elem_list)):
+        task300_UrbanMorphologicalSegmentation_elem = task300_UrbanMorphologicalSegmentation_elem_list[pos]
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation.append(StructTask300_UrbanMorphologicalSegmentation())
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].baseDir = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'BaseDir')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].ccmDir = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'CcmDir')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputEmpriseVector = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputEmpriseVector')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputFileGRA = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputFileGRA')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputFileTCD = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputFileTCD')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputFileIMD = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputFileIMD')
+
+        database_files_list = getListNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsBuildList', 'DataBaseFile')
+        buffers_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsBuildList', 'DataBaseFile', 'buffer')
+        sql_expressions_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsBuildList', 'DataBaseFile', 'sql')
+        for index in range (len(database_files_list)) :
+            database_file = database_files_list[index]
+            sql_expression = sql_expressions_list[index]
+            if buffers_list[index] != "" and buffers_list[index] is not None:
+                buffer_value = float(buffers_list[index])
+            else:
+                buffer_value = 0
+            database_file_struct = StructCreation_DatabaseFile()
+            database_file_struct.inputVector = database_file
+            database_file_struct.bufferValue = buffer_value
+            database_file_struct.sqlExpression = sql_expression
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputVectorsBuildList.append(database_file_struct)
+
+        database_files_list = getListNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsRoadList', 'DataBaseFile')
+        buffers_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsRoadList', 'DataBaseFile', 'buffer')
+        sql_expressions_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsRoadList', 'DataBaseFile', 'sql')
+        for index in range (len(database_files_list)) :
+            database_file = database_files_list[index]
+            sql_expression = sql_expressions_list[index]
+            if buffers_list[index] != "" and buffers_list[index] is not None:
+                buffer_value = float(buffers_list[index])
+            else:
+                buffer_value = 0
+            database_file_struct = StructCreation_DatabaseFile()
+            database_file_struct.inputVector = database_file
+            database_file_struct.bufferValue = buffer_value
+            database_file_struct.sqlExpression = sql_expression
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputVectorsRoadList.append(database_file_struct)
+
+        database_files_list = getListNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsWaterList', 'DataBaseFile')
+        buffers_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsWaterList', 'DataBaseFile', 'buffer')
+        sql_expressions_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsWaterList', 'DataBaseFile', 'sql')
+        for index in range (len(database_files_list)) :
+            database_file = database_files_list[index]
+            sql_expression = sql_expressions_list[index]
+            if buffers_list[index] != "" and buffers_list[index] is not None:
+                buffer_value = float(buffers_list[index])
+            else:
+                buffer_value = 0
+            database_file_struct = StructCreation_DatabaseFile()
+            database_file_struct.inputVector = database_file
+            database_file_struct.bufferValue = buffer_value
+            database_file_struct.sqlExpression = sql_expression
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputVectorsWaterList.append(database_file_struct)
+
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputFilePeusdoRGB = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputFilePeusdoRGB')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputFileBuildHeight = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputFileBuildHeight')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputFileRoadWidth = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputFileRoadWidth')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorRoad')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorWatersArea = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorWatersArea')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorCCM = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorCCM')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorPost = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorPost')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVector = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVector')
+
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].fieldWidthRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'FieldWidthRoad')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].fieldImportanceRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'FieldImportanceRoad')
+        value = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'ThresholdImportanceRoad')
         if value != "" and value is not None:
-            settings_struct.tasks.task5_TDC_CreateEmprise[pos].erode = float(value)
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].dateSplitter = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'DateSplitter')
-        value = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'DatePosition')
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].thresholdImportanceRoad = int(value)
+        value = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'BufferSizeImportanceRoad')
         if value != "" and value is not None:
-            settings_struct.tasks.task5_TDC_CreateEmprise[pos].datePosition = int(value)
-        value = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'DateNumberOfCharacters')
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].bufferSizeImportanceRoad = float(value)
+        value = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'ThresholdMiniWaterArea')
         if value != "" and value is not None:
-            settings_struct.tasks.task5_TDC_CreateEmprise[pos].dateNumberOfCharacters = int(value)
-        settings_struct.tasks.task5_TDC_CreateEmprise[pos].intraDateSplitter = getValueNodeDataDom(task5_TDC_CreateEmprise_elem, 'IntraDateSplitter')
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].thresholdMiniWaterArea = float(value)
+
+    # Task70_RA_MacroSampleCutting
+    task70_RA_MacroSampleCutting_elem_list = findAllElement(xmldoc, 'Task70_RA_MacroSampleCutting','Tasks/Task70_RA_MacroSampleCutting_List')
+    for pos in range (len(task70_RA_MacroSampleCutting_elem_list)):
+        task70_RA_MacroSampleCutting_elem = task70_RA_MacroSampleCutting_elem_list[pos]
+        settings_struct.tasks.task70_RA_MacroSampleCutting.append(StructTask70_RA_MacroSampleCutting())
+        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].inputVector = getValueNodeDataDom(task70_RA_MacroSampleCutting_elem, 'InputVector')
+        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].superposition = getValueNodeDataDom(task70_RA_MacroSampleCutting_elem, 'Superposition').lower() == 'true'
+        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].referenceImage = getValueNodeDataDom(task70_RA_MacroSampleCutting_elem, 'ReferenceImage')
+        elements_list = findAllElement(task70_RA_MacroSampleCutting_elem, 'ClassMacroSample', 'ClassMacroSampleList')
+        settings_struct.tasks.task70_RA_MacroSampleCutting[pos].classMacroSampleList = []
+        for element in elements_list:
+            class_macro_sample_struct = StructMacroSampleCutting_ClassMacro()
+            class_macro_sample_struct.inputFile = getValueNodeDataDom(element, 'InputFile')
+            class_macro_sample_struct.outputFile = getValueNodeDataDom(element, 'OutputFile')
+            settings_struct.tasks.task70_RA_MacroSampleCutting[pos].classMacroSampleList.append(class_macro_sample_struct)
+
+    # Task210_RA_CrossingVectorRaster
+    task210_RA_CrossingVectorRaster_elem_list = findAllElement(xmldoc, 'Task210_RA_CrossingVectorRaster','Tasks/Task210_RA_CrossingVectorRaster_List')
+    for pos in range (len(task210_RA_CrossingVectorRaster_elem_list)):
+        task210_RA_CrossingVectorRaster_elem = task210_RA_CrossingVectorRaster_elem_list[pos]
+        settings_struct.tasks.task210_RA_CrossingVectorRaster.append(StructTask210_RA_CrossingVectorRaster())
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].inputClassifFile = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'InputClassifFile')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].inputCorrectionFile = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'InputCorrectionFile')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].inputVector = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'InputVector')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].outputVector = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'OutputVector')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToAddCouvList = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToAddCouvList', 'ColumToAddCouv', 'Couverture')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToDeleteCouvlist = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToDeleteCouvlist', 'ColumToDeleteCouv', 'Couverture')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToAddDateList = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToAddDateList', 'ColumToAddDate', 'DateOrigine')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].columToAddSrcList = getListNodeDataDom(task210_RA_CrossingVectorRaster_elem, 'ColumToAddSrcList', 'ColumToAddSrc', 'SourceOrigine')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].classLabelDateDico = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'ClassLabelDateDico', 'DateOrigine')
+        settings_struct.tasks.task210_RA_CrossingVectorRaster[pos].classLabelSrcDico = getValueNodeDataDom(task210_RA_CrossingVectorRaster_elem,'ClassLabelSrcDico', 'SourceOrigine')
 
     # Task10_TDC_PolygonMerToTDC
     task10_TDC_PolygonMerToTDC_elem_list = findAllElement(xmldoc, 'Task10_TDC_PolygonMerToTDC','Tasks/Task10_TDC_PolygonMerToTDC_List')
@@ -1247,60 +1356,6 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task40_TDC_TDCKmeans[pos].classesNumber = getValueNodeDataDom(task40_TDC_TDCKmeans_elem, 'ClassesNumber')
         settings_struct.tasks.task40_TDC_TDCKmeans[pos].inputSeaPointsFile = getValueNodeDataDom(task40_TDC_TDCKmeans_elem, 'InputSeaPointsFile')
         settings_struct.tasks.task40_TDC_TDCKmeans[pos].inputCutVector = getValueNodeDataDom(task40_TDC_TDCKmeans_elem, 'InputCutVector')
-
-    # Task50_TDC_TDCClassif
-    task50_TDC_TDCClassif_elem_list = findAllElement(xmldoc, 'Task50_TDC_TDCClassif','Tasks/Task50_TDC_TDCClassif_List')
-    for pos in range (len(task50_TDC_TDCClassif_elem_list)):
-        task50_TDC_TDCClassif_elem = task50_TDC_TDCClassif_elem_list[pos]
-        settings_struct.tasks.task50_TDC_TDCClassif.append(StructTask50_TDC_TDCClassif())
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].inputFile = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'InputFile')
-        names_list = getListValueAttributeDom(task50_TDC_TDCClassif_elem, 'ClassSampleList', 'ClassSample', 'name')
-        labels_list = getListValueAttributeDom(task50_TDC_TDCClassif_elem, 'ClassSampleList', 'ClassSample', 'label')
-        elements_list = findAllElement(task50_TDC_TDCClassif_elem, 'ClassSample', 'ClassSampleList')
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].classSampleList = []
-        for index in range (len(elements_list)) :
-            element = elements_list[index]
-            class_sample_struct = StructTDCClassif_ClassSample()
-            class_sample_struct.class_properties_list = getListNodeDataDom(element, 'ClassPropertiesList', 'ClassProperty')
-            if labels_list[index] != "" and labels_list[index] is not None:
-                class_sample_struct.label = int(labels_list[index])
-            else:
-                class_sample_struct.label = 0
-            if names_list[index] != "" and names_list[index] is not None:
-                class_sample_struct.name = names_list[index]
-            else:
-                class_sample_struct.name = ''
-            settings_struct.tasks.task50_TDC_TDCClassif[pos].classSampleList.append(class_sample_struct)
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].outputPath = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'OutputPath')
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].inputSeaPointsFile = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'InputSeaPointsFile')
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].inputCutVector = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'InputCutVector')
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].useExogenDB = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'UseExogenDB').lower() == 'true'
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].cut = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'Cut').lower() == 'true'
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].radiusMajority = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'RadiusMajority')
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].microClassFusionExpression = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'MicroClassFusionExpression')
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].step1Execution = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'Step1Execution').lower() == 'true'
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].step2Execution = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'Step2Execution').lower() == 'true'
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].step3Execution = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'Step3Execution').lower() == 'true'
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].step4Execution = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'Step4Execution').lower() == 'true'
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].exogenDBSuperp = getValueNodeDataDom(task50_TDC_TDCClassif_elem, 'ExogenDBSuperp').lower() == 'true'
-        labels_list = getListValueAttributeDom(task50_TDC_TDCClassif_elem, 'ClassMacroSuperpositionList', 'ClassMacroSuperposition', 'label')
-        elements_list = findAllElement(task50_TDC_TDCClassif_elem, 'ClassMacroSuperposition', 'ClassMacroSuperpositionList')
-        settings_struct.tasks.task50_TDC_TDCClassif[pos].classMacroSuperpositionList = []
-        for index1 in range (len(elements_list)) :
-            element = elements_list[index1]
-            database_files_list = getListNodeDataDom(element, 'DataBaseFilesList', 'DataBaseFile')
-            buffers_list = getListValueAttributeDom(element, 'DataBaseFilesList', 'DataBaseFile', 'buffer')
-            class_macro_superposition_struct = StructTDCClassif_ClassMacroSuperposition()
-            class_macro_superposition_struct.dataBaseFileDico = {}
-            class_macro_superposition_struct.label = labels_list[index1]
-            for index2 in range (len(database_files_list)) :
-                database_file = database_files_list[index2]
-                if buffers_list[index2] != "" and buffers_list[index2] is not None:
-                    buffer_value = int(buffers_list[index2])
-                else:
-                    buffer_value = 0
-                class_macro_superposition_struct.dataBaseFileDico[database_file] = buffer_value
-            settings_struct.tasks.task50_TDC_TDCClassif[pos].classMacroSuperpositionList.append(class_macro_superposition_struct)
 
     # Task60_TDC_DetectOuvrages
     task60_TDC_DetectOuvrages_elem_list = findAllElement(xmldoc, 'Task60_TDC_DetectOuvrages','Tasks/Task60_TDC_DetectOuvrages_List')
@@ -1669,7 +1724,7 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].idDivisionField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'IdDivisionField')
         settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].idPopulationField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'IdPopulationField')
         settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].idBuiltField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'IdBuiltField')
-        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].stakeField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'StakeField')
+        settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].stakesFieldsList = getListNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'StakesFieldsList', 'StakesField')
         settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].healthVulnFieldsList = getListNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'HealthVulnFieldsList', 'HealthVulnField')
         settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].socialVulnFieldsList = getListNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'SocialVulnFieldsList', 'SocialVulnField')
         settings_struct.tasks.task40_RSQ_UhiVulnerability[pos].heightField = getValueNodeDataDom(task40_RSQ_UhiVulnerability_elem, 'HeightField')
@@ -1677,4 +1732,3 @@ def xmlSettingsParser(settings_file) :
 
     # Retour de la structure remplie
     return settings_struct
-
