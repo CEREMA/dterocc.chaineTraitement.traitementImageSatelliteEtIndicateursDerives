@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
@@ -25,48 +25,44 @@ FORMAT_VECTOR = 'ESRI Shapefile'
 EXTENSION_RASTER = '.tif'
 EXTENSION_VECTOR = '.shp'
 
-if six.PY3:
-    def raw_input(text):
-        return input(text)
-
 classification = True
 while classification:
 
     parametrage = True
     while parametrage:
 
-##################################################################################################################################
-################################################## Mise en place des paramètres ##################################################
-##################################################################################################################################
+    ##################################################################################################################################
+    ################################################## Mise en place des paramètres ##################################################
+    ##################################################################################################################################
 
         ############################################
         ### Nom du fichier Urban Atlas en entrée ###
         ############################################
 
-        urbanatlas_input = raw_input(bold + blue + "Nom du fichier Urban Atlas en entrée (exemple : /home/scgsi/Bureau/UrbanAtlas.shp) :" + endC + " ")
+        urbanatlas_input = input(bold + blue + "Nom du fichier Urban Atlas en entrée (exemple : /home/scgsi/Bureau/UrbanAtlas.shp) :" + endC + " ")
         while not os.path.exists(urbanatlas_input):
             print(bold + red + "Erreur : le fichier Urban Atlas ne peut être trouvé à cet emplacement." + endC, file=sys.stderr)
-            urbanatlas_input = raw_input(bold + blue + "Nom du fichier Urban Atlas en entrée (exemple : /home/scgsi/Bureau/UrbanAtlas.shp) :" + endC + " ")
+            urbanatlas_input = input(bold + blue + "Nom du fichier Urban Atlas en entrée (exemple : /home/scgsi/Bureau/UrbanAtlas.shp) :" + endC + " ")
         print("\n")
 
         ############################################
         ### Nom du fichier classif UCZ en sortie ###
         ############################################
 
-        ucz_output = raw_input(bold + blue + "Nom du fichier classif UCZ en sortie (exemple : /home/scgsi/Bureau/CartoUCZ.shp) :" + endC + " ")
+        ucz_output = input(bold + blue + "Nom du fichier classif UCZ en sortie (exemple : /home/scgsi/Bureau/CartoUCZ.shp) :" + endC + " ")
         while ucz_output == "" or os.path.splitext(ucz_output)[1] != EXTENSION_VECTOR:
             print(bold + red + "Erreur : veuillez bien renseigner le fichier classif UCZ en sortie." + endC, file=sys.stderr)
-            ucz_output = raw_input(bold + blue + "Nom du fichier classif UCZ en sortie (exemple : /home/scgsi/Bureau/CartoUCZ.shp) :" + endC + " ")
+            ucz_output = input(bold + blue + "Nom du fichier classif UCZ en sortie (exemple : /home/scgsi/Bureau/CartoUCZ.shp) :" + endC + " ")
         print("\n")
 
         ###################################################
         ### Nom du fichier d'emprise de la zone d'étude ###
         ###################################################
 
-        emprise_file = raw_input(bold + blue + "Nom du fichier d'emprise de la zone d'étude (exemple : /home/scgsi/Bureau/ZoneEtude.shp) :" + endC + " ")
+        emprise_file = input(bold + blue + "Nom du fichier d'emprise de la zone d'étude (exemple : /home/scgsi/Bureau/ZoneEtude.shp) :" + endC + " ")
         while not os.path.exists(emprise_file):
             print(bold + red + "Erreur : le fichier d'emprise ne peut être trouvé à cet emplacement." + endC, file=sys.stderr)
-            emprise_file = raw_input(bold + blue + "Nom du fichier d'emprise de la zone d'étude (exemple : /home/scgsi/Bureau/ZoneEtude.shp) :" + endC + " ")
+            emprise_file = input(bold + blue + "Nom du fichier d'emprise de la zone d'étude (exemple : /home/scgsi/Bureau/ZoneEtude.shp) :" + endC + " ")
         print("\n")
 
         #####################################################
@@ -80,7 +76,7 @@ while classification:
         print("    4 = Résultats issus d'une classification")
         print(bold + "Méthode de calcul des indicateurs par défaut : " + endC + methi)
         print(italic + yellow + "'help' pour avoir plus d'informations sur les différentes méthodes." + endC)
-        methi = raw_input(bold + blue + "Modifier le choix de la méthode (appuyer sur 'Entrée' pour laisser par défaut) :" + endC + " ")
+        methi = input(bold + blue + "Modifier le choix de la méthode (appuyer sur 'Entrée' pour laisser par défaut) :" + endC + " ")
 
         while methi not in ("1","2","3","4"):
             if methi == "":
@@ -103,10 +99,10 @@ while classification:
                 print("    Rapport d'aspect = bâti obtenue par classification supervisée")
                 print("    Rugosité = bâti obtenue par classification supervisée")
                 print(italic + yellow + "Pour des informations plus détaillées, se reporter au tutoriel d'utilisation de la chaine de traitement UCZ." + endC)
-                methi = raw_input(bold + blue + "Quelle méthode utiliser pour le calcul des indicateurs ? (1/2/3/4) :" + endC + " ")
+                methi = input(bold + blue + "Quelle méthode utiliser pour le calcul des indicateurs ? (1/2/3/4) :" + endC + " ")
             else:
                 print(bold + yellow + "Attention : veuillez sélectionner un chiffre (1/2/3/4)." + endC)
-                methi = raw_input(bold + blue + "Quelle méthode utiliser pour le calcul des indicateurs ? (1/2/3/4) :" + endC + " ")
+                methi = input(bold + blue + "Quelle méthode utiliser pour le calcul des indicateurs ? (1/2/3/4) :" + endC + " ")
 
         if methi == "1":
             indicators_method = "BD_exogenes"
@@ -129,7 +125,7 @@ while classification:
         print("    4 = Méthode hiérarchique avec l'indicateur de classe de rugosité")
         print(bold + "Méthode de calcul des UCZ par défaut : " + endC + methu)
         print(italic + green + "'help' pour avoir plus d'informations sur les différentes méthodes." + endC)
-        methu = raw_input(bold + blue + "Modifier le choix de la méthode (appuyer sur 'Entrée' pour laisser par défaut) :" + endC + " ")
+        methu = input(bold + blue + "Modifier le choix de la méthode (appuyer sur 'Entrée' pour laisser par défaut) :" + endC + " ")
 
         while methu not in ("1","2","3","4"):
             if methu == "":
@@ -144,10 +140,10 @@ while classification:
                 print(bold + "Méthode hiérarchique avec l'indicateur de classe de rugosité (4) :" + endC)
                 print("    Utilisation du SI pour discriminer les UCZ 5/6/7, puis du RA pour discriminer les UCZ 1/2/3/4 + post-traitements avec la rugosité sur les UCZ 5/6")
                 print(italic + green + "Pour des informations plus détaillées, se reporter au tutoriel d'utilisation de la chaine de traitement UCZ." + endC)
-                methu = raw_input(bold + blue + "Quelle méthode utiliser pour le calcul des UCZ ? (1/2/3/4) :" + endC + " ")
+                methu = input(bold + blue + "Quelle méthode utiliser pour le calcul des UCZ ? (1/2/3/4) :" + endC + " ")
             else:
                 print(bold + yellow + "Attention : veuillez sélectionner un chiffre (1/2/3/4)." + endC)
-                methu = raw_input(bold + blue + "Quelle méthode utiliser pour le calcul des UCZ ? (1/2/3/4) :" + endC + " ")
+                methu = input(bold + blue + "Quelle méthode utiliser pour le calcul des UCZ ? (1/2/3/4) :" + endC + " ")
 
         if methu == "1":
             ucz_method = "Combinaison_sans_rugosite"
@@ -163,10 +159,10 @@ while classification:
         ### Choix du système de gestion de base de données (SGBD) ###
         #############################################################
 
-        dbms_choice = raw_input(bold + blue + "Quel SGBD utiliser pour les traitements ? (SpatiaLite/PostGIS) :" + endC + " ")
+        dbms_choice = input(bold + blue + "Quel SGBD utiliser pour les traitements ? (SpatiaLite/PostGIS) :" + endC + " ")
         while dbms_choice not in ("SpatiaLite","PostGIS"):
             print(italic + yellow + "Attention : veuillez faire un choix entre SpatiaLite et PostGIS." + endC)
-            dbms_choice = raw_input(bold + blue + "Quel SGBD utiliser pour les traitements ? (SpatiaLite/PostGIS) :" + endC + " ")
+            dbms_choice = input(bold + blue + "Quel SGBD utiliser pour les traitements ? (SpatiaLite/PostGIS) :" + endC + " ")
         print("\n")
 
         ############################################################
@@ -180,19 +176,19 @@ while classification:
 
         if indicators_method == "BD_exogenes":
 
-            enter_with_mask = raw_input(bold + blue + "Entrer dans la chaîne avec un masque binaire de la végétation déjà prêt ? (Y/N) :" + endC + " ")
+            enter_with_mask = input(bold + blue + "Entrer dans la chaîne avec un masque binaire de la végétation déjà prêt ? (Y/N) :" + endC + " ")
             while enter_with_mask not in ("Y","N"):
                 print(italic + yellow + "Attention : veuillez répondre par Y ou N." + endC)
-                enter_with_mask = raw_input(bold + blue + "Entrer dans la chaîne avec un masque binaire de la végétation déjà prêt ? (Y/N) :" + endC + " ")
+                enter_with_mask = input(bold + blue + "Entrer dans la chaîne avec un masque binaire de la végétation déjà prêt ? (Y/N) :" + endC + " ")
             print("\n")
 
             if enter_with_mask == "Y":
 
                 enter_with_mask = True
-                mask_file = raw_input(bold + blue + "Masque binaire de la végétation à traiter (exemple : /home/scgsi/Bureau/masque_veg.tif) :" + endC + " ")
+                mask_file = input(bold + blue + "Masque binaire de la végétation à traiter (exemple : /home/scgsi/Bureau/masque_veg.tif) :" + endC + " ")
                 while not os.path.exists(mask_file):
                     print(bold + yellow + "Attention : le fichier raster ne peut être trouvé à cet emplacement." + endC)
-                    mask_file = raw_input(bold + blue + "Masque binaire de la végétation à traiter (exemple : /home/scgsi/Bureau/masque_veg.tif) :" + endC + " ")
+                    mask_file = input(bold + blue + "Masque binaire de la végétation à traiter (exemple : /home/scgsi/Bureau/masque_veg.tif) :" + endC + " ")
                 print("\n")
 
             else:
@@ -201,26 +197,26 @@ while classification:
 
         if (indicators_method == "BD_exogenes" and enter_with_mask == False) or indicators_method == "SI_seuillage":
 
-            image_file = raw_input(bold + blue + "Image satellite à traiter (exemple : /home/scgsi/Bureau/Pleiades.tif) :" + endC + " ")
+            image_file = input(bold + blue + "Image satellite à traiter (exemple : /home/scgsi/Bureau/Pleiades.tif) :" + endC + " ")
             while not os.path.exists(image_file):
                 print(bold + yellow + "Attention : le fichier raster ne peut être trouvé à cet emplacement." + endC)
-                image_file = raw_input(bold + blue + "Image satellite à traiter (exemple : /home/scgsi/Bureau/Pleiades.tif) :" + endC + " ")
+                image_file = input(bold + blue + "Image satellite à traiter (exemple : /home/scgsi/Bureau/Pleiades.tif) :" + endC + " ")
             print("\n")
 
         elif indicators_method == "SI_classif" or indicators_method == "Resultats_classif":
 
-            image_file = raw_input(bold + blue + "Résultat de classification OCS à traiter (exemple : /home/scgsi/Bureau/classif_OCS_Pleiades.tif) :" + endC + " ")
+            image_file = input(bold + blue + "Résultat de classification OCS à traiter (exemple : /home/scgsi/Bureau/classif_OCS_Pleiades.tif) :" + endC + " ")
             while not os.path.exists(image_file):
                 print(bold + yellow + "Attention : le fichier raster ne peut être trouvé à cet emplacement." + endC)
-                image_file = raw_input(bold + blue + "Résultat de classification OCS à traiter (exemple : /home/scgsi/Bureau/classif_OCS_Pleiades.tif) :" + endC + " ")
+                image_file = input(bold + blue + "Résultat de classification OCS à traiter (exemple : /home/scgsi/Bureau/classif_OCS_Pleiades.tif) :" + endC + " ")
             print("\n")
 
             if indicators_method == "Resultats_classif":
 
-                mnh_file = raw_input(bold + blue + "Modèle Numérique de Hauteur à traiter (exemple : /home/scgsi/Bureau/MNH_Pleiades.tif) :" + endC + " ")
+                mnh_file = input(bold + blue + "Modèle Numérique de Hauteur à traiter (exemple : /home/scgsi/Bureau/MNH_Pleiades.tif) :" + endC + " ")
                 while not os.path.exists(mnh_file):
                     print(bold + yellow + "Attention : le fichier raster ne peut être trouvé à cet emplacement." + endC)
-                    mnh_file = raw_input(bold + blue + "Modèle Numérique de Hauteur à traiter (exemple : /home/scgsi/Bureau/MNH_Pleiades.tif) :" + endC + " ")
+                    mnh_file = input(bold + blue + "Modèle Numérique de Hauteur à traiter (exemple : /home/scgsi/Bureau/MNH_Pleiades.tif) :" + endC + " ")
                 print("\n")
 
         #############################################################
@@ -237,53 +233,53 @@ while classification:
             bati_files_list = []
 
             # Bâti indifférencié
-            bati_file = raw_input(bold + blue + "Fichier bati indifférencié de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_indifferencie.shp) :" + endC + " ")
+            bati_file = input(bold + blue + "Fichier bati indifférencié de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_indifferencie.shp) :" + endC + " ")
             while not os.path.exists(bati_file):
                 print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                bati_file = raw_input(bold + blue + "Fichier bati indifférencié de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_indifferencie.shp) :" + endC + " ")
+                bati_file = input(bold + blue + "Fichier bati indifférencié de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_indifferencie.shp) :" + endC + " ")
             bati_files_list.append(bati_file)
 
             # Bâti industriel
-            bati_file = raw_input(bold + blue + "Fichier bati industriel de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_industriel.shp) :" + endC + " ")
+            bati_file = input(bold + blue + "Fichier bati industriel de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_industriel.shp) :" + endC + " ")
             while not os.path.exists(bati_file):
                 print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                bati_file = raw_input(bold + blue + "Fichier bati industriel de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_industriel.shp) :" + endC + " ")
+                bati_file = input(bold + blue + "Fichier bati industriel de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_industriel.shp) :" + endC + " ")
             bati_files_list.append(bati_file)
 
             # Bâti remarquable
-            bati_file = raw_input(bold + blue + "Fichier bati remarquable de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_remarquable.shp) :" + endC + " ")
+            bati_file = input(bold + blue + "Fichier bati remarquable de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_remarquable.shp) :" + endC + " ")
             while not os.path.exists(bati_file):
                 print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                bati_file = raw_input(bold + blue + "Fichier bati remarquable de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_remarquable.shp) :" + endC + " ")
+                bati_file = input(bold + blue + "Fichier bati remarquable de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_remarquable.shp) :" + endC + " ")
             bati_files_list.append(bati_file)
 
             # Bâti constructions légères
-            bati_file = raw_input(bold + blue + "Fichier bati constructions légères de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_constructions_legeres.shp) :" + endC + " ")
+            bati_file = input(bold + blue + "Fichier bati constructions légères de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_constructions_legeres.shp) :" + endC + " ")
             while not os.path.exists(bati_file):
                 print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                bati_file = raw_input(bold + blue + "Fichier bati constructions légères de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_constructions_legeres.shp) :" + endC + " ")
+                bati_file = input(bold + blue + "Fichier bati constructions légères de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_constructions_legeres.shp) :" + endC + " ")
             bati_files_list.append(bati_file)
 
             # Bâti réservoirs
-            bati_file = raw_input(bold + blue + "Fichier bati réservoirs de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_reservoirs.shp) :" + endC + " ")
+            bati_file = input(bold + blue + "Fichier bati réservoirs de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_reservoirs.shp) :" + endC + " ")
             while not os.path.exists(bati_file):
                 print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                bati_file = raw_input(bold + blue + "Fichier bati réservoirs de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_reservoirs.shp) :" + endC + " ")
+                bati_file = input(bold + blue + "Fichier bati réservoirs de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/bati_reservoirs.shp) :" + endC + " ")
             bati_files_list.append(bati_file)
             print("\n")
 
             if indicators_method == "BD_exogenes" :
 
-                hydrography_file = raw_input(bold + blue + "Fichier hydrographie de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/hydro.shp) :" + endC + " ")
+                hydrography_file = input(bold + blue + "Fichier hydrographie de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/hydro.shp) :" + endC + " ")
                 while not os.path.exists(hydrography_file):
                     print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                    hydrography_file = raw_input(bold + blue + "Fichier hydrographie de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/hydro.shp) :" + endC + " ")
+                    hydrography_file = input(bold + blue + "Fichier hydrographie de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/hydro.shp) :" + endC + " ")
                 print("\n")
 
-                rpg_file = raw_input(bold + blue + "Fichier RPG à traiter (exemple : /home/scgsi/Bureau/RPG.shp) :" + endC + " ")
+                rpg_file = input(bold + blue + "Fichier RPG à traiter (exemple : /home/scgsi/Bureau/RPG.shp) :" + endC + " ")
                 while not os.path.exists(rpg_file):
                     print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                    rpg_file = raw_input(bold + blue + "Fichier RPG à traiter (exemple : /home/scgsi/Bureau/RPG.shp) :" + endC + " ")
+                    rpg_file = input(bold + blue + "Fichier RPG à traiter (exemple : /home/scgsi/Bureau/RPG.shp) :" + endC + " ")
                 print("\n")
 
             elif indicators_method == "SI_seuillage":
@@ -291,17 +287,17 @@ while classification:
                 roads_files_list = []
 
                 # Tronçons routes
-                roads_file = raw_input(bold + blue + "Fichier tronçons route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/troncon_route.shp) :" + endC + " ")
+                roads_file = input(bold + blue + "Fichier tronçons route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/troncon_route.shp) :" + endC + " ")
                 while not os.path.exists(roads_file):
                     print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                    roads_file = raw_input(bold + blue + "Fichier tronçons route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/troncon_route.shp) :" + endC + " ")
+                    roads_file = input(bold + blue + "Fichier tronçons route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/troncon_route.shp) :" + endC + " ")
                 roads_files_list.append(roads_file)
 
                 # Surfaces routes
-                roads_file = raw_input(bold + blue + "Fichier surfaces route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/surface_route.shp) :" + endC + " ")
+                roads_file = input(bold + blue + "Fichier surfaces route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/surface_route.shp) :" + endC + " ")
                 while not os.path.exists(roads_file):
                     print(bold + yellow + "Attention : le fichier vecteur ne peut être trouvé à cet emplacement." + endC)
-                    roads_file = raw_input(bold + blue + "Fichier surfaces route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/surface_route.shp) :" + endC + " ")
+                    roads_file = input(bold + blue + "Fichier surfaces route de la BD TOPO à traiter (exemple : /home/scgsi/Bureau/surface_route.shp) :" + endC + " ")
                 roads_files_list.append(roads_file)
                 print("\n")
 
@@ -320,56 +316,56 @@ while classification:
             if indicators_method == "BD_exogenes" or indicators_method == "SI_seuillage":
 
                 test_threshold_ndvi = True
-                threshold_ndvi = raw_input(bold + blue + "Choix du seuil de NDVI pour l'extraction de la végétation :" + endC + " ")
+                threshold_ndvi = input(bold + blue + "Choix du seuil de NDVI pour l'extraction de la végétation :" + endC + " ")
                 while test_threshold_ndvi:
                     try:
                         threshold_ndvi = float(threshold_ndvi)
                         test_threshold_ndvi = False
                     except ValueError:
                         print(bold + yellow + "Attention : le paramètre n'est pas valide, entrez un nombre (séparateur décimal '.')." + endC)
-                        threshold_ndvi = raw_input(bold + blue + "Choix du seuil de NDVI pour l'extraction de la végétation :" + endC + " ")
+                        threshold_ndvi = input(bold + blue + "Choix du seuil de NDVI pour l'extraction de la végétation :" + endC + " ")
 
                 if indicators_method == "SI_seuillage":
 
                     test_threshold_ndvi_water = True
-                    threshold_ndvi_water = raw_input(bold + blue + "Choix du seuil de NDVI pour l'extraction de l'eau :" + endC + " ")
+                    threshold_ndvi_water = input(bold + blue + "Choix du seuil de NDVI pour l'extraction de l'eau :" + endC + " ")
                     while test_threshold_ndvi_water:
                         try:
                             threshold_ndvi_water = float(threshold_ndvi_water)
                             test_threshold_ndvi_water = False
                         except ValueError:
                             print(bold + yellow + "Attention : le paramètre n'est pas valide, entrez un nombre (séparateur décimal '.')." + endC)
-                            threshold_ndvi_water = raw_input(bold + blue + "Choix du seuil de NDVI pour l'extraction de l'eau :" + endC + " ")
+                            threshold_ndvi_water = input(bold + blue + "Choix du seuil de NDVI pour l'extraction de l'eau :" + endC + " ")
 
                     test_threshold_ndwi2 = True
-                    threshold_ndwi2 = raw_input(bold + blue + "Choix du seuil de NDWI2 pour l'extraction de l'eau :" + endC + " ")
+                    threshold_ndwi2 = input(bold + blue + "Choix du seuil de NDWI2 pour l'extraction de l'eau :" + endC + " ")
                     while test_threshold_ndwi2:
                         try:
                             threshold_ndwi2 = float(threshold_ndwi2)
                             test_threshold_ndwi2 = False
                         except ValueError:
                             print(bold + yellow + "Attention : le paramètre n'est pas valide, entrez un nombre (séparateur décimal '.')." + endC)
-                            threshold_ndwi2 = raw_input(bold + blue + "Choix du seuil de NDWI2 pour l'extraction de l'eau :" + endC + " ")
+                            threshold_ndwi2 = input(bold + blue + "Choix du seuil de NDWI2 pour l'extraction de l'eau :" + endC + " ")
 
                     test_threshold_bi_bottom = True
-                    threshold_bi_bottom = raw_input(bold + blue + "Choix du seuil inférieur du BI pour l'extraction du sol nu :" + endC + " ")
+                    threshold_bi_bottom = input(bold + blue + "Choix du seuil inférieur du BI pour l'extraction du sol nu :" + endC + " ")
                     while test_threshold_bi_bottom:
                         try:
                             threshold_bi_bottom = float(threshold_bi_bottom)
                             test_threshold_bi_bottom = False
                         except ValueError:
                             print(bold + yellow + "Attention : le paramètre n'est pas valide, entrez un nombre (séparateur décimal '.')." + endC)
-                            threshold_bi_bottom = raw_input(bold + blue + "Choix du seuil inférieur du BI pour l'extraction du sol nu :" + endC + " ")
+                            threshold_bi_bottom = input(bold + blue + "Choix du seuil inférieur du BI pour l'extraction du sol nu :" + endC + " ")
 
                     test_threshold_bi_top = True
-                    threshold_bi_top = raw_input(bold + blue + "Choix du seuil supérieur du BI pour l'extraction du sol nu :" + endC + " ")
+                    threshold_bi_top = input(bold + blue + "Choix du seuil supérieur du BI pour l'extraction du sol nu :" + endC + " ")
                     while test_threshold_bi_top:
                         try:
                             threshold_bi_top = float(threshold_bi_top)
                             test_threshold_bi_top = False
                         except ValueError:
                             print(bold + yellow + "Attention : le paramètre n'est pas valide, entrez un nombre (séparateur décimal '.')." + endC)
-                            threshold_bi_top = raw_input(bold + blue + "Choix du seuil supérieur du BI pour l'extraction du sol nu :" + endC + " ")
+                            threshold_bi_top = input(bold + blue + "Choix du seuil supérieur du BI pour l'extraction du sol nu :" + endC + " ")
 
                 print("\n")
 
@@ -413,10 +409,10 @@ while classification:
 
         print("\n")
 
-        confirmation = raw_input(bold + blue + "Confirmer ces paramètres ? (Y/N) :" + endC + " ")
+        confirmation = input(bold + blue + "Confirmer ces paramètres ? (Y/N) :" + endC + " ")
         while confirmation not in ("Y","N"):
             print(bold + yellow + "Attention : veuillez répondre par Y ou N." + endC)
-            confirmation = raw_input(bold + blue + "Confirmer ces paramètres ? (Y/N) :" + endC + " ")
+            confirmation = input(bold + blue + "Confirmer ces paramètres ? (Y/N) :" + endC + " ")
         if confirmation == "Y":
             parametrage = False
         print("\n")
@@ -437,9 +433,9 @@ while classification:
         # Niveau de debug
         debug = 3
 
-##################################################################################################################################################################
-################################################## Lancement de la classification en Zones Climatiques Urbaines ##################################################
-##################################################################################################################################################################
+    ##################################################################################################################################################################
+    ################################################## Lancement de la classification en Zones Climatiques Urbaines ##################################################
+    ##################################################################################################################################################################
 
     if not os.path.exists(ucz_output) or overwrite:
         print(green + "Début de la classification en Zones Climatiques Urbaines :" + endC)
@@ -491,10 +487,10 @@ while classification:
 
         if os.path.exists(temp_directory):
             print(bold + "Des données temporaires existent, veillez à les conserver si vous reprenez un traitement en cours..." + endC)
-            clean_temp = raw_input(bold + blue + "Nettoyer le dossier temporaire ? (Y/N) :" + endC + " ")
+            clean_temp = input(bold + blue + "Nettoyer le dossier temporaire ? (Y/N) :" + endC + " ")
             while clean_temp not in ("Y","N"):
                 print(bold + yellow + "Attention : veuillez répondre par Y ou N." + endC)
-                clean_temp = raw_input(bold + blue + "Nettoyer le dossier temporaire ? (Y/N) :" + endC + " ")
+                clean_temp = input(bold + blue + "Nettoyer le dossier temporaire ? (Y/N) :" + endC + " ")
             print("\n")
             if clean_temp == "Y":
                 shutil.rmtree(temp_directory)
@@ -556,10 +552,10 @@ while classification:
         ### Lancement des calculs, appel des fonctions ###
         ##################################################
 
-        etape1 = raw_input(bold + blue + "Lancer la préparation des données ? (Y/N) :" + endC + " ")
+        etape1 = input(bold + blue + "Lancer la préparation des données ? (Y/N) :" + endC + " ")
         while etape1 not in ("Y","N"):
             print(bold + yellow + "Attention : veuillez répondre par Y ou N." + endC)
-            etape1 = raw_input(bold + blue + "Lancer la préparation des données ? (Y/N) :" + endC + " ")
+            etape1 = input(bold + blue + "Lancer la préparation des données ? (Y/N) :" + endC + " ")
         print("\n")
 
         if etape1 == "Y":
@@ -574,10 +570,10 @@ while classification:
 
             ###
 
-        etape2 = raw_input(bold + blue + "Lancer la préparation des indicateurs ? (Y/N) :" + endC + " ")
+        etape2 = input(bold + blue + "Lancer la préparation des indicateurs ? (Y/N) :" + endC + " ")
         while etape2 not in ("Y","N"):
             print(bold + yellow + "Attention : veuillez répondre par Y ou N." + endC)
-            etape2 = raw_input(bold + blue + "Lancer la préparation des indicateurs ? (Y/N) :" + endC + " ")
+            etape2 = input(bold + blue + "Lancer la préparation des indicateurs ? (Y/N) :" + endC + " ")
         print("\n")
 
         if etape2 == "Y":
@@ -591,10 +587,10 @@ while classification:
 
             ###
 
-        etape3 = raw_input(bold + blue + "Lancer le calcul final des indicateurs et UCZ ? (Y/N) :" + endC + " ")
+        etape3 = input(bold + blue + "Lancer le calcul final des indicateurs et UCZ ? (Y/N) :" + endC + " ")
         while etape3 not in ("Y","N"):
             print(bold + yellow + "Attention : veuillez répondre par Y ou N." + endC)
-            etape3 = raw_input(bold + blue + "Lancer le calcul final des indicateurs et UCZ ? (Y/N) :" + endC + " ")
+            etape3 = input(bold + blue + "Lancer le calcul final des indicateurs et UCZ ? (Y/N) :" + endC + " ")
         print("\n")
 
         if etape3 == "Y":
@@ -620,10 +616,10 @@ while classification:
 
     print("\n")
 
-    relance = raw_input(bold + blue + "Relancer une nouvelle classification ? (Y/N) :" + endC + " ")
+    relance = input(bold + blue + "Relancer une nouvelle classification ? (Y/N) :" + endC + " ")
     while relance not in ("Y","N"):
         print(bold + yellow + "Attention : veuillez répondre par Y ou N." + endC)
-        relance = raw_input(bold + blue + "Relancer une nouvelle classification ? (Y/N) :" + endC + " ")
+        relance = input(bold + blue + "Relancer une nouvelle classification ? (Y/N) :" + endC + " ")
     if relance == "N":
         classification = False
     print("\n")

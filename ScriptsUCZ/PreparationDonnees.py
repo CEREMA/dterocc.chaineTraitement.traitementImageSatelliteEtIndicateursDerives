@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
-import os, ogr
+import os
+from osgeo import ogr
 from Lib_log import timeLine
 from Lib_raster import cutImageByVector
 from Lib_vector import updateProjection, bufferVector, cutVector, addNewFieldVector, updateIndexVector, filterSelectDataVector, intersectVector, fusionVectors, cleanMiniAreaPolygons, simplifyVector
@@ -30,7 +31,7 @@ def preparationRasters(urbanatlas_input, ucz_output, emprise_file, mask_file, en
     image_cut = temp_directory + os.sep + os.path.splitext(os.path.basename(image_file))[0] + "_cut" + extension_raster
     print(bold + cyan + "    Découpage de '%s' à l'emprise de '%s' :" % (image_file, emprise_file) + endC)
     # Découpage de l'image en entrée (image sat ou résultat classif)
-    cutImageByVector(emprise_file, image_file, image_cut, None, None, no_data_value, 0, format_raster, format_vector)
+    cutImageByVector(emprise_file, image_file, image_cut, None, None, False, no_data_value, 0, format_raster, format_vector)
 
     if indicators_method == "BD_exogenes":
         neochannels = temp_directory + os.sep + os.path.splitext(os.path.basename(image_file))[0] + "_NDVI" + extension_raster
@@ -46,7 +47,7 @@ def preparationRasters(urbanatlas_input, ucz_output, emprise_file, mask_file, en
         MNH_cut = temp_directory + os.sep + os.path.splitext(os.path.basename(mnh_file))[0] + "_cut" + extension_raster
         print(bold + cyan + "    Découpage de '%s' à l'emprise de '%s' :" % (mnh_file, emprise_file) + endC)
         # Découpage du MNH pour la 4ème méthode de calcul des indicateurs
-        cutImageByVector(emprise_file, mnh_file, MNH_cut, None, None, no_data_value, 0, format_raster, format_vector)
+        cutImageByVector(emprise_file, mnh_file, MNH_cut, None, None, False, no_data_value, 0, format_raster, format_vector)
 
     step = "    Fin de la préparation des données rasters : "
     timeLine(path_time_log,step)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #############################################################################################################################################
-# Copyright (©) CEREMA/DTerSO/DALETT/SCGSI  All rights reserved.                                                                            #
+# Copyright (©) CEREMA/DTerOCC/DT/OSECC  All rights reserved.                                                                               #
 #############################################################################################################################################
 
 from __future__ import print_function
@@ -75,7 +75,7 @@ def indicateurSI(urbanatlas_input, ucz_output, emprise_file, mask_file, enter_wi
         os.system("otbcli_BandMath -il %s -out %s uint8 -exp 'im1b1>=12000 ? 10 : 1'" % (image_cut, permeability)) # Création de la carte d'imperméabilité
 
     print(bold + cyan + "    Récupération du pourcentage de surfaces imperméables par polygone du maillage :" + endC)
-    statisticsVectorRaster(permeability, grid_ready_cleaned, "", 1, True, True, False, [], [], {1:'Imperm', 10:'Perm'}, path_time_log, True, 'ESRI Shapefile', False, True) # Récupération du pourcentage de surfaces imperméables par polygone du maillage
+    statisticsVectorRaster(permeability, grid_ready_cleaned, "", 1, True, True, False, [], [], {1:'Imperm', 10:'Perm'}, True, 0, 'ESRI Shapefile', path_time_log, False, True) # Récupération du pourcentage de surfaces imperméables par polygone du maillage
     time.sleep(10) # Pause de 10 secondes pour que le système récupère toute la RAM qui a pu être utilisée pour le CVR
 
     step = "    Fin de la préparation au calcul de l'indicateur de pourcentage de surfaces imperméables : "
@@ -109,14 +109,14 @@ def indicateurRA(urbanatlas_input, ucz_output, emprise_file, mask_file, enter_wi
         print(bold + cyan + "    Basculement des valeurs du MNH des mètres aux centimètres :" + endC)
         os.system("otbcli_BandMath -il %s -out %s uint16 -exp 'im1b1*100'" % (MNH_cut, MNH_centimeters)) # Basculement des valeurs du MNH des mètres aux centimètres (pour obtenir un raster codé en entier et non en flottant)
         print(bold + cyan + "    Récupération de l'information de hauteur du bâti à partir du MNH :" + endC)
-        statisticsVectorRaster(MNH_centimeters, built_shape, "", 1, False, False, True, [], [], {}, logCVR, True, 'ESRI Shapefile', False, True) # Récupération de l'information de hauteur du bâti à partir du MNH
+        statisticsVectorRaster(MNH_centimeters, built_shape, "", 1, False, False, True, [], [], {}, True, 0, 'ESRI Shapefile', logCVR, False, True) # Récupération de l'information de hauteur du bâti à partir du MNH
         time.sleep(10) # Pause de 10 secondes pour que le système récupère toute la RAM qui a pu être utilisée pour le CVR
 
     print(bold + cyan + "    Rastérisation du bâti :" + endC)
     pixel_size_x, pixel_size_y = getPixelWidthXYImage(permeability)
     os.system("gdal_rasterize -burn 10 -init 1 -tr %s %s %s %s" % (pixel_size_x, pixel_size_y, built_shape, built_RA)) # Rastérisation du bâti via GDAL plutôt qu'OTB : mauvaise gestion des valeurs de background pour l'OTB (devient NoData)
     print(bold + cyan + "    Récupération de la surface non-bâtie par polygone du maillage :" + endC)
-    statisticsVectorRaster(built_RA, grid_ready_cleaned, "", 1, True, True, False, [], [], {1:'NonBati', 10:'Bati'}, path_time_log, True, 'ESRI Shapefile', False, True) # Récupération de la surface non-bâtie par polygone du maillage
+    statisticsVectorRaster(built_RA, grid_ready_cleaned, "", 1, True, True, False, [], [], {1:'NonBati', 10:'Bati'}, True, 0, 'ESRI Shapefile', path_time_log, False, True) # Récupération de la surface non-bâtie par polygone du maillage
     time.sleep(10) # Pause de 10 secondes pour que le système récupère toute la RAM qui a pu être utilisée pour le CVR
 
     step = "    Fin de la préparation au calcul de l'indicateur de rapport d'aspect : "
@@ -160,7 +160,7 @@ def indicateurRug(urbanatlas_input, ucz_output, emprise_file, mask_file, enter_w
         os.system("otbcli_BandMath -il %s -out %s -exp '(im1b1*0.7)*100'" % (built_height, long_rugosite)) # Calcul de la longueur de rugosité
 
     print(bold + cyan + "    Récupération de la longueur de rugosité moyenne par polygone du maillage :" + endC)
-    statisticsVectorRaster(long_rugosite, grid_ready_cleaned, "", 1, False, False, True, [], [], {}, logCVR, True, True) # Récupération de la longueur de rugosité moyenne (~ hauteur de bâti moyenne) par polygone du maillage
+    statisticsVectorRaster(long_rugosite, grid_ready_cleaned, "", 1, False, False, True, [], [], {}, True, 0, 'ESRI Shapefile', logCVR, False, True) # Récupération de la longueur de rugosité moyenne (~ hauteur de bâti moyenne) par polygone du maillage
     time.sleep(10) # Pause de 10 secondes pour que le système récupère toute la RAM qui a pu être utilisée pour le CVR
 
     step = "    Fin de la préparation au calcul de l'indicateur de classe de rugosité : "
