@@ -18,11 +18,11 @@
 from __future__ import print_function
 import sys,os,glob
 from osgeo import ogr ,osr
-import geopandas
+import sqlite3
 from rasterstats2 import raster_stats
 from Lib_operator import *
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
-from Lib_file import renameVectorFile, removeVectorFile, removeFile
+from Lib_file import renameVectorFile, removeVectorFile, removeFile, copyVectorFile
 from Lib_text import writeTextFile, appendTextFileCR
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
@@ -30,30 +30,73 @@ from Lib_text import writeTextFile, appendTextFileCR
 debug = 1
 
 ########################################################################
+# FONCTION forceProjection()                                           #
+########################################################################
+def forceProjection(vector_input, vector_output, epsg=2154, format_vector='ESRI Shapefile'):
+    """
+    # Rôle : cette fonction force l'EPSG d'un fichier vector en modifiant ses métadonnées..
+    # Paramètres en entrée :
+    #       vector_input : vecteur d'entrée, celui à qui on veut changer la projection
+    #       vector_output : vecteur de sortie, celui avec la nouvelle projection
+    #       epsg : projection à appliquer, code EPSG (par défaut : 2154)
+    #       format_vector : format du vecteur de sortie (par défaut : ESRI Shapefile)
+    # Paramètres en sortie :
+    #       N.A.
+    """
+    if format_vector.upper() == "GPKG":
+        copyVectorFile(vector_input, vector_output, format_vector)
+
+        conn = sqlite3.connect(vector_output)
+        cursor = conn.cursor()
+
+        # Modifier la référence spatiale
+        cursor.execute("UPDATE gpkg_spatial_ref_sys SET srs_id=?, organization='EPSG', organization_coordsys_id=? WHERE srs_id=(SELECT srs_id FROM gpkg_contents LIMIT 1);", (epsg, epsg))
+
+        # Modifier la couche principale
+        cursor.execute("UPDATE gpkg_contents SET srs_id=?;", (epsg,))
+
+        conn.commit()
+        conn.close()
+    else:
+        command = "ogr2ogr -f '%s' -a_srs EPSG:%s -s_srs EPSG:%s -skipfailures -overwrite  %s %s" %(format_vector, str(epsg), vector_output, vector_input)
+        if debug >=2:
+            print(command)
+        exit_code = os.system(command)
+        if exit_code != 0:
+            print(cyan + "forceProjection() : " + bold + red + "!!! Une erreur c'est produite au cours de la mise a jour de la projection du vecteur : " + vector_input + endC, file=sys.stderr)
+            sys.exit(1)
+
+    if debug >=2:
+        print(cyan + "forceProjection() : " + endC + "le fichier " + vector_input + " a été mis à jour vers " + vector_output + "." + endC)
+
+    return
+
+########################################################################
 # FONCTION updateProjection()                                          #
 ########################################################################
-def updateProjection(vector_input, vector_output, projection=2154, format_vector='ESRI Shapefile'):
+def updateProjection(vector_input, vector_output, proj_out=2154, format_vector='ESRI Shapefile'):
     """
     # Rôle : cette fonction met à jour la projection d'un fichier shape, peu importe sa projection d'origine.
     # Paramètres en entrée :
     #       vector_input : vecteur d'entrée, celui à qui on veut changer la projection
     #       vector_output : vecteur de sortie, celui avec la nouvelle projection
-    #       projection : projection à appliquer, code EPSG (par défaut : 2154)
+    #       proj_out : projection à appliquer, code EPSG (par défaut : 2154)
     #       format_vector : format du vecteur de sortie (par défaut : ESRI Shapefile)
     # Paramètres en sortie :
     #       N.A.
     """
 
     if debug >=2:
-        print(cyan + "updateProjection() : " + endC + "mise à jour de la projection du fichier " + vector_input + " (code EPSG : " + str(projection) + ")." + endC)
+        print(cyan + "updateProjection() : " + endC + "mise à jour de la projection du fichier " + vector_input + " (code EPSG : " + str(proj_out) + ")." + endC)
+    proj_input,prj = getProjection(vector_input, format_vector)
 
-    command = "ogr2ogr -f '%s' -t_srs EPSG:%s %s %s" % (format_vector, projection, vector_output, vector_input)
+    command = "ogr2ogr -f '%s' -t_srs EPSG:%s -s_srs EPSG:%s -skipfailures -overwrite  %s %s" % (format_vector, str(proj_out), str(proj_input), vector_output, vector_input)
     if debug >=2:
         print(command)
     exit_code = os.system(command)
     if exit_code != 0:
         print(cyan + "updateProjection() : " + bold + red + "!!! Une erreur c'est produite au cours de la mise a jour de la projection du vecteur : " + vector_input + endC, file=sys.stderr)
-
+        sys.exit(1)
     if debug >=2:
         print(cyan + "updateProjection() : " + endC + "le fichier " + vector_input + " a été mis à jour vers " + vector_output + "." + endC)
 
@@ -105,7 +148,7 @@ def getProjection(vector_input, format_vector='ESRI Shapefile'):
     return epsg, projection
 
 ########################################################################
-# FONCTION getEmpriseVector()                                            #
+# FONCTION getEmpriseVector()                                          #
 ########################################################################
 def getEmpriseVector(vector_input, format_vector='ESRI Shapefile'):
     """
@@ -174,7 +217,7 @@ def getAreaPolygon(vector_input, col, value, format_vector='ESRI Shapefile'):
     data_source_input = driver_input.Open(vector_input, 0) # 0 means read-only.
     if data_source_input is None:
         print(cyan + "getAreaPolygon() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
-        return -1.0
+        sys.exit(1)
 
     # Recuperer la couche (une couche contient les polygones)
     layer_input = data_source_input.GetLayer(0)
@@ -227,7 +270,7 @@ def getNumberFeature(vector_input, format_vector='ESRI Shapefile'):
     data_source_input = driver_input.Open(vector_input, 0) # 0 means read-only.
     if data_source_input is None:
         print(cyan + "getNumberFeature() : " + bold + red + "Impossible d'ouvrir le fichier vecteur : " + vector_input + endC, file=sys.stderr)
-        return -1.0
+        sys.exit(1)
 
     # Recuperer la couche (une couche contient les polygones)
     layer_input = data_source_input.GetLayer(0)
@@ -738,7 +781,7 @@ def updateIndexVector(vector_input, index_name="id", format_vector='ESRI Shapefi
     data_source_input = driver_input.Open(vector_input, 1) # 1 means read-write
     if data_source_input is None:
         print(cyan + "updateIndexVector() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
-        return -1.0
+        sys.exit(1)
 
     # Recuperer la couche contenant les éléments
     layer_input = data_source_input.GetLayer(0)
@@ -785,7 +828,7 @@ def updateFieldVector(vector_input, field_name="id", value=0, format_vector='ESR
     data_source_input = driver_input.Open(vector_input, 1)
     if data_source_input is None:
         print(cyan + "updateFieldVector() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
-        return -1.0
+        sys.exit(1)
 
     # Récupérer la couche contenant les éléments
     layer_input = data_source_input.GetLayer(0)
@@ -921,7 +964,7 @@ def renameFieldsVector(vector_input, fields_name_list, new_fields_name_list, for
     data_source_input = driver_input.Open(vector_input, 1)
     if data_source_input is None:
         print(cyan + "renameFieldsVector() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
-        return -1.0
+        sys.exit(1)
 
     # Récupérer la couche contenant les éléments
     layer_input = data_source_input.GetLayer(0)
@@ -972,6 +1015,9 @@ def deleteFieldsVector(vector_input, vector_output, fields_name_list, format_vec
 
     # Recuperation du driver pour le format shape fichier entrée
     driver = ogr.GetDriverByName(format_vector)
+    if driver is None:
+        print(cyan + "deleteFieldsVector() : " + bold + red + f"Erreur : Format {format_vector} non supporté.", file=sys.stderr)
+        sys.exit(1) # exit with an error code
 
     # Ouverture du fichier shape en lecture-ecriture
     data_source_input = driver.Open(vector_input, 1) # 1 means writeable.
@@ -979,94 +1025,79 @@ def deleteFieldsVector(vector_input, vector_output, fields_name_list, format_vec
         print(cyan + "deleteFieldsVector() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
         sys.exit(1) # exit with an error code
 
-    # Recuperer la couche (une couche contient les polygones)
-    layer_input = data_source_input.GetLayer(0)
+    # Recuperer la couche
+    if format_vector == "GPKG":
+        layer_count = data_source_input.GetLayerCount()
+        if layer_count == 0:
+            print(cyan + "deleteFieldsVector() : " + bold + red + f"Erreur : Aucun layer trouvé dans le fichier GPKG {vector_input}.", file=sys.stderr)
+            sys.exit(1) # exit with an error code
+        layer_input = data_source_input.GetLayerByIndex(0)  # Prend la première couche
+    else:
+        layer_input = data_source_input.GetLayer(0)
+
+    if layer_input is None:
+        print(cyan + "deleteFieldsVector() : " + bold + red + f"Erreur : Impossible d'obtenir la couche du fichier vecteur {vector_input}.", file=sys.stderr)
+        sys.exit(1) # exit with an error code
 
     # Vérification de l'existence de la colonne col
     layer_definition = layer_input.GetLayerDefn() # GetLayerDefn => returns the field names of the user defined (created) fields
-    for field_name in fields_name_list:
-        id_field = layer_definition.GetFieldIndex(field_name)
+    fields_existing = [layer_definition.GetFieldDefn(i).GetName() for i in range(layer_definition.GetFieldCount())]
 
-        if id_field == -1 :
-            print(cyan + "deleteFieldsVector() : " + bold + yellow + "Attention le champs n'existe pas, il ne sera pas supprimer : " + field_name + endC)
+    # Vérifier si les champs à supprimer existent
+    fields_to_remove = [field for field in fields_name_list if field in fields_existing]
+    if not fields_to_remove:
+        print(cyan + "deleteFieldsVector() : " + bold + yellow + "Attention Aucun champ valide à supprimer.", file=sys.stderr)
 
-    # Récupération des cractéristiques du fichier en entrée (type de géométrie, projection...)
+   # Récupération des cractéristiques du fichier en entrée (type de géométrie, projection...)
     feature_input = layer_input.GetNextFeature()
-
-    if feature_input is None:  # Cas où il n'y a aucun polygone à simplifier
-        return
+    if feature_input is None:
+        print(cyan + "deleteFieldsVector() : " + bold + red + "Le fichier {vector_input} ne contient aucun objet géométrique.", file=sys.stderr)
+        sys.exit(1) # exit with an error code
 
     geometry = feature_input.GetGeometryRef()
     geomType = geometry.GetGeometryType()
 
-    # Creation du fichier de sortie
+    # Suppression du fichier de sortie s'il existe
     if os.path.exists(vector_output):
         driver.DeleteDataSource(vector_output)
 
-    try:
-        # Création du fichier Datasource
-        data_source_output = driver.CreateDataSource(vector_output)
-    except:
-        print(cyan + "deleteFieldsVector() : " + endC + bold + red + "Could not create output file : " + str(vector_output) + endC, file=sys.stderr)
-        sys.exit(1)
+    # Création du fichier de sortie
+    data_source_output = driver.CreateDataSource(vector_output)
+    if data_source_output is None:
+        print(cyan + "deleteFieldsVector() : " + bold + red + f"Erreur : Impossible de créer {vector_output}.", file=sys.stderr)
+        sys.exit(1) # exit with an error code
 
     # Création du fichier "couche" avec les mêmes caractéristiques que celui du fichier en entrée
     layer_output = data_source_output.CreateLayer(os.path.splitext(os.path.basename(vector_output))[0], srs=layer_input.GetSpatialRef(), geom_type=geomType)
     if layer_output is None:
-        print(cyan + "deleteFieldsVector() : " + endC + bold + red + "Could not create layer in output file." + endC)
+        print(cyan + "deleteFieldsVector() : " + endC + bold + red + "Erreur : Impossible de créer la couche de sortie.", file=sys.stderr)
         sys.exit(1)
 
-    # Création du modèle
-    defn_layer_output = layer_output.GetLayerDefn()
+    # Ajouter les champs non supprimés
+    for field_index in range(layer_definition.GetFieldCount()):
+        field_defn = layer_definition.GetFieldDefn(field_index)
+        if field_defn.GetName() not in fields_to_remove:
+            layer_output.CreateField(field_defn)
 
-    # Ajouter les champs qui ne sont pas dans la liste de suppression du fichier de sortie
-    defn_layer_input = layer_input.GetLayerDefn()
-    nb_fields = defn_layer_input.GetFieldCount()
-    for i in range(0, nb_fields):
-        field = defn_layer_input.GetFieldDefn(i)
-        field_name = field.GetName()
-        if field_name not in fields_name_list:
-            layer_output.CreateField(field)
+    # Copier les entités en excluant les champs supprimés
+    feature_id = 0
+    for feature in layer_input:
+        feature_output = ogr.Feature(layer_output.GetLayerDefn())
+        feature_output.SetGeometry(feature.GetGeometryRef())
+        feature_output.SetFID(feature_id)
 
-    # Initialisation des ID des éléments de la couche
-    featureID = 0
+        k = 0
+        for j in range(layer_definition.GetFieldCount()):
+            field_defn = layer_definition.GetFieldDefn(j)
+            if field_defn.GetName() not in fields_to_remove:
+                feature_output.SetField(k, feature.GetField(j))
+                k += 1
 
-    # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
-        # Get the input Feature
-        feature_input = layer_input.GetFeature(i)
-
-        # Récupération de la géométrie de l'éléments
-        geometry = feature_input.GetGeometryRef()
-
-        # Assignation du modèle de "couche" un nouvel élément (copie de l'élement d'origine)
-        feature_output = ogr.Feature(defn_layer_output)
-        # Assignation de la géométrie à ce nouvel élément
-        feature_output.SetGeometry(geometry)
-        # Assignation d'un numéro de FID à ce nouvel élément
-        feature_output.SetFID(featureID)
-
-        # Pour tous les Champs
-        k=0
-        for j in range(0, nb_fields):
-
-            field = feature_input.GetFieldDefnRef(j)
-            field_name = field.GetName()
-
-            if field_name not in fields_name_list:
-                field_value = feature_input.GetFieldAsString(j)
-                feature_output.SetField(k, field_value)
-                k+=1
-
-        # Création de ce nouvel élément
         layer_output.CreateFeature(feature_output)
+        feature_output = None
+        feature_id += 1
 
-        # Fermeture des feature d'netrée et de sortie
-        feature_output.Destroy()
-        feature_input.Destroy()
-        feature_input = layer_input.GetNextFeature()
-        featureID += 1
-
+    # Nettoyage
     data_source_input.Destroy()
     data_source_output.Destroy()
 
@@ -1299,7 +1330,7 @@ def getAverageAreaClass(vector_input, col, class_id, format_vector='ESRI Shapefi
     data_source_input = driver_input.Open(vector_input, 0) # 0 means read-only.
     if data_source_input is None:
         print(cyan + "getAverageAreaClass() : " + bold + red + "Impossible d'ouvrir le fichier shape : " + vector_input + endC, file=sys.stderr)
-        return -1.0
+        sys.exit(1)
 
     # Recuperer la couche (une couche contient les polygones)
     layer_input = data_source_input.GetLayer(0)
@@ -4326,7 +4357,7 @@ def splitVector(vector_input, dir_output, field="", projection=2154, format_vect
         geometry = feature_input.GetGeometryRef()
 
         # Création d'un shape par entité de input_layer
-        entite = entite.replace("-", "_").replace("â", "a").replace("î", "i").replace("ê", "e").replace("è", "e").replace("é", "e").replace("ç", "c")
+        entite = str(entite).replace("-", "_").replace("â", "a").replace("î", "i").replace("ê", "e").replace("è", "e").replace("é", "e").replace("ç", "c")
         new_shape = dir_output + os.sep + os.path.splitext(os.path.basename(vector_input))[0] + "_" + str(entite) + extension_vector
         path_list.append(str(new_shape))
 
@@ -4750,3 +4781,73 @@ def createPointsFromCoordList(attribute_dico, points_attr_coord_dico, vector_out
         print(cyan + "createPointsFromCoordList() : " + endC + "Le fichier vecteur resultat : " +  str(vector_output))
 
     return
+
+#########################################################################
+# FONCTION createContourVector()                                        #
+#########################################################################
+def createContourVector(vector_input, vector_output, overwrite = True, format_vector = 'ESRI Shapefile'):
+    """
+    #   Rôle : Cette fonction permet de créer une géométrie rectangulaire englobant le/les polygone(s) d'un fichier vecteur pris en entrée.
+    #   paramètres :
+    #       vector_input : fichier vecteur d'entree
+    #       vector_output : fichier vecteur de sortie contenant le polygone englobant
+    #       overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #       format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
+    #
+    """
+
+    if debug >=2:
+        print(cyan + "createContourVector() : " + endC + "Création d'un polygone rectangulaire englobant à partir d'un fichier vecteur")
+
+    # si le fichier de sortie existe on le supprime
+    if os.path.exists(vector_output):
+        if not overwrite:
+            print(cyan + "createContourVector() : " + bold + yellow + "Le vecteur " + str(vector_output) + " existe déjà." + '\n' + endC)
+            return
+        ogr.GetDriverByName(format_vector).DeleteDataSource(vector_output)
+
+    # si le dossier du fichier de sortie n'existe pas, on le crée
+    path_out = os.sep.join(vector_output.split(os.sep)[:-1])
+    if not os.path.exists(path_out):
+        os.makedirs(path_out)
+
+    # fichier .shp contenant la ou les zones
+    zones_shp = ogr.Open(vector_input)
+    zones_layer = zones_shp.GetLayer()
+
+    # enveloppe de toutes les zones
+    env = zones_layer.GetExtent()
+
+    # reference spatiale
+    original_srs = zones_layer.GetSpatialRef()
+
+    # nouveau fichier .shp avec cette enveloppe rectangulaire
+    output_shp = ogr.GetDriverByName(format_vector).CreateDataSource(vector_output)
+    output_layer = output_shp.CreateLayer('enveloppe',original_srs,geom_type=ogr.wkbPolygon)
+
+    # definition de la geometrie de l'enveloppe
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+    ring.AddPoint(env[0], env[2])
+    ring.AddPoint(env[1], env[2])
+    ring.AddPoint(env[1], env[3])
+    ring.AddPoint(env[0], env[3])
+    ring.AddPoint(env[0], env[2])
+
+    polygon = ogr.Geometry(ogr.wkbPolygon)
+    polygon.AddGeometry(ring)
+
+    # ajout de la geometrie au fichier de sortie
+    feature_defn = output_layer.GetLayerDefn()
+    feature = ogr.Feature(feature_defn)
+    feature.SetGeometry(polygon)
+    output_layer.CreateFeature(feature)
+
+    # fermeture
+    zones_shp = None
+    output_shp = None
+
+    if debug >=2:
+        print(cyan + "createContourVector() : " + endC + "Le fichier vecteur resultat : " +  str(vector_output))
+
+    return
+

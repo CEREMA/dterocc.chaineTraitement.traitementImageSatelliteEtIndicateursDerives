@@ -1042,7 +1042,7 @@ def cutImageByVector(cut_shape_file ,input_image, output_image, pixel_size_x=Non
     if in_line :
         pixel_debord = 0
 
-    command = 'gdalwarp -t_srs EPSG:%s -te %s %s %s %s -tap -cblend 0.5 -multi -wo "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, pixel_size_x, pixel_size_y, str(no_data_value), cut_shape_file, format_raster, input_image, output_image)
+    command = 'gdalwarp -t_srs EPSG:%s -te %s %s %s %s -tap -cblend %s -multi -wo "NUM_THREADS=ALL_CPUS" -tr %s %s -dstnodata %s -cutline %s -overwrite -of %s %s %s' %(str(epsg_proj), opt_xmin, opt_ymin, opt_xmax, opt_ymax, str(pixel_debord), pixel_size_x, pixel_size_y, str(no_data_value), cut_shape_file, format_raster, input_image, output_image)
 
     if debug >= 4:
         print(command)
@@ -1891,6 +1891,58 @@ def createVectorMask(input_image, vector_mask, no_data_value=0, format_vector='E
 
     if debug >=3:
         print(cyan + "createVectorMask() : " + endC + "Masque de découpage crée : " + str(vector_mask))
+    return
+
+###########################################################################################################################################
+# FUNCTION minMaxScalingChannels()                                                                                                        #
+###########################################################################################################################################
+def minMaxScalingChannels(raster_files_to_scale_list, raster_files_norm_list, new_min=0, new_max=255):
+    """
+    # ROLE:
+    #     Applies Min-Max scaling to image channels in liste file and saves the results in output list file.
+    #
+    # PARAMETERS:
+    #     raster_files_to_scale_list (list (str)): List of file to the input images to be scaled.
+    #     raster_files_norm_list ((list (str)): Liste of output file naramlized
+    #     new_min (int): Target minimum value after scaling (default: 0).
+    #     new_max (int): Target maximum value after scaling (default: 255).
+    #
+    # RETURNS:
+    #     NA.
+    #
+    # EXAMPLE:
+    #     minMaxScalingChannels(["/path/to/input/folder/file_input.tif"], ["/path/to/output/folder/file_output.tif"], new_min=0, new_max=255)
+    #
+    """
+
+    def getMinMaxValuesOfFirstChannel(image_path):
+        Image.MAX_IMAGE_PIXELS = None
+        image = Image.open(image_path).convert("L")
+        pixel_values = list(image.getdata())
+        return min(pixel_values), max(pixel_values)
+
+    if debug >= 1:
+        print(cyan + "minMaxScalingChannels() : " + endC + "MinMax Scaling files {} ...".format(raster_files_to_scale_list))
+
+    # Create normamalize file raster
+    for index in range (len(raster_files_to_scale_list)) :
+        raster_to_scale = raster_files_to_scale_list[index]
+        path_raster_norm = raster_files_norm_list[index]
+        base_min, base_max = getMinMaxValuesOfFirstChannel(raster_to_scale)
+
+        # Moramlise grace à gdal
+        command = "gdal_translate -scale %s %s %s %s  %s %s" %(str(base_min), str(base_max), str(new_min), str(new_max), raster_to_scale, path_raster_norm)
+        if debug >= 4:
+            print(command)
+
+        exit_code = os.system(command)
+        if exit_code != 0:
+            print(command)
+            print(cyan + "minMaxScalingChannels() : " + bold + red + "!!! Une erreur c'est produite au cours de la mormailsation de l'image : " + raster_to_scale + ". Voir message d'erreur." + endC, file=sys.stderr)
+
+    if debug >= 1:
+        print(cyan + "minMaxScalingChannels() : " + endC + "MinMax scaling to list file {} done\n".format(raster_files_norm_list))
+
     return
 
 #########################################################################

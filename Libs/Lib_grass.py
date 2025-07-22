@@ -107,8 +107,9 @@ def initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y
     grass.run_command('g.region', n=ymax, s=ymin, e=xmax, w=xmin, ewres=abs(pixel_size_x), nsres=abs(pixel_size_y), overwrite=overwrite)
 
     # Copie des fichiers de paramètres du 'mapset' "PERMANENT" vers le nouveau 'mapset' (pour garder un original, et si on veut travailler dans plusieurs 'mapset')
-    for file_to_copy in glob.glob(gisdb + os.sep + location + os.sep + "PERMANENT" + os.sep + "*"):
-        shutil.copy(file_to_copy, gisdb + os.sep + location + os.sep + mapset)
+    if mapset != "PERMANENT":
+        for file_to_copy in glob.glob(gisdb + os.sep + location + os.sep + "PERMANENT" + os.sep + "*"):
+            shutil.copy(file_to_copy, gisdb + os.sep + location + os.sep + mapset)
 
     # Initialisation du 'mapset' de travail
     connectionGrass(gisbase, gisdb, location, mapset, projection)
@@ -269,7 +270,6 @@ def smoothGeomGrass(input_vector, output_vector, param_generalize_dico, format_v
 
     # Export du jeu de données traité
     exportVectorOgr2Grass(output_name, output_vector, format_vector, overwrite)
-    cleanGrass(repository)
 
     return
 
@@ -303,10 +303,12 @@ def splitGrass(input_vector, output_vector, param_split_length, format_vector="E
     if leng_name_vector_input > 16 :
         leng_name_vector_input = 16
     input_name = "VI" + os.path.splitext(os.path.basename(input_vector))[0][0:leng_name_vector_input]
+    input_name = input_name.replace('-', '_')
     leng_name_vector_output = len(os.path.splitext(os.path.basename(output_vector))[0])
     if leng_name_vector_output > 16 :
         leng_name_vector_output = 16
     output_name = "VO" + os.path.splitext(os.path.basename(output_vector))[0][0:leng_name_vector_output]
+    output_name = output_name.replace('-', '_')
 
     importVectorOgr2Grass(input_vector, input_name, overwrite)
 
@@ -334,7 +336,7 @@ def simplificationGrass(vector_input, vector_output, threshold=1.0, format_vecto
 
     # Import de la couche vecteur
     timeinit = time.time()
-    name_vector_input = os.path.splitext(os.path.basename(vector_input))[0]
+    name_vector_input = os.path.splitext(os.path.basename(vector_input))[0].replace('-', '_')
     name_vector_output = name_vector_input + "_Chaiken"
     importVectorOgr2Grass(vector_input, name_vector_input, overwrite)
 
@@ -380,11 +382,11 @@ def vectorisationGrass(raster_input, vector_output, mmu, douglas=None, hermite=N
     leng_name_raster = len(os.path.splitext(os.path.basename(raster_input))[0])
     if leng_name_raster > 16 :
         leng_name_raster = 16
-    name_raster_geobase = "R" + os.path.splitext(os.path.basename(raster_input))[0][0:leng_name_raster]
+    name_raster_geobase = "R" + os.path.splitext(os.path.basename(raster_input))[0][0:leng_name_raster].replace('-', '_')
     leng_name_vector = len(os.path.splitext(os.path.basename(vector_output))[0])
     if leng_name_vector > 16 :
         leng_name_vector = 16
-    name_vector_geobase = "V" + os.path.splitext(os.path.basename(vector_output))[0][0:leng_name_vector]
+    name_vector_geobase = "V" + os.path.splitext(os.path.basename(vector_output))[0][0:leng_name_vector].replace('-', '_')
 
     timeinit = time.time()
 
@@ -539,7 +541,7 @@ def convertRGBtoHIS(image_input, raster_red_input, raster_green_input, raster_bl
     xmin, xmax, ymin, ymax = getEmpriseImage(raster_red_input)          # Recuperation de l'emprise du rasteur d'entrée
 
     # PARAMETRAGE DES IMAGES TEINTE, SATURATION, INTENSITE
-    filename = os.path.splitext(os.path.basename(image_input))[0]
+    filename = os.path.splitext(os.path.basename(image_input))[0].replace('-', '_')
     raster_hue_output = repository + filename + "_H.tif"
     raster_intensity_output = repository + filename + "_I.tif"
     raster_saturation_output = repository + filename + "_S.tif"
@@ -637,8 +639,8 @@ def shadowMask(image_input, raster_shadow_output, year, month, day, hour, minute
     initializeGrass(repository, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, projection=epsg)
 
     # Import de l'image d'entrée
-    filename_in = os.path.splitext(os.path.basename(image_input))[0]
-    filename_out = os.path.splitext(os.path.basename(raster_shadow_output))[0]
+    filename_in = os.path.splitext(os.path.basename(image_input))[0].replace('-', '_')
+    filename_out = os.path.splitext(os.path.basename(raster_shadow_output))[0].replace('-', '_')
     importRasterGdal2Grass(image_input, filename_in, overwrite)
 
     # Traitement

@@ -1,197 +1,164 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
-from builtins import str
-import json
-import math
-import shapely
-
-# Correspondance entre python2 "basestring" et python3 "str"
-try:
-  basestring
-except NameError:
-  basestring = str
-
-class RasterStatsError(Exception):
-    pass
+from __future__ import absolute_import
+from __future__ import division
+import sys
+from rasterio import features
+from shapely.geometry import box, MultiPolygon
+from .io import window_bounds
 
 
-class OGRError(Exception):
-    pass
+DEFAULT_STATS = ["count", "min", "max", "mean"]
+VALID_STATS = DEFAULT_STATS + [
+    "sum",
+    "std",
+    "median",
+    "all",
+    "majority",
+    "minority",
+    "unique",
+    "range",
+    "nodata",
+    "nan",
+]
+#  also percentile_{q} but that is handled as special case
 
 
-def bbox_to_pixel_offsets(gt, bbox):
-    originX = gt[0]
-    originY = gt[3]
-    pixel_width = gt[1]
-    pixel_height = gt[5]
-
-    x1 = int(math.floor((bbox[0] - originX) / pixel_width))
-    x2 = int(math.ceil((bbox[2] - originX) / pixel_width))
-
-    y1 = int(math.floor((bbox[3] - originY) / pixel_height))
-    y2 = int(math.ceil((bbox[1] - originY) / pixel_height))
-
-    xsize = x2 - x1
-    ysize = y2 - y1
-    return (x1, y1, xsize, ysize)
+def get_percentile(stat):
+    if not stat.startswith("percentile_"):
+        raise ValueError("must start with 'percentile_'")
+    qstr = stat.replace("percentile_", "")
+    q = float(qstr)
+    if q > 100.0:
+        raise ValueError("percentiles must be <= 100")
+    if q < 0.0:
+        raise ValueError("percentiles must be >= 0")
+    return q
 
 
-def raster_extent_as_bounds(gt, size):
-    east1 = gt[0]
-    east2 = gt[0] + (gt[1] * size[0])
-    west1 = gt[3] + (gt[5] * size[1])
-    west2 = gt[3]
-    return (east1, west1, east2, west2)
-
-
-def feature_to_geojson(feature):
-    """ This duplicates the feature.ExportToJson ogr method
-    but is safe across gdal versions since it was fixed only in 1.8+
-    see http://trac.osgeo.org/gdal/ticket/3870"""
-
-    geom = feature.GetGeometryRef()
-    if geom is not None:
-        geom_json_string = geom.ExportToJson()
-        geom_json_object = json.loads(geom_json_string)
-    else:
-        geom_json_object = None
-
-    output = {'type':'Feature',
-               'geometry': geom_json_object,
-               'properties': {}
-              }
-
-    fid = feature.GetFID()
-    if fid:
-        output['id'] = fid
-
-    for key in feature.keys():
-        output['properties'][key] = feature.GetField(key)
-
-    return output
-
-
-def shapely_to_ogr_type(shapely_type):
-    from osgeo import ogr
-    if shapely_type == "Polygon":
-        return ogr.wkbPolygon
-    elif shapely_type == "LineString":
-        return ogr.wkbLineString
-    elif shapely_type == "MultiPolygon":
-        return ogr.wkbMultiPolygon
-    elif shapely_type == "MultiLineString":
-        return ogr.wkbLineString
-    raise TypeError("shapely type %s not supported" % shapely_type)
-
-
-def parse_geo(thing):
-    """ Given a python object, try to get a geo-json like mapping from it
+def rasterize_geom(geom, like, all_touched=False):
     """
-    # object implementing geo_interface
-    try:
-        geo = thing.__geo_interface__
-        return geo
-    except AttributeError:
-        pass
+    Parameters
+    ----------
+    geom: GeoJSON geometry
+    like: raster object with desired shape and transform
+    all_touched: rasterization strategy
 
-    # wkt
-    try:
-        shape = wkt.loads(thing)
-        return shape.__geo_interface__
-    except Exception:
-        pass
+    Returns
+    -------
+    ndarray: boolean
+    """
+    geoms = [(geom, 1)]
+    rv_array = features.rasterize(
+        geoms,
+        out_shape=like.shape,
+        transform=like.affine,
+        fill=0,
+        dtype="uint8",
+        all_touched=all_touched,
+    )
 
-    # geojson-like python mapping
-    try:
-        assert thing['type'] in ["Feature", "Point", "LineString", "Polygon",
-                                "MultiPoint", "MultiLineString", "MultiPolygon"]
-        return thing
-    except (AssertionError, TypeError):
-        pass
-
-    # geojson string
-    try:
-        maybe_geo = json.loads(thing)
-        assert maybe_geo['type'] in ["Feature", "Point", "LineString", "Polygon",
-                       "MultiPoint", "MultiLineString", "MultiPolygon"]
-        return maybe_geo
-    except (ValueError, AssertionError):
-        pass
-
-    # wkb
-    try:
-        shape = wkb.loads(thing)
-        return shape.__geo_interface__
-    except Exception:
-        pass
-
-    raise RasterStatsError("Can't parse %s as a geo-like object" % thing)
+    return rv_array.astype(bool)
 
 
-def get_ogr_ds(vds):
-    from osgeo import ogr
-    if not isinstance(vds, basestring):
-        raise OGRError("OGR cannot open %r: not a string" % vds)
-
-    ds = ogr.Open(vds)
-    if not ds:
-        raise OGRError("OGR cannot open %r" % vds)
-
-    return ds
-
-
-def ogr_srs(vector, layer_num):
-    ds = get_ogr_ds(vector)
-    layer = ds.GetLayer(layer_num)
-    return layer.GetSpatialRef()
-
-
-def ogr_records(vector, layer_num=0):
-    ds = get_ogr_ds(vector)
-    layer = ds.GetLayer(layer_num)
-    for i in range(layer.GetFeatureCount()):
-        try:
-            feature = layer.GetFeature(i)
-        except RuntimeError:
-            #print("Le fichier shape est corrompu " )
-            continue
-        else:
-            yield feature_to_geojson(feature)
-
-def geo_records(vectors):
-    for vector in vectors:
-        yield parse_geo(vector)
-
-
-def get_features(vectors, layer_num=0):
-    from osgeo import osr
-    spatial_ref = osr.SpatialReference()
-    if isinstance(vectors, basestring):
-        try:
-        # either an OGR layer ...
-            get_ogr_ds(vectors)
-            features_iter = ogr_records(vectors, layer_num)
-            spatial_ref = ogr_srs(vectors, layer_num)
-            strategy = "ogr"
-        except OGRError:
-        # ... or a single string to be parsed as wkt/wkb/json
-            feat = parse_geo(vectors)
-            features_iter = [feat]
-            strategy = "single_geo"
-    elif hasattr(vectors, '__geo_interface__'):
-        # ... or an single object
-        feat = parse_geo(vectors)
-        features_iter = [feat]
-        strategy = "single_geo"
-    elif isinstance(vectors, dict):
-        # ... or an python mapping
-        feat = parse_geo(vectors)
-        features_iter = [feat]
-        strategy = "single_geo"
+def stats_to_csv(stats):
+    if sys.version_info[0] >= 3:
+        from io import StringIO as IO  # pragma: no cover
     else:
-        # ... or an iterable of objects
-        features_iter = geo_records(vectors)
-        strategy = "iter_geo"
+        from cStringIO import StringIO as IO  # pragma: no cover
 
-    return features_iter, strategy, spatial_ref
+    import csv
 
+    csv_fh = IO()
+
+    keys = set()
+    for stat in stats:
+        for key in list(stat.keys()):
+            keys.add(key)
+
+    fieldnames = sorted(list(keys), key=str)
+
+    csvwriter = csv.DictWriter(csv_fh, delimiter=str(","), fieldnames=fieldnames)
+    csvwriter.writerow(dict((fn, fn) for fn in fieldnames))
+    for row in stats:
+        csvwriter.writerow(row)
+    contents = csv_fh.getvalue()
+    csv_fh.close()
+    return contents
+
+
+def check_stats(stats, categorical):
+    if not stats:
+        if not categorical:
+            stats = DEFAULT_STATS
+        else:
+            stats = []
+    else:
+        if isinstance(stats, str):
+            if stats in ["*", "ALL"]:
+                stats = VALID_STATS
+            else:
+                stats = stats.split()
+    for x in stats:
+        if x.startswith("percentile_"):
+            get_percentile(x)
+        elif x not in VALID_STATS:
+            raise ValueError(
+                "Stat `%s` not valid; " "must be one of \n %r" % (x, VALID_STATS)
+            )
+
+    run_count = False
+    if categorical or "majority" in stats or "minority" in stats or "unique" in stats or 'all' in stats:
+        # run the counter once, only if needed
+        run_count = True
+
+    return stats, run_count
+
+
+def remap_categories(category_map, stats):
+    def lookup(m, k):
+        """Dict lookup but returns original key if not found"""
+        try:
+            return m[k]
+        except KeyError:
+            return k
+
+    return {lookup(category_map, k): v for k, v in stats.items()}
+
+
+def key_assoc_val2(d, func, exclude=None):
+    """return the key associated with the value returned by func"""
+    vs = list(d.values())
+    ks = list(d.keys())
+    val = []
+    for cle, valeur in d.items():
+        val.append((cle,valeur))
+    return val
+
+def key_assoc_val(d, func, exclude=None):
+    """return the key associated with the value returned by func"""
+    vs = list(d.values())
+    ks = list(d.keys())
+    key = ks[vs.index(func(vs))]
+    return key
+
+def boxify_points(geom, rast):
+    """
+    Point and MultiPoint don't play well with GDALRasterize
+    convert them into box polygons 99% cellsize, centered on the raster cell
+    """
+    if "Point" not in geom.geom_type:
+        raise ValueError("Points or multipoints only")
+
+    buff = -0.01 * abs(min(rast.affine.a, rast.affine.e))
+
+    if geom.geom_type == "Point":
+        pts = [geom]
+    elif geom.geom_type == "MultiPoint":
+        pts = geom.geoms
+    geoms = []
+    for pt in pts:
+        row, col = rast.index(pt.x, pt.y)
+        win = ((row, row + 1), (col, col + 1))
+        geoms.append(box(*window_bounds(win, rast.affine)).buffer(buff))
+
+    return MultiPolygon(geoms)

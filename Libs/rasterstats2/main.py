@@ -1,338 +1,336 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
-from builtins import str
-import shapely
-from shapely.geometry import shape, box, MultiPolygon
+from __future__ import absolute_import
+from __future__ import division
+
+import sys
+import warnings
+
+from affine import Affine
+from shapely.geometry import shape
 import numpy as np
-from collections import Counter
-from osgeo import gdal, ogr
-from osgeo.gdalconst import GA_ReadOnly
-from .utils import bbox_to_pixel_offsets, shapely_to_ogr_type, get_features, \
-                   RasterStatsError, raster_extent_as_bounds
+
+from .io import read_features, Raster
+from .utils import (
+    rasterize_geom,
+    get_percentile,
+    check_stats,
+    remap_categories,
+    key_assoc_val,
+    key_assoc_val2,
+    boxify_points,
+)
 
 
-if ogr.GetUseExceptions() != 1:
-    ogr.UseExceptions()
+def raster_stats(*args, **kwargs):
+    """Deprecated. Use zonal_stats instead."""
+    warnings.warn(
+        "'raster_stats' is an alias to 'zonal_stats'" " and will disappear in 1.0",
+        DeprecationWarning,
+    )
+    return zonal_stats(*args, **kwargs)
 
 
-DEFAULT_STATS = ['count', 'min', 'max', 'mean']
-VALID_STATS = DEFAULT_STATS + \
-    ['sum', 'std', 'median', 'all', 'majority', 'minority', 'unique', 'range']
+def zonal_stats(*args, **kwargs):
+    """The primary zonal statistics entry point.
 
-# Correspondance entre python2 "basestring" et python3 "str"
-try:
-  basestring
-except NameError:
-  basestring = str
+    All arguments are passed directly to ``gen_zonal_stats``.
+    See its docstring for details.
 
-def raster_stats(vectors, raster, layer_num=0, band_num=1, nodata_value=None,
-                 global_src_extent=False, categorical=False, stats=None,
-                 copy_properties=False):
+    The only difference is that ``zonal_stats`` will
+    return a list rather than a generator."""
+    return list(gen_zonal_stats(*args, **kwargs))
 
-    if not stats:
-        if not categorical:
-            stats = DEFAULT_STATS
-        else:
-            stats = []
-    else:
-        if isinstance(stats, basestring):
-            if stats in ['*', 'ALL']:
-                stats = VALID_STATS
-            else:
-                stats = stats.split()
-    for x in stats:
-        if x not in VALID_STATS:
-            raise RasterStatsError("Stat `%s` not valid;" \
-                " must be one of \n %r" % (x, VALID_STATS))
 
-    run_count = False
-    if categorical or 'majority' in stats or 'minority' in stats or 'unique' in stats or 'all' in stats :
-        # run the counter once, only if needed
-        run_count = True
+def gen_zonal_stats(
+    vectors,
+    raster,
+    layer=0,
+    band=1,
+    nodata=None,
+    affine=None,
+    stats=None,
+    all_touched=False,
+    categorical=False,
+    category_map=None,
+    add_stats=None,
+    zone_func=None,
+    raster_out=False,
+    prefix=None,
+    geojson_out=False,
+    #boundless=True, #// GFT attention l'option boundless à True ne marche pas "core dumped" pour des rasters volumineux
+    boundless=False,
+    **kwargs,
+):
+    """Zonal statistics of raster values aggregated to vector geometries.
 
-    rds = gdal.Open(raster, GA_ReadOnly)
-    if not rds:
-        raise RasterStatsError("Cannot open %r as GDAL raster" % raster)
-    rb = rds.GetRasterBand(band_num)
-    rgt = rds.GetGeoTransform()
-    rsize = (rds.RasterXSize, rds.RasterYSize)
-    rbounds = raster_extent_as_bounds(rgt, rsize)
+    Parameters
+    ----------
+    vectors: path to an vector source or geo-like python objects
 
-    if nodata_value is not None:
-        nodata_value = float(nodata_value)
-        rb.SetNoDataValue(nodata_value)
-    else:
-        nodata_value = rb.GetNoDataValue()
+    raster: ndarray or path to a GDAL raster source
+        If ndarray is passed, the ``affine`` kwarg is required.
 
-    features_iter, strategy, spatial_ref = get_features(vectors, layer_num)
+    layer: int or string, optional
+        If `vectors` is a path to a fiona source,
+        specify the vector layer to use either by name or number.
+        defaults to 0
 
-    if global_src_extent:
-        # create an in-memory numpy array of the source raster data
-        # covering the whole extent of the vector layer
-        if strategy != "ogr":
-            raise RasterStatsError("global_src_extent requires OGR vector")
+    band: int, optional
+        If `raster` is a GDAL source, the band number to use (counting from 1).
+        defaults to 1.
 
-        # find extent of ALL features
-        ds = ogr.Open(vectors)
-        layer = ds.GetLayer(layer_num)
-        ex = layer.GetExtent()
-        # transform from OGR extent to xmin, ymin, xmax, ymax
-        layer_extent = (ex[0], ex[2], ex[1], ex[3])
+    nodata: float, optional
+        If `raster` is a GDAL source, this value overrides any NODATA value
+        specified in the file's metadata.
+        If `None`, the file's metadata's NODATA value (if any) will be used.
+        defaults to `None`.
 
-        global_src_offset = bbox_to_pixel_offsets(rgt, layer_extent)
-        global_src_array = rb.ReadAsArray(*global_src_offset)
+    affine: Affine instance
+        required only for ndarrays, otherwise it is read from src
 
-    mem_drv = ogr.GetDriverByName('Memory')
-    driver = gdal.GetDriverByName('MEM')
+    stats:  list of str, or space-delimited str, optional
+        Which statistics to calculate for each zone.
+        All possible choices are listed in ``utils.VALID_STATS``.
+        defaults to ``DEFAULT_STATS``, a subset of these.
 
-    results = []
+    all_touched: bool, optional
+        Whether to include every raster cell touched by a geometry, or only
+        those having a center point within the polygon.
+        defaults to `False`
 
-    for i, feat in enumerate(features_iter):
-        if feat['type'] == "Feature":
-            try :
-                geom = shape(feat['geometry'])
-            except :
-                next
-        else:  # it's just a geometry
-            geom = shape(feat)
+    categorical: bool, optional
 
-        # Point and MultiPoint don't play well with GDALRasterize
-        # convert them into box polygons the size of a raster cell
-        buff = rgt[1] / 2.0
-        if geom.geom_type == "MultiPoint":
-            geom = MultiPolygon([box(*(pt.buffer(buff).bounds))
-                                for pt in geom.geoms])
-        elif geom.geom_type == 'Point':
-            geom = box(*(geom.buffer(buff).bounds))
+    category_map: dict
+        A dictionary mapping raster values to human-readable categorical names.
+        Only applies when categorical is True
 
-        ogr_geom_type = shapely_to_ogr_type(geom.geom_type)
+    add_stats: dict
+        with names and functions of additional stats to compute, optional
 
-        # "Clip" the geometry bounds to the overall raster bounding box
-        # This should avoid any rasterIO errors for partially overlapping polys
-        geom_bounds = list(geom.bounds)
-        if geom_bounds[0] < rbounds[0]:
-            geom_bounds[0] = rbounds[0]
-        if geom_bounds[1] < rbounds[1]:
-            geom_bounds[1] = rbounds[1]
-        if geom_bounds[2] > rbounds[2]:
-            geom_bounds[2] = rbounds[2]
-        if geom_bounds[3] > rbounds[3]:
-            geom_bounds[3] = rbounds[3]
+    zone_func: callable
+        function to apply to zone ndarray prior to computing stats
 
-        # calculate new geotransform of the feature subset
-        src_offset = bbox_to_pixel_offsets(rgt, geom_bounds)
+    raster_out: boolean
+        Include the masked numpy array for each feature?, optional
 
-        new_gt = (
-            (rgt[0] + (src_offset[0] * rgt[1])),
-            rgt[1],
-            0.0,
-            (rgt[3] + (src_offset[1] * rgt[5])),
-            0.0,
-            rgt[5]
+        Each feature dictionary will have the following additional keys:
+        mini_raster_array: The clipped and masked numpy array
+        mini_raster_affine: Affine transformation
+        mini_raster_nodata: NoData Value
+
+    prefix: string
+        add a prefix to the keys (default: None)
+
+    geojson_out: boolean
+        Return list of GeoJSON-like features (default: False)
+        Original feature geometry and properties will be retained
+        with zonal stats appended as additional properties.
+        Use with `prefix` to ensure unique and meaningful property names.
+
+    boundless: boolean
+        Allow features that extend beyond the raster dataset’s extent, default: True
+        Cells outside dataset extents are treated as nodata.
+
+    Returns
+    -------
+    generator of dicts (if geojson_out is False)
+        Each item corresponds to a single vector feature and
+        contains keys for each of the specified stats.
+
+    generator of geojson features (if geojson_out is True)
+        GeoJSON-like Feature as python dict
+    """
+    stats, run_count = check_stats(stats, categorical)
+
+    # Handle 1.0 deprecations
+    transform = kwargs.get("transform")
+    if transform:
+        warnings.warn(
+            "GDAL-style transforms will disappear in 1.0. "
+            "Use affine=Affine.from_gdal(*transform) instead",
+            DeprecationWarning,
+        )
+        if not affine:
+            affine = Affine.from_gdal(*transform)
+
+    cp = kwargs.get("copy_properties")
+    if cp:
+        warnings.warn(
+            "Use `geojson_out` to preserve feature properties", DeprecationWarning
         )
 
-        if src_offset[2] < 0 or src_offset[3] < 0:
-            # we're off the raster completely, no overlap at all, so there's no need to even bother trying to calculate
-            feature_stats = dict([(s, None) for s in stats])
-        else:
-            if not global_src_extent:
-                # use feature's source extent and read directly from source
-                # fastest option when you have fast disks and well-indexed raster
-                # advantage: each feature uses the smallest raster chunk
-                # disadvantage: lots of disk reads on the source raster
-                src_array = rb.ReadAsArray(*src_offset)
+    band_num = kwargs.get("band_num")
+    if band_num:
+        warnings.warn("Use `band` to specify band number", DeprecationWarning)
+        band = band_num
 
-                if src_array is None:
-                    src_offset = (src_offset[0],src_offset[1],src_offset[2],src_offset[3] - 1)
-                    src_array = rb.ReadAsArray(*src_offset)
+    with Raster(raster, affine, nodata, band) as rast:
+        features_iter = read_features(vectors, layer)
+        for i, feat in enumerate(features_iter):
+            geom = shape(feat["geometry"])
 
+            if "Point" in geom.geom_type:
+                geom = boxify_points(geom, rast)
+
+            geom_bounds = tuple(geom.bounds)
+
+            fsrc = rast.read(bounds=geom_bounds, boundless=boundless)
+
+            # rasterized geometry
+            rv_array = rasterize_geom(geom, like=fsrc, all_touched=all_touched)
+
+            # nodata mask
+            isnodata = fsrc.array == fsrc.nodata
+
+            # add nan mask (if necessary)
+            has_nan = np.issubdtype(fsrc.array.dtype, np.floating) and np.isnan(
+                fsrc.array.min()
+            )
+            if has_nan:
+                isnodata = isnodata | np.isnan(fsrc.array)
+
+            # Mask the source data array
+            # mask everything that is not a valid value or not within our geom
+            masked = np.ma.MaskedArray(fsrc.array, mask=(isnodata | ~rv_array))
+
+            # If we're on 64 bit platform and the array is an integer type
+            # make sure we cast to 64 bit to avoid overflow for certain numpy ops
+            if sys.maxsize > 2**32 and issubclass(masked.dtype.type, np.integer):
+                accum_dtype = "int64"
             else:
-                # derive array from global source extent array
-                # useful *only* when disk IO or raster format inefficiencies are your limiting factor
-                # advantage: reads raster data in one pass before loop
-                # disadvantage: large vector extents combined with big rasters need lot of memory
-                xa = src_offset[0] - global_src_offset[0]
-                ya = src_offset[1] - global_src_offset[1]
-                xb = xa + src_offset[2]
-                yb = ya + src_offset[3]
-                src_array = global_src_array[ya:yb, xa:xb]
+                accum_dtype = None  # numpy default
 
-            # Create a temporary vector layer in memory
-            mem_ds = mem_drv.CreateDataSource('out')
-            mem_layer = mem_ds.CreateLayer('out', spatial_ref, ogr_geom_type)
-            ogr_feature = ogr.Feature(feature_def=mem_layer.GetLayerDefn())
-            ogr_geom = ogr.CreateGeometryFromWkt(geom.wkt)
-            ogr_feature.SetGeometryDirectly(ogr_geom)
-            mem_layer.CreateFeature(ogr_feature)
+            # execute zone_func on masked zone ndarray
+            if zone_func is not None:
+                if not callable(zone_func):
+                    raise TypeError(
+                        (
+                            "zone_func must be a callable "
+                            "which accepts function a "
+                            "single `zone_array` arg."
+                        )
+                    )
+                value = zone_func(masked)
 
-            # Rasterize it
-            rvds = driver.Create('rvds', src_offset[2], src_offset[3], 1, gdal.GDT_Byte)
-            rvds.SetGeoTransform(new_gt)
+                # check if zone_func has return statement
+                if value is not None:
+                    masked = value
 
-            gdal.RasterizeLayer(rvds, [1], mem_layer, None, None, burn_values=[1])
-            rv_array = rvds.ReadAsArray()
-            # Mask the source data array with our current feature
-            # we take the logical_not to flip 0<->1 to get the correct mask effect
-            # we also mask out nodata values explicitly
-            # ATTENTION : probleme possible si src_array == None.
-
-            test_ok = True
-            if src_array is None:
-                #print("WARNING!!! src_array = "+ str(src_array) + ", nodata_value = " + str(nodata_value))
-                test_ok = False
-            else :
-                # Supprimer les NoData du NumPy array (nouvelle fonction issue de rasterstats v0.19) :
-                masked = np.ma.MaskedArray(src_array, mask=(src_array==nodata_value))
-
-            if run_count:
-                if test_ok :
-                    pixel_count = Counter(masked.compressed())
-                else :
-                    pixel_count = 0
-            if categorical:
-                feature_stats = dict(pixel_count)
+            if masked.compressed().size == 0:
+                # nothing here, fill with None and move on
+                feature_stats = dict([(stat, None) for stat in stats])
+                if "count" in stats:  # special case, zero makes sense here
+                    feature_stats["count"] = 0
             else:
-                feature_stats = {}
+                if run_count:
+                    keys, counts = np.unique(masked.compressed(), return_counts=True)
+                    try:
+                        pixel_count = dict(
+                            zip([k.item() for k in keys], [c.item() for c in counts])
+                        )
+                    except AttributeError:
+                        pixel_count = dict(
+                            zip(
+                                [np.asscalar(k) for k in keys],
+                                [np.asscalar(c) for c in counts],
+                            )
+                        )
 
-            if 'min' in stats:
-                if test_ok and masked.min().any():
-                    try :
-                        feature_stats['min'] = float(masked.min())
-                    except :
-                        feature_stats['min'] = 0.0
-                else :
-                    feature_stats['min'] = 0.0
-            if 'max' in stats:
-                if test_ok and masked.max().any() :
-                    try :
-                        feature_stats['max'] = float(masked.max())
-                    except :
-                        feature_stats['max'] = 0.0
-                else :
-                    feature_stats['max'] = 0.0
-            if 'mean' in stats:
-                if test_ok and masked.mean().any():
-                    try :
-                        feature_stats['mean'] = float(masked.mean())
-                    except :
-                        feature_stats['mean'] = 0.0
-                else :
-                    feature_stats['mean'] = 0.0
-            if 'count' in stats:
-                if test_ok and masked.count().any():
-                    try :
-                        feature_stats['count'] = int(masked.count())
-                    except :
-                        feature_stats['count'] = 0
-                else :
-                    feature_stats['count'] = 0
-            # optional
-            if 'sum' in stats:
-                if test_ok and masked.sum().any():
-                    try :
-                        feature_stats['sum'] = float(masked.sum())
-                    except :
-                        feature_stats['sum'] = 0.0
-                else :
-                    feature_stats['sum'] = 0.0
-            if 'std' in stats:
-                if test_ok and masked.std().any():
-                    try :
-                        feature_stats['std'] = float(masked.std())
-                    except :
-                        feature_stats['std'] = 0.0
-                else :
-                    feature_stats['std'] = 0.0
-            if 'median' in stats:
-                if test_ok and masked.compressed().any():
-                    try :
-                        feature_stats['median'] = float(np.median(masked.compressed()))
-                    except :
-                        feature_stats['median'] = 0.0
-                else :
-                    feature_stats['median'] = 0.0
+                if categorical:
+                    feature_stats = dict(pixel_count)
+                    if category_map:
+                        feature_stats = remap_categories(category_map, feature_stats)
+                else:
+                    feature_stats = {}
 
-            # Ajout option 'all' GFT le 17/03/2014
-            if 'all' in stats:
-                try:
-                    feature_stats['all'] = pixel_count.most_common()
-                except IndexError:
-                    feature_stats['all'] = None
+                if "min" in stats:
+                    feature_stats["min"] = float(masked.min())
+                if "max" in stats:
+                    feature_stats["max"] = float(masked.max())
+                if "mean" in stats:
+                    feature_stats["mean"] = float(masked.mean(dtype=accum_dtype))
+                if "count" in stats:
+                    feature_stats["count"] = int(masked.count())
+                # optional
+                if "sum" in stats:
+                    feature_stats["sum"] = float(masked.sum(dtype=accum_dtype))
+                if "std" in stats:
+                    feature_stats["std"] = float(masked.std())
+                if "median" in stats:
+                    feature_stats["median"] = float(np.median(masked.compressed()))
+                # Ajout option 'all' GFT le 31/10/2024
+                if 'all' in stats:
+                    try:
+                        #print("DEBUG GFT")
+                        #print(key_assoc_val2(pixel_count, all))
+                        feature_stats['all'] = key_assoc_val2(pixel_count, all)
+                    except IndexError:
+                        feature_stats['all'] = None
+                if "majority" in stats:
+                    feature_stats["majority"] = float(key_assoc_val(pixel_count, max))
+                if "minority" in stats:
+                    feature_stats["minority"] = float(key_assoc_val(pixel_count, min))
+                if "unique" in stats:
+                    feature_stats["unique"] = len(list(pixel_count.keys()))
+                if "range" in stats:
+                    try:
+                        rmin = feature_stats["min"]
+                    except KeyError:
+                        rmin = float(masked.min())
+                    try:
+                        rmax = feature_stats["max"]
+                    except KeyError:
+                        rmax = float(masked.max())
+                    feature_stats["range"] = rmax - rmin
 
-            if 'majority' in stats:
-                try:
-                    feature_stats['majority'] = pixel_count.most_common(1)[0][0]
-                except IndexError:
-                    feature_stats['majority'] = None
+                for pctile in [s for s in stats if s.startswith("percentile_")]:
+                    q = get_percentile(pctile)
+                    pctarr = masked.compressed()
+                    feature_stats[pctile] = np.percentile(pctarr, q)
 
-            if 'minority' in stats:
-                try:
-                    feature_stats['minority'] = pixel_count.most_common()[-1][0]
-                except IndexError:
-                    feature_stats['minority'] = None
+            try:
+                # Use the provided feature id as __fid__
+                feature_stats['__fid__'] = int(feat['id'])
+            except KeyError:
+                # use the enumerator
+                feature_stats['__fid__'] = i
 
-            if 'unique' in stats:
-                if test_ok :
-                    feature_stats['unique'] = len(pixel_count.keys())
-                else :
-                    feature_stats['unique'] = 0
+            if "nodata" in stats or "nan" in stats:
+                featmasked = np.ma.MaskedArray(fsrc.array, mask=(~rv_array))
 
-            if 'range' in stats:
-                try:
-                    rmin = feature_stats['min']
-                except KeyError:
-                    if test_ok and masked.min().any():
-                        try:
-                            rmin = float(masked.min())
-                        except :
-                            rmin = 0.0
-                    else :
-                        rmin = 0.0
-                try:
-                    rmax = feature_stats['max']
-                except KeyError:
-                    if test_ok and masked.max().any():
-                        try:
-                            rmax = float(masked.max())
-                        except :
-                            rmax = 0.0
-                    else :
-                        rmax = 0.0
-                feature_stats['range'] = rmax - rmin
+                if "nodata" in stats:
+                    feature_stats["nodata"] = float((featmasked == fsrc.nodata).sum())
+                if "nan" in stats:
+                    feature_stats["nan"] = (
+                        float(np.isnan(featmasked).sum()) if has_nan else 0
+                    )
 
-        try:
-            # Use the provided feature id as __fid__
-            feature_stats['__fid__'] = feat['id']
-        except KeyError:
-            # use the enumerator
-            feature_stats['__fid__'] = i
+            if add_stats is not None:
+                for stat_name, stat_func in add_stats.items():
+                    try:
+                        feature_stats[stat_name] = stat_func(masked, feat["properties"])
+                    except TypeError:
+                        # backwards compatible with single-argument function
+                        feature_stats[stat_name] = stat_func(masked)
 
-        if 'properties' in feat and copy_properties:
-            for key, val in feat['properties'].items():
-                feature_stats[key] = val
+            if raster_out:
+                feature_stats["mini_raster_array"] = masked
+                feature_stats["mini_raster_affine"] = fsrc.affine
+                feature_stats["mini_raster_nodata"] = fsrc.nodata
 
-        results.append(feature_stats)
+            if prefix is not None:
+                prefixed_feature_stats = {}
+                for key, val in feature_stats.items():
+                    newkey = "{}{}".format(prefix, key)
+                    prefixed_feature_stats[newkey] = val
+                feature_stats = prefixed_feature_stats
 
-    return results
-
-def stats_to_csv(stats):
-    from cStringIO import StringIO
-    import csv
-
-    csv_fh = StringIO()
-
-    keys = set()
-    for stat in stats:
-        for key in stat.keys():
-            keys.add(key)
-
-    fieldnames = sorted(list(keys))
-
-    csvwriter = csv.DictWriter(csv_fh, delimiter=',', fieldnames=fieldnames)
-    csvwriter.writerow(dict((fn,fn) for fn in fieldnames))
-    for row in stats:
-        csvwriter.writerow(row)
-    contents = csv_fh.getvalue()
-    csv_fh.close()
-    return contents
+            if geojson_out:
+                for key, val in feature_stats.items():
+                    if "properties" not in feat:
+                        feat["properties"] = {}
+                    feat["properties"][key] = val
+                yield feat
+            else:
+                yield feature_stats
 

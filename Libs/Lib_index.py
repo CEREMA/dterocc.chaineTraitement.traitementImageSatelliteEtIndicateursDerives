@@ -1332,7 +1332,7 @@ def createVSSI(image_input, image_VSSI_output, channel_order, codage="float"):
         raise NameError(cyan + "createVSSI() : " + bold + red + "VSSI needs Red, Green and NIR channels to be computed"+ endC)
 
     # Creer l'expression
-    expression = "\"" + "((2 * "+Green+") - 5 * ("+Red+" + "+NIR+")+)\""
+    expression = "\"" + "((2 * "+Green+") - 5 * ("+Red+" + "+NIR+"))\""
 
     # Bandmath pour creer l'indice VSSI
     command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_VSSI_output,codage,expression)
@@ -1393,5 +1393,67 @@ def createBlueI(image_input, image_BI_output, channel_order, codage="float"):
         raise NameError(bold + red + "createBlueI() : An error occured during otbcli_BandMath command. See error message above." + endC)
 
     print(cyan + "createBlueI() : " + bold + green + "Create BI file %s complete!" %(image_BI_output) + endC)
+
+    return
+
+#########################################################################
+# FONCTION createSCoWI()                                                #
+#########################################################################
+def createSCoWI(image_input, image_SCoWI_output, channel_order, codage="float"):
+    """
+    #   Rôle : Cette fonction permet de créer un fichier SCoWI (eau / trait de côte) à partir d'une image ortho multi bande
+    #          La création de cet indice entre dans le cadre plus large de développement de l’outil Shoreliner par le CNES,
+    #          qui a pour but d’automatiser la détection des traits de côtes. Cet outil repose sur des données Sentinel-2.
+    #          L’objectif du stage de Laurine MEUNIER a été d’adapter l’outil Shoreliner à une source de données Pléiades
+    #   paramètres :
+    #       image_input : fichier image d'entrée multi bandes
+    #       image_SCoWI_output : fichier SCoWI de sortie (une bande)
+    #       channel_order : liste d'ordre des bandes de l'image (exemple ["Green","Blue","MIR","SWIR1","SWIR2"])
+    #       codage : type de codage du fichier de sortie
+    #   Source : 30_Stages_Encours/2025/2025_Teledec_Hugo/03_TRAIT_DE_COTE/Intership_report-2023-CNES-MEUNIERLaurine.pdf
+    """
+
+    # Variables
+    Green = ""
+    Blue = ""
+    NIR = ""
+    SWIR1 = ""
+    SWIR2 = ""
+
+    # Selection des bandes pour le calcul du SCoWI
+    if "Green" in channel_order:
+        num_channel = channel_order.index("Green")+1
+        Green = "im1b"+str(num_channel)
+    if "Blue" in channel_order:
+        num_channel = channel_order.index("Blue")+1
+        Blue = "im1b"+str(num_channel)
+    if "MIR" in channel_order:
+        num_channel = channel_order.index("MIR")+1
+        MIR = "im1b"+str(num_channel)
+    if "SWIR1" in channel_order:
+        num_channel = channel_order.index("SWIR1")+1
+        SWIR1 = "im1b"+str(num_channel)
+    if "SWIR2" in channel_order:
+        num_channel = channel_order.index("SWIR2")+1
+        SWIR2 = "im1b"+str(num_channel)
+    if (Green == "" or Blue == "" or MIR == ""):
+        raise NameError(cyan + "createSCoWI() : " + bold + red + "SCoWI needs Green, Blue and MIR and (SWIR1 and SWIR2 from Sentinel2) channels to be computed"+ endC)
+
+    # Creer l'expression
+    if (SWIR1 == "" or SWIR2 == ""):
+        expression = "\"(" + Blue + ") + 2 * (" + Green + ") - 2.4 * (" + NIR  + ")\""
+    else :
+        expression = "\"(" + Blue + ") + 2 * (" + Green + " - " + NIR  + ") - 0.75 * (" + SWIR1  + ") - 0.5 * (" + SWIR2  + ")\""
+
+    # Bandmath pour creer l'indice MNDWI
+    command = "otbcli_BandMath -il %s -out %s %s -exp %s" %(image_input, image_SCoWI_output,codage,expression)
+    if debug >= 2:
+        print(command)
+    exitCode = os.system(command)
+    if exitCode != 0:
+        print(command)
+        raise NameError(bold + red + "createSCoWI() : An error occured during otbcli_BandMath command. See error message above." + endC)
+
+    print(cyan + "createSCoWI() : " + bold + green + "Create SCoWI file %s complete!" %(image_SCoWI_output) + endC)
 
     return
