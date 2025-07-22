@@ -640,7 +640,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
             # Initialisation de la commande
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
             # Paramètres spécifiques à l'appli
-            command = call_python_action_to_make + "ExportBdTopoFromPostgres -in " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].inputVector + " -out " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].outputDirectory + " -zone " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].zone
+            command = call_python_action_to_make + "ExportBdTopoFromPostgres -in " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].inputVector + " -out " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].outputDirectory + " -buf " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].buffer + " -zone " + settings_struct.tasks.task13_ExportBdTopoFromPostgres[task_position].zone
             # Paramètres liés aux fichiers
             command += " -vef " + settings_struct.general.vector.formatVector + " -vee " + settings_struct.general.vector.extensionVector
             # Paramètres liés à PostGIS
@@ -898,7 +898,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
                 # Commande
                 call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-                command = call_python_action_to_make + "MaskCreation -i " + settings_struct.tasks.task60_MaskCreation[task_position].inputFile + " -v " + class_macro_sample_struct.inputVector + " -o " + class_macro_sample_struct.outputFile
+                command = call_python_action_to_make + "MaskCreation -i " + settings_struct.tasks.task60_MaskCreation[task_position].inputFile + " -v " + class_macro_sample_struct.inputVector + " -o " + class_macro_sample_struct.outputFile + " -b " + str(class_macro_sample_struct.bufferSize)
 
                 endCommandUpdate(settings_struct, command_doc, command, debug)
 
@@ -1594,6 +1594,20 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
                 bd_road_sql_list_str += '"' + database_file_struct.sqlExpression + '"' + ":"
             bd_road_sql_list_str = bd_road_sql_list_str[0:len(bd_road_sql_list_str)-1]
 
+            # Liste voies ferrées
+            bd_railway_vector_input_list_str = ""
+            bd_railway_buff_list_str = ""
+            bd_railway_sql_list_str = ""
+            sql_railway_expression = False
+
+            for database_file_struct in settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputVectorsRailwayList:
+                bd_railway_vector_input_list_str += database_file_struct.inputVector + " "
+                bd_railway_buff_list_str += str(database_file_struct.bufferValue) + " "
+                if database_file_struct.sqlExpression != "" :
+                    sql_railway_expression = True
+                bd_railway_sql_list_str += '"' + database_file_struct.sqlExpression + '"' + ":"
+            bd_railway_sql_list_str = bd_railway_sql_list_str[0:len(bd_railway_sql_list_str)-1]
+
             # Liste eau
             bd_water_vector_input_list_str = ""
             bd_water_buff_list_str = ""
@@ -1610,7 +1624,7 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
 
             # Commande de la segmentation
             call_python_action_to_make, id_command, index_remote_ip, id_task_commands_list = getCallPythonActionToMake(settings_struct, name_setting, task_label, task_position, mode_execution_command, error_management, dependency_commands_list_string, id_command, index_remote_ip, id_task_commands_list)
-            command = call_python_action_to_make + "UrbanMorphologySegmentation -r " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].baseDir + " -ccm " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].ccmDir + " -e " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputEmpriseVector + " -gra " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileGRA + " -tcd " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileTCD + " -imd " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileIMD + " -vrl " + bd_road_vector_input_list_str + " -vbl " + bd_build_vector_input_list_str + " -vwl " + bd_water_vector_input_list_str + " -rgb " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFilePeusdoRGB + " -rrw " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFileRoadWidth + " -rbh " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFileBuildHeight + " -vro " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorRoad + " -vwo " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorWatersArea + " -vccm " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorCCM + " -vpost " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorPost + " -vseg " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVector + " -rwf " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldWidthRoad) + " -rif " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldImportanceRoad) + " -rit " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].thresholdImportanceRoad) + " -bsr " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].bufferSizeImportanceRoad) + " -mwa " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].thresholdMiniWaterArea) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName + " -res " + str(settings_struct.general.image.resolution) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -epsg " + str(settings_struct.general.image.epsg) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
+            command = call_python_action_to_make + "UrbanMorphologySegmentation -r " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].baseDir + " -ccm " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].ccmDir + " -e " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputEmpriseVector + " -gra " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileGRA + " -tcd " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileTCD + " -imd " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].inputFileIMD + " -vrl " + bd_road_vector_input_list_str + " -val " + bd_railway_vector_input_list_str + " -vbl " + bd_build_vector_input_list_str + " -vwl " + bd_water_vector_input_list_str + " -rgb " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFilePeusdoRGB + " -rrw " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFileRoadWidth + " -rbh " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputFileBuildHeight + " -vro " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorRoad + " -vsk " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorSqueletonMainRoad + " -vwo " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorWatersArea + " -vrps " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorSegRoads + " -vccm " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorSegCCM + " -vpost " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputVectorSegPost + " -vseg " + settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].outputSegVector + " -rwf " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldWidthRoad) + " -rif " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldImportanceRoad) + " -rit " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].thresholdImportanceRoad) + " -rnf " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldNatureRoad) + " -anf " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].fieldNatureRailway) + " -aiv " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].valuesNatureRailway) + " -bsr " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].bufferSizeImportanceRoad) + " -ell " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].lengthSizeExtensionRoad)+ " -mwa " + str(settings_struct.tasks.task300_UrbanMorphologicalSegmentation[task_position].thresholdMiniWaterArea) + " -pe " + settings_struct.general.postgis.encoding + " -serv " + settings_struct.general.postgis.serverName + " -port " + str(settings_struct.general.postgis.portNumber) + " -user " + settings_struct.general.postgis.userName + " -pwd " + settings_struct.general.postgis.password + " -db " + settings_struct.general.postgis.databaseName + " -sch " + settings_struct.general.postgis.schemaName + " -res " + str(settings_struct.general.image.resolution) + " -ndv " + str(settings_struct.general.image.nodataValue) + " -epsg " + str(settings_struct.general.image.epsg) + " -raf " + settings_struct.general.raster.formatRaster + " -vef " + settings_struct.general.vector.formatVector + " -rae " + settings_struct.general.raster.extensionRaster + " -vee " + settings_struct.general.vector.extensionVector
 
             if sql_road_expression:
                 if six.PY2:
@@ -1618,6 +1632,13 @@ def writeCommands(settings_struct_dico, id_command, index_remote_ip, task_label,
                     command = command.encode("utf-8")
                 else :
                     command += " -sqlr " + bd_road_sql_list_str
+
+            if sql_railway_expression:
+                if six.PY2:
+                    command += " -sqla " + bd_railway_sql_list_str.decode("latin1")
+                    command = command.encode("utf-8")
+                else :
+                    command += " -sqla " + bd_railway_sql_list_str
 
             if sql_build_expression:
                 if six.PY2:

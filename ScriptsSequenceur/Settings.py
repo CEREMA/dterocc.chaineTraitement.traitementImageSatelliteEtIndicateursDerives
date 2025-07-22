@@ -274,6 +274,7 @@ class StructTask13_ExportBdTopoFromPostgres:
     def __init__(self):
         self.inputVector = ''
         self.outputDirectory = ''
+        self.buffer = 0
         self.zone = ''
         self.postgis = StructExportBdTopoFromPostgres_Postgis()
 
@@ -376,6 +377,7 @@ class StructMaskCreation_ClassMacro:
     def __init__(self):
         self.inputVector = ''
         self.outputFile = ''
+        self.bufferSize = 0
 
 class StructTask60_MaskCreation:
     def __init__(self):
@@ -733,19 +735,26 @@ class StructTask300_UrbanMorphologicalSegmentation:
         self.inputFileIMD = ''
         self.inputVectorsBuildList = []
         self.inputVectorsRoadList = []
+        self.inputVectorsRailwayList = []
         self.inputVectorsWaterList = []
         self.outputFilePeusdoRGB = ''
         self.outputFileBuildHeight = ''
         self.outputFileRoadWidth = ''
         self.outputVectorRoad = ''
+        self.outputVectorSqueletonMainRoad = ''
         self.outputVectorWatersArea = ''
-        self.outputVectorCCM = ''
-        self.outputVectorPost = ''
-        self.outputVector = ''
+        self.outputVectorSegRoads = ''
+        self.outputVectorSegCCM = ''
+        self.outputVectorSegPost = ''
+        self.outputVectorSeg = ''
         self.fieldWidthRoad = ''
         self.fieldImportanceRoad = ''
         self.thresholdImportanceRoad = 0
+        self.fieldNatureRoad = ''
+        self.fieldNatureRailway = ''
+        self.valuesNatureRailway = ''
         self.bufferSizeImportanceRoad = 0.0
+        self.lengthSizeExtensionRoad = 0
         self.thresholdMiniWaterArea = 0.0
 
 # Task70_RA_MacroSampleCutting

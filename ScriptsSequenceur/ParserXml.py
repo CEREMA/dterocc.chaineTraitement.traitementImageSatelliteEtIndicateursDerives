@@ -395,6 +395,7 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task13_ExportBdTopoFromPostgres.append(StructTask13_ExportBdTopoFromPostgres())
         settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].inputVector = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'InputVector')
         settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].outputDirectory = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'OutputDirectory')
+        settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].buffer = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'Buffer')
         settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].zone = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'Zone')
         settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].postgis.serverName = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'ServerName')
         settings_struct.tasks.task13_ExportBdTopoFromPostgres[pos].postgis.portNumber = getValueNodeDataDom(task13_ExportBdTopoFromPostgres_elem, 'PortNumber')
@@ -554,6 +555,9 @@ def xmlSettingsParser(settings_file) :
             class_macro_sample_struct = StructMaskCreation_ClassMacro()
             class_macro_sample_struct.inputVector = getValueNodeDataDom(element, 'InputVector')
             class_macro_sample_struct.outputFile = getValueNodeDataDom(element, 'OutputFile')
+            value = getValueNodeDataDom(element, 'BufferSize')
+            if value != "" and value is not None:
+                class_macro_sample_struct.bufferSize = value
             settings_struct.tasks.task60_MaskCreation[pos].classMacroSampleList.append(class_macro_sample_struct)
 
     # Task80_MacroSampleAmelioration
@@ -1218,6 +1222,22 @@ def xmlSettingsParser(settings_file) :
             database_file_struct.sqlExpression = sql_expression
             settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputVectorsRoadList.append(database_file_struct)
 
+        database_files_list = getListNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsRailwayList', 'DataBaseFile')
+        buffers_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsRailwayList', 'DataBaseFile', 'buffer')
+        sql_expressions_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsRailwayList', 'DataBaseFile', 'sql')
+        for index in range (len(database_files_list)) :
+            database_file = database_files_list[index]
+            sql_expression = sql_expressions_list[index]
+            if buffers_list[index] != "" and buffers_list[index] is not None:
+                buffer_value = float(buffers_list[index])
+            else:
+                buffer_value = 0
+            database_file_struct = StructCreation_DatabaseFile()
+            database_file_struct.inputVector = database_file
+            database_file_struct.bufferValue = buffer_value
+            database_file_struct.sqlExpression = sql_expression
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].inputVectorsRailwayList.append(database_file_struct)
+
         database_files_list = getListNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsWaterList', 'DataBaseFile')
         buffers_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsWaterList', 'DataBaseFile', 'buffer')
         sql_expressions_list = getListValueAttributeDom(task300_UrbanMorphologicalSegmentation_elem, 'InputVectorsWaterList', 'DataBaseFile', 'sql')
@@ -1238,19 +1258,27 @@ def xmlSettingsParser(settings_file) :
         settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputFileBuildHeight = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputFileBuildHeight')
         settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputFileRoadWidth = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputFileRoadWidth')
         settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorRoad')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorSqueletonMainRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorSqueletonMainRoad')
         settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorWatersArea = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorWatersArea')
-        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorCCM = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorCCM')
-        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorPost = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorPost')
-        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVector = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVector')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorSegRoads = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorSegRoads')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorSegCCM = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorSegCCM')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorSegPost = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorSegPost')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].outputVectorSeg = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'OutputVectorSeg')
 
         settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].fieldWidthRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'FieldWidthRoad')
         settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].fieldImportanceRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'FieldImportanceRoad')
         value = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'ThresholdImportanceRoad')
         if value != "" and value is not None:
             settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].thresholdImportanceRoad = int(value)
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].fieldNatureRoad = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'FieldNatureRoad')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].fieldNatureRailway = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'FieldNatureRailway')
+        settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].valuesNatureRailway = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'ValuesNatureRailway')
         value = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'BufferSizeImportanceRoad')
         if value != "" and value is not None:
             settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].bufferSizeImportanceRoad = float(value)
+        value = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'LengthSizeExtensionRoad')
+        if value != "" and value is not None:
+            settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].lengthSizeExtensionRoad = int(value)
         value = getValueNodeDataDom(task300_UrbanMorphologicalSegmentation_elem, 'ThresholdMiniWaterArea')
         if value != "" and value is not None:
             settings_struct.tasks.task300_UrbanMorphologicalSegmentation[pos].thresholdMiniWaterArea = float(value)

@@ -698,6 +698,8 @@
                 <InputVector>/mnt/RAM_disk/emprise_etude.shp</InputVector>
                 <!-- Répertoire de sortie des fichiers vecteur -->
                 <OutputDirectory>/mnt/RAM_disk/BD_TOPO</OutputDirectory>
+                <!-- Tampon pour la sélection des entités -->
+                <Buffer>1000</Buffer>
                 <!-- Zone BD TOPO à traiter -->
                 <Zone>FXX</Zone>
                 <!-- Paramètres PostGIS où est montée la BD TOPO -->
@@ -1002,10 +1004,12 @@
                     <ClassMacroSample name="bati">
                         <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_bati.shp</InputVector>
                         <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_bati_mask.tif</OutputFile>
+                        <BufferSize>1</BufferSize>
                     </ClassMacroSample>
                     <ClassMacroSample name="route">
                         <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route.shp</InputVector>
                         <OutputFile>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_route_mask.tif</OutputFile>
+                        <BufferSize>2</BufferSize>
                     </ClassMacroSample>
                     <ClassMacroSample name="eau">
                         <InputVector>/mnt/Donnees_Etudes/10_Agents/Gilles/TestChaine/Apprentissage/imageTest_macroclass_eau.shp</InputVector>
@@ -1787,6 +1791,10 @@
                     <DataBaseFile sql="FRANCHISST !='Tunnel'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_PRIMAIRE_BDT_031.SHP</DataBaseFile>
                     <DataBaseFile sql="FRANCHISST !='Tunnel'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_SECONDAIRE_BDT_031.SHP</DataBaseFile>
                 </InputVectorsRoadList>
+                <!-- Données vecteurs Voies ferrées -->
+                <InputVectorsRailwayList>
+                    <DataBaseFile sql="ETAT ='En service'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_TRONCON_VOIE_FERREE_BDT_031.SHP</DataBaseFile>
+                </InputVectorsRailwayList>
                 <!-- Données vecteurs Eau -->
                 <InputVectorsWaterList>
                     <DataBaseFile sql="REGIME ='Permanent'">/mnt/RAM_disk/INTEGRATION/bd_topo/N_SURFACE_EAU_BDT_031.shp</DataBaseFile>
@@ -1802,16 +1810,20 @@
                 <OutputFileRoadWidth>/mnt/RAM_disk/INTEGRATION/create_data/result/roads_width.tif</OutputFileRoadWidth>
                 <!-- Vecteur de sortie des routes -->
                 <OutputVectorRoad>/mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp</OutputVectorRoad>
+                <!-- Vecteur de sortie du sequelette des routes principales -->
+                <OutputVectorSqueletonMainRoad>/mnt/RAM_disk/INTEGRATION/create_data/result/skeleton_primary_roads.shp</OutputVectorSqueletonMainRoad>
                 <!-- Vecteur de sortie surface en eau-->
                 <OutputVectorWatersArea>/mnt/RAM_disk/INTEGRATION2/create_data/result/all_waters_area.shp</OutputVectorWatersArea>
 
                 <!-- Fichiers de sortie des segmentations intermédiaires et finale -->
+                <!-- Vecteur segmentation de sortie intermédiaire Routes -->
+                <OutputVectorSegRoads>mnt/RAM_disk/INTEGRATION/ccm/result/toulouse_seg_ccm.shp</OutputVectorSegRoads>
                 <!-- Vecteur segmentation de sortie intermédiaire CCM -->
-                <OutputVectorCCM>mnt/RAM_disk/INTEGRATION/ccm/result/toulouse_seg_ccm.shp</OutputVectorCCM>
+                <OutputVectorSegCCM>mnt/RAM_disk/INTEGRATION/ccm/result/toulouse_seg_ccm.shp</OutputVectorSegCCM>
                 <!-- Vecteur segmentation de sortie intermédiaire post traitement -->
-                <OutputVectorPost>/mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouseseg_post.shp</OutputVectorPost>
+                <OutputVectorSegPost>/mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouseseg_post.shp</OutputVectorSegPost>
                 <!-- Vecteur segmentation de sortie final fusion -->
-                <OutputVector>/mnt/RAM_disk/INTEGRATION/seg_res_fusion/res/toulouse_seg_end.shp</OutputVector>
+                <OutputSegVector>/mnt/RAM_disk/INTEGRATION/seg_res_fusion/res/toulouse_seg_end.shp</OutputSegVector>
 
                 <!-- Les Paramètres -->
                 <!-- Paramètre champs largeurs de routes -->
@@ -1820,8 +1832,17 @@
                 <FieldImportanceRoad>IMPORTANCE</FieldImportanceRoad>
                 <!-- Paramètre seuil minimun importance des routes -->
                 <ThresholdImportanceRoad>4</ThresholdImportanceRoad>
+                <!-- Paramètre champs nature des routes -->
+                <FieldNatureRoad>NATURE</FieldNatureRoad>
+                <!-- Paramètre champs nature des voies ferrées -->
+                <FieldNatureRailway>NATURE</FieldNatureRailway>
+                <!-- Paramètre valeurs nature des voies ferrées -->
+                <ValuesNatureRailway>Principale</ValuesNatureRailway>
                 <!-- Paramètre taille buffer importance des routes -->
                 <BufferSizeImportanceRoad>35.0</BufferSizeImportanceRoad>
+                <!-- Paramètre taille de la longueur d'extension des routes -->
+                <LengthSizeExtensionRoad>20</LengthSizeExtensionRoad>
+
                 <!-- Paramètre seuil minimun surface en eau (en mêtre²) -->
                 <ThresholdMiniWaterArea>50000.0</ThresholdMiniWaterArea>
 
@@ -2573,7 +2594,7 @@
                 <!-- Nom du champ ID du fichier de découpage morphologique -->
                 <IdDivisionField>id</IdDivisionField>
                 <!-- Nom du champ ID du fichier de donnée de population -->
-                <IdPopulationField>IdINSPIRE</IdPopulationField>
+                <IdPopulationField>Idcar_200m</IdPopulationField>
                 <!-- Nom du champ ID du fichier de donnée du bâti -->
                 <IdBuiltField>ID</IdBuiltField>
                 <!-- Liste des noms de champs des enjeux du fichier de donnée de population -->
@@ -2595,7 +2616,7 @@
                 <!-- Nom du champ de hauteur du fichier de donnée du bâti -->
                 <HeightField>HAUTEUR</HeightField>
                 <!-- Requête SQL de filtrage de la donnée du bâti -->
-                <BuiltSqlFilter>NATURE LIKE 'Indiff%renci%e' AND ((USAGE1 LIKE 'R%sidentiel' OR USAGE1 LIKE 'Indiff%renci%') OR (USAGE2 LIKE 'R%sidentiel' OR USAGE2 LIKE 'Indiff%renci%' OR USAGE2 IS NULL)) AND LEGER LIKE 'Non' AND ETAT LIKE 'En service' AND PREC_PLANI != 9999 AND PREC_ALTI != 9999 AND (HAUTEUR IS NOT NULL AND HAUTEUR > 0) AND ST_Area(geom) >= 20</BuiltSqlFilter>
+                <BuiltSqlFilter>nature LIKE 'Indiff%renci%e' AND (usage1 LIKE 'R%sidentiel' OR usage2 LIKE 'R%sidentiel') AND leger = 0 AND etat LIKE 'En service' AND prec_alti != 9999 AND (hauteur IS NOT NULL AND hauteur > 0) AND ST_Area(geom) >= 20</BuiltSqlFilter>
             </Task40_RSQ_UhiVulnerability>
         </Task40_RSQ_UhiVulnerability_List>
 
