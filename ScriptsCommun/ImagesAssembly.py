@@ -42,9 +42,9 @@ from osgeo import gdal, ogr
 from osgeo.gdalconst import *
 from Lib_log import timeLine
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
-from Lib_operator import getExtensionApplication
+from Lib_operator import *
 from Lib_vector import getEmpriseVector, createEmpriseShapeReduced
-from Lib_raster import getPixelWidthXYImage, changeDataValueToOtherValue, getProjectionImage, updateReferenceProjection, roundPixelEmpriseSize, cutImageByVector
+from Lib_raster import getDataTypeImage, getPixelWidthXYImage, changeDataValueToOtherValue, getProjectionImage, updateReferenceProjection, roundPixelEmpriseSize, cutImageByVector
 from Lib_file import removeVectorFile, removeFile, deleteDir
 from Lib_text import appendTextFileCR
 from CreateEmprises import createEmprise
@@ -628,13 +628,52 @@ def assemblyImages(images_list, empr_file, output_file, is_zone_date, pixel_size
 
     # Utilisation de la commande gdal_merge pour fusioner les fichiers image source
     # Pour les parties couvertes par plusieurs images, l'image retenue sera la dernière mergée
-    if is_zone_date :
+    if is_zone_date or True :
         cmd_merge = "gdal_merge" + getExtensionApplication() + " -of " + format_raster + " -ps " + str(pixel_size_x) + " " + str(pixel_size_y) + " -n " + str(no_data_value) + " -o "  + merge_file_tmp + " --optfile " + list_file_tmp
     else :
-        cmd_merge = "otbcli_Mosaic -il %s -out %s -harmo.method band -harmo.cost rmse" %(list_file_str, merge_file_tmp)
+        # Ajuster l'encodage de Gdal à celui de l OTB
+        codage_gdal = getDataTypeImage(images_list[0], num_band=1)
+        codage = None
+        while switch(str(codage_gdal)):
+            if case("Byte"):
+                codage = "uint8"
+                break
+            if case("UInt16"):
+                codage = "uint16"
+                break
+            if case("Int16"):
+                codage = "int16"
+                break
+            if case("UInt32"):
+                codage = "uint32"
+                break
+            if case("Int32"):
+                codage = "int32"
+                break
+            if case("Float32"):
+                codage = "float"
+                break
+            if case("Float64"):
+                codage = "double"
+                break
+            if case("CInt16"):
+                codage = "cint16"
+                break
+            if case("CInt32"):
+                codage = "cint32"
+                break
+            if case("CFloat32"):
+                codage = "cfloat"
+                break
+            if case("CFloat64"):
+                codage = "cdouble"
+                break
+            break
+        cmd_merge = "otbcli_Mosaic -il %s -out %s %s -harmo.method band -harmo.cost rmse" %(list_file_str, merge_file_tmp, codage)
     print(cmd_merge)
     exit_code = os.system(cmd_merge)
     if exit_code != 0:
+        print(cmd_merge)
         raise NameError (bold + red + "!!! Une erreur c'est produite au cours du merge des images. Voir message d'erreur."  + endC)
 
     """

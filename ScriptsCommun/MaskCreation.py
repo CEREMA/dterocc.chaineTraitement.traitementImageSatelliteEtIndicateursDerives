@@ -36,7 +36,7 @@ A Reflechir/A faire :
 from __future__ import print_function
 import os,sys,glob,argparse,string
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
-from Lib_raster import rasterizeBinaryVector
+from Lib_raster import rasterizeBinaryVector, bufferBinaryRaster
 from Lib_log import timeLine
 from Lib_file import removeFile
 
@@ -48,7 +48,7 @@ debug = 3
 ###########################################################################################################################################
 # FONCTION createMask()                                                                                                                   #
 ###########################################################################################################################################
-def createMask(image_input, vector_samples_input, image_masked, path_time_log, save_results_intermediate=False, overwrite=True):
+def createMask(image_input, vector_samples_input, image_masked, path_time_log, buffer_mask=0, save_results_intermediate=False, overwrite=True):
     """
     # ROLE:
     #     remplace par 0 les pixels d'une image places hors de vecteurs de decoupage et par 1 les pixels a l'interieur des polygones
@@ -59,6 +59,7 @@ def createMask(image_input, vector_samples_input, image_masked, path_time_log, s
     #     vector_samples_input : le vecteur à transformer en image masque
     #     image_masked : l'image de sortie masqué
     #     path_time_log : le fichier de log de sortie
+    #     buffer_mask : taille du buffer à appliquer sur le masque, par defaut = 0
     #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
     #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
     #
@@ -106,6 +107,10 @@ def createMask(image_input, vector_samples_input, image_masked, path_time_log, s
 
         rasterizeBinaryVector(vector_samples_input, image_input, image_masked, 1, CODAGE)
 
+        if buffer_mask!=0:
+            # bufferisation du masque
+            bufferBinaryRaster(image_masked,image_masked,buffer_mask)
+
         print(bold + green +  "createMask() : " + endC + "Computing mask from %s with %s completed" %(image_input, vector_samples_input) + endC)
 
     print(endC)
@@ -144,6 +149,7 @@ def main(gui=False):
     parser.add_argument('-v','--vector_samples_input',default="",help="Input samples vector refere to input image.", type=str, required=True)
     parser.add_argument('-o','--image_mask_output',default="",help="Mask image output.", type=str, required=True)
     parser.add_argument('-log','--path_time_log',default="",help="Name of log", type=str, required=False)
+    parser.add_argument('-b','--buffer_size',default=0,help="Size of buffer. By default, 0", type=int, required=False)
     parser.add_argument('-sav','--save_results_inter',action='store_true',default=False,help="Save or delete intermediate result after the process. By default, False", required=False)
     parser.add_argument('-now','--overwrite',action='store_false',default=True,help="Overwrite files with same names. By default, True", required=False)
     parser.add_argument('-debug','--debug',default=3,help="Option : Value of level debug trace, default : 3 ",type=int, required=False)
@@ -164,12 +170,16 @@ def main(gui=False):
             raise NameError (cyan + "MaskCreation : " + bold + red  + "File %s not existe!" %(vector_samples_input) + endC)
 
     # Récupération des fichiers masque de sortie
-    if args.image_mask_output!= None:
+    if args.image_mask_output != None:
         image_mask_output=args.image_mask_output
 
     # Récupération du nom du fichier log
-    if args.path_time_log!= None:
+    if args.path_time_log != None:
         path_time_log = args.path_time_log
+
+    # Récupération de la taille du buffer
+    if args.buffer_size != None:
+        buffer_size = args.buffer_size
 
     # Récupération de l'option écrasement
     if args.save_results_inter != None:
@@ -189,6 +199,7 @@ def main(gui=False):
         print(cyan + "MaskCreation : " + endC + "vector_samples_input : " + str(vector_samples_input) + endC)
         print(cyan + "MaskCreation : " + endC + "image_mask_output : " + str(image_mask_output) + endC)
         print(cyan + "MaskCreation : " + endC + "path_time_log : " + str(path_time_log) + endC)
+        print(cyan + "MaskCreation : " + endC + "buffer_size : " + str(buffer_size) + endC)
         print(cyan + "MaskCreation : " + endC + "save_results_inter : " + str(save_results_intermediate) + endC)
         print(cyan + "MaskCreation : " + endC + "overwrite : " + str(overwrite) + endC)
         print(cyan + "MaskCreation : " + endC + "debug : " + str(debug) + endC)
@@ -200,7 +211,7 @@ def main(gui=False):
         os.makedirs(repertory_output)
 
     # execution de la fonction pour une image
-    createMask(image_input, vector_samples_input, image_mask_output, path_time_log, save_results_intermediate, overwrite)
+    createMask(image_input, vector_samples_input, image_mask_output, path_time_log, buffer_size, save_results_intermediate, overwrite)
 
 # ================================================
 

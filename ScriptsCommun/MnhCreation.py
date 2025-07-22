@@ -16,6 +16,8 @@ Description :
 -------------
 Objectif : Créer un fichier raster de MNH (Model Numerique de Hauteur)
 Rq : utilisation des OTB Applications : otbcli_BandMath, otbcli_Rasterization, otbcli_Superimpose
+        - les valeurs possibles pour le paramètre 'zone' sont : "FXX" / "GLP" / "MTQ" / "GUF" / "REU" / "MYT" / "SPM" / "BLM" / "MAF"
+            correspondant respectivement à : France Métropolitaine (EPSG 2154) / Guadeloupe (EPSG 5490) / Martinique (EPSG 5490) / Guyane (EPSG 2972) / Réunion (EPSG 2975) / Mayotte (EPSG 4471) / Saint-Pierre-et-Miquelon (EPSG 4467) / Saint-Barthélemy (EPSG 5490) / Saint-Martin (EPSG 5490)
 
 Date de creation : 1/06/2018
 ----------
@@ -23,7 +25,8 @@ Histoire :
 ----------
 Modifications :
     - 22/04/2024 : ajout fonction createMnhFromMnsCorrel() pour générer un MNH à partir du MNS-Correl (image_mns_input et image_mnt_input sont des répertoires où sont stockées les archives MNS-Correl et RGE ALTI 1M)
-
+    - 20/02/2025 : ajout fonction createMnhFromLidarHd() pour générer un MNH à partir de nuages de points LiDAR HD (lhd_directory_list est une liste de répertoires où sont stockées les nuages de points LiDAR HD)
+    - 26/02/2025 : parallélisation des scripts createMnhFromMnsCorrel() et createMnhFromLidarHd() avec ajout d'un paramètre 'nb_cpus' permettant de choisir les ressources à utiliser.
 A Reflechir/A faire :
 
 """
@@ -31,14 +34,16 @@ A Reflechir/A faire :
 # Import des bibliothèques Python
 from __future__ import print_function
 from builtins import input
-import os,sys,glob,argparse,string,math,datetime
+import os,sys,glob,argparse,string,math,datetime,subprocess,threading,psutil,time
+from concurrent.futures import ThreadPoolExecutor
 from osgeo import ogr
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_log import timeLine
+from Lib_operator import getNumberCPU
 from Lib_file import removeFile, removeVectorFile, cleanTempData, deleteDir, read7zArchiveStructure
 from Lib_postgis import openConnection, getData, closeConnection
 from Lib_text import readTextFileBySeparator, writeTextFile
-from Lib_raster import getNodataValueImage, countPixelsOfValue, cutImageByVector, createBinaryMask, rasterizeBinaryVector, rasterizeVector, getEmpriseImage, getPixelWidthXYImage
+from Lib_raster import getNodataValueImage, countPixelsOfValue, cutImageByVector, createBinaryMask, rasterizeBinaryVector, rasterizeVector, getEmpriseImage, getPixelWidthXYImage, getProjectionImage
 from Lib_vector import cutoutVectors, fusionVectors, addNewFieldVector, getAttributeValues, setAttributeIndexValuesList, filterSelectDataVector, getProjection
 from Lib_saga import fillNodata
 from MacroSamplesCreation import createMacroSamples
@@ -48,6 +53,32 @@ from CrossingVectorRaster import statisticsVectorRaster
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
 # debug = 2 : affichage supérieur de commentaires lors de l'execution du script etc...
 debug = 3
+max_threads = 100  # Limite à 100 threads simultanés (pour éviter des erreurs liées à un trop grand nombre de fichiers ouverts simultanément)
+thread_limiter = threading.BoundedSemaphore(max_threads)
+
+
+###########################################################################################################################################
+# CLASSE SubprocessThread()                                                                                                          #
+###########################################################################################################################################
+
+class SubprocessThread(threading.Thread):
+    def __init__(self, command):
+        super().__init__()
+        self.command = command
+        self.stdout = None
+        self.stderr = None
+
+    def run(self):
+        with thread_limiter:
+            process = subprocess.Popen(
+                self.command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                shell=True
+            )
+            self.stdout, self.stderr = process.communicate()
+
 
 ###########################################################################################################################################
 # FONCTION createMnh()                                                                                                                    #
@@ -411,7 +442,7 @@ def createMnh(image_mns_input, image_mnt_input, image_threshold_input, vector_em
             # Attention!!!! PAUSE pour trie et verification des polygones bati nom deja present dans le MNH ou non
             if not automatic :
                 print(bold + blue +  "Application MnhCreation => " + endC + "Vérification manuelle du vecteur bati %s pour ne concerver que les batis non présent dans le MNH courant %s" %(vector_bd_bati_temp, image_mnh_road) + endC)
-                input(bold + red + "Appuyez sur entree pour continuer le programme..." + endC)
+                input(bold + yellow + "Appuyez sur entree pour continuer le programme..." + endC)
 
             # Creation du masque bati avec pour H la hauteur des batiments
             rasterizeVector(vector_bd_bati, raster_bd_bati, image_mnh_road, COLUMN_H_BUILD, codage=CODAGE_F)
@@ -430,7 +461,7 @@ def createMnh(image_mns_input, image_mnt_input, image_threshold_input, vector_em
             exitCode = os.system(command)
             if exitCode != 0:
                 print(command)
-                raise NameError(cyan + "createMnh() : " + bold + red + "An error occured during otbcli_BandMath command to compute MNH Final" + image_mnh_output + ". See error message above." + endC)
+                raise NameError(cyan + "createMnh() : " + bold + red + "An error occured during otbcli_BandMath command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
 
     # SUPPRESIONS FICHIERS INTERMEDIAIRES INUTILES
 
@@ -463,7 +494,7 @@ def createMnh(image_mns_input, image_mnt_input, image_threshold_input, vector_em
 ########################################################################
 # FONCTION createMnhFromMnsCorrel()                                    #
 ########################################################################
-def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_reference_input, image_mnt_input, image_mns_input, year=2022, zone="FXX", path_time_log='', save_results_intermediate=False, overwrite=True):
+def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_reference_input, image_mnt_input, image_mns_input, year=2022, zone="FXX",  keep_mnt_mns=True, nb_cpus=30, path_time_log="", save_results_intermediate=False, overwrite=True):
     '''
     # ROLE :
     #     Créer un MNH à partir de données MNS-Correl et RGE ALTI 1M
@@ -475,7 +506,9 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
     #     image_mnt_input : répertoire où sont stockées les archives MNT du RGE ALTI 1M
     #     image_mns_input : répertoire où sont stockées les archives MNS du MNS-Correl
     #     year : millésime (ou plus proche millésime) des données MNT/MNS à utiliser. Par défaut, 2022
-    #     zone : définition du territoire d'étude. Par défaut, 'FXX'
+    #     zone : définition du territoire d'étude. Par défaut, "FXX"
+    #     keep_mnt_mns : choix de garder les MNT et MNS à la fin du traitement. Par défaut, True
+    #     nb_cpus : nombre de CPUs à utiliser pour lancer l'exécution en parallèle (les threads, ou tâches, seront alors équitablement répartis sur la ressource).
     #     path_time_log : fichier log de sortie, par défaut vide
     #     save_results_intermediate : fichiers temporaires conservés, par défaut = False
     #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
@@ -484,25 +517,48 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
     #     N.A.
     '''
     if debug >= 3:
-        print('\n' + bold + green + "Créer un MNH à partir de données MNS-Correl et RGE ALTI 1M - Variables dans la fonction :" + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "vector_emprise_input : " + str(vector_emprise_input) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "image_mnh_output : " + str(image_mnh_output) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "image_reference_input : " + str(image_reference_input) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "image_mnt_input : " + str(image_mnt_input) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "image_mns_input : " + str(image_mns_input) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "year : " + str(year) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "zone : " + str(zone) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "path_time_log : " + str(path_time_log) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
-        print(cyan + "    createMnhFromMnsCorrel() : " + endC + "overwrite : " + str(overwrite) + endC)
+        print(bold + green + "Créer un MNH à partir de données MNS-Correl et RGE ALTI 1M - Variables dans la fonction :" + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "vector_emprise_input : " + str(vector_emprise_input) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "image_mnh_output : " + str(image_mnh_output) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "image_reference_input : " + str(image_reference_input) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "image_mnt_input : " + str(image_mnt_input) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "image_mns_input : " + str(image_mns_input) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "year : " + str(year) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "zone : " + str(zone) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "keep_mnt_mns : " + str(keep_mnt_mns) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "nb_cpus : " + str(nb_cpus) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "path_time_log : " + str(path_time_log) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
+        print(cyan + "createMnhFromMnsCorrel() : " + endC + "overwrite : " + str(overwrite) + endC + "\n")
 
     # Définition des constantes
-    DATABASE_NAME, USER_NAME, PASSWORD, IP_HOST, NUM_PORT, GEOM_FIELD, INSEE_FIELD = "bdtopo_3_3_tousthemes_sql_scr_xxx_2022_12_15", "postgres", "postgres", "172.22.130.99", "5432", "geometrie", "code_insee"
-    NOT_AVAILABLE_ZONE_LIST = ["BLM", "MAF"]
+    DATABASE_NAME, USER_NAME, PASSWORD, IP_HOST, NUM_PORT, GEOM_FIELD, INSEE_FIELD = "bdtopo_v33_20221215", "postgres", "postgres", "172.22.130.99", "5435", "geometrie", "code_insee"
     MNT_LENGTH_STRUCTURE, MNT_SEARCH_STRUCTURE_1, MNT_SEARCH_STRUCTURE_2, MNT_SEARCH_STRUCTURE_3, MNT_SPLIT_STRUCTURE = 5, "RGEALTI", "1_DONNEES_LIVRAISON_", "RGEALTI_MNT_", "_"
     MNS_LENGTH_STRUCTURE, MNS_SEARCH_STRUCTURE_1, MNS_SEARCH_STRUCTURE_2, MNS_SEARCH_STRUCTURE_3, MNS_SPLIT_STRUCTURE = 5, "MNS-Correl", "1_DONNEES_LIVRAISON_", "MNS-C_", "-"
     MNS_ARCHIVE_STRUCTURE_FILE, MNS_WRONG_TILE_NAME, MNS_WRONG_TILE_VALUE = "000_Documentation/structure_archives_MNS.csv", "xxx0", "ymin"
     TILE_SIZE = 1000
+
+    # Nombre de cpus disponibles
+    #num_cpus = os.cpu_count()
+    num_cpus = getNumberCPU()
+    # Si le nombre de CPUs demandé dépasse le nombre de cpus disponibles, il est revu à la baisse et un warning est affiché
+    if nb_cpus > num_cpus:
+        if debug >= 1:
+            print(cyan + "createMnhFromMnsCorrel() : " + bold + yellow + f"Le nombre de threads demandés ({nb_cpus}) est supérieur au nombre de CPUs disponibles ({num_cpus}). Il sera donc réduit." + endC)
+        nb_cpus = num_cpus
+    # Obtenir la liste de tous les CPUs disponibles
+    available_cpus = list(range(psutil.cpu_count(logical=True)))
+    # Sélectionner les n premiers CPUs
+    selected_cpus = available_cpus[:nb_cpus]
+    # Appliquer l'affinité au processus actuel
+    p = psutil.Process(os.getpid())
+    p.cpu_affinity(selected_cpus)
+    if debug >= 2:
+        print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "DEBUT DES TRAITEMENTS" + endC + "\n")
+
+    # Mise à jour du log
+    starting_event = "createMnhFromMnsCorrel() : Début du traitement : "
+    timeLine(path_time_log, starting_event)
 
     # Gestion des variables de sortie
     output_directory = os.path.dirname(image_mnh_output)
@@ -512,46 +568,42 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
     output_MNS_raster = output_directory + os.sep + output_MNH_basename + "_-_MNS_MNS-Correl" + output_MNH_extension
 
     # Gestion des variables temporaires
-    temp_directory = output_directory + os.sep + "MNH_temp"
+    temp_directory = output_directory + os.sep + output_MNH_basename + "_MnhCreation_temp"
     temp_MNT_directory = temp_directory + os.sep + "RGE_ALTI_1M"
-    if not os.path.exists(temp_MNT_directory):
-        os.makedirs(temp_MNT_directory)
-    MNT_vrt = temp_directory + os.sep + "RGE_ALTI_1M.vrt"
     MNT_to_vrt_files = temp_directory + os.sep + "RGE_ALTI_1M_files.txt"
+    MNT_vrt = temp_directory + os.sep + "RGE_ALTI_1M.vrt"
     temp_MNS_directory = temp_directory + os.sep + "MNS-Correl"
-    if not os.path.exists(temp_MNS_directory):
-        os.makedirs(temp_MNS_directory)
-    MNS_vrt = temp_directory + os.sep + "MNS-Correl.vrt"
     MNS_to_vrt_files = temp_directory + os.sep + "MNS-Correl_files.txt"
+    MNS_vrt = temp_directory + os.sep + "MNS-Correl.vrt"
 
     # Nettoyage des traitements précédents
     if overwrite:
         if debug >= 3:
-            print('\n' + cyan + "createMnhFromMnsCorrel() : " + endC + "Nettoyage des traitements précédents." + endC)
+            print(cyan + "createMnhFromMnsCorrel() : " + endC + "Nettoyage des traitements précédents." + endC + "\n")
         removeFile(image_mnh_output)
         removeFile(output_MNT_raster)
         removeFile(output_MNS_raster)
         cleanTempData(temp_directory)
     else:
         if os.path.exists(image_mnh_output):
-            print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + yellow + "Le fichier de sortie existe déjà et ne sera pas regénéré." + endC)
-            raise
+            print(cyan + "createMnhFromMnsCorrel() : " + bold + yellow + "Le fichier de sortie existe déjà et ne sera pas regénéré." + endC + "\n")
+            exit(0)
         pass
+
+    if not os.path.exists(temp_MNT_directory):
+        os.makedirs(temp_MNT_directory)
+    if not os.path.exists(temp_MNS_directory):
+        os.makedirs(temp_MNS_directory)
 
     ####################################################################
 
-    print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "DEBUT DES TRAITEMENTS" + endC)
-
-    # Mise à jour du log
-    starting_event = "createMnhFromMnsCorrel() : Début du traitement : "
-    timeLine(path_time_log, starting_event)
-
-    print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Début de la préparation des traitements." + endC)
+    ###########
+    # Etape 0 # Préparation des traitements
+    ###########
 
     # Test existence du fichier vecteur d'emprise
     if not os.path.exists(vector_emprise_input):
-        print('\n' + bold + red + "Error: Input vector file '%s' not exists!" % vector_emprise_input + endC)
-        exit(-1)
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: Input vector file \"%s\" not exists!" % vector_emprise_input + endC)
     # Gestion des variables du fichier vecteur d'emprise
     format_vector_list = [ogr.GetDriver(i).GetDescription() for i in range(ogr.GetDriverCount())]
     i = 0
@@ -567,16 +619,16 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
 
     # Test existence du fichier raster de référence
     if not os.path.exists(image_reference_input):
-        print('\n' + bold + red + "Error: Input raster file '%s' not exists!" % image_reference_input + endC)
-        exit(-1)
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: Input raster file \"%s\" not exists!" % image_reference_input + endC)
+
     # Gestion des variables du fichier raster de référence
     xmin_img, xmax_img, ymin_img, ymax_img = getEmpriseImage(image_reference_input)
     pixel_width, pixel_height = getPixelWidthXYImage(image_reference_input)
 
     # Test existence du répertoire MNT d'entrée
     if not os.path.isdir(image_mnt_input):
-        print('\n' + bold + red + "Error: Input MNT directory '%s' is empty!" % image_mnt_input + endC)
-        exit(-1)
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: Input MNT directory \"%s\" is empty!" % image_mnt_input + endC)
+
     # Gestion des archives MNT
     MNT_zip_files_list = [input_file for input_file in glob.glob(image_mnt_input + os.sep + "D*/*/*.7z")]
     MNT_zip_files_list += [input_file for input_file in glob.glob(image_mnt_input + os.sep + "D*/*/*.7z.001")]
@@ -584,8 +636,8 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
 
     # Test existence du répertoire MNS d'entrée
     if not os.path.isdir(image_mns_input):
-        print('\n' + bold + red + "Error: Input MNS directory '%s' is empty!" % image_mns_input + endC)
-        exit(-1)
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: Input MNS directory \"%s\" is empty!" % image_mns_input + endC)
+
     # Gestion des archives MNS
     MNS_zip_files_list = [input_file for input_file in glob.glob(image_mns_input + os.sep + "D*/*/*.7z")]
     MNS_zip_files_list += [input_file for input_file in glob.glob(image_mns_input + os.sep + "D*/*/*.7z.001")]
@@ -593,9 +645,9 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
     # Test existence du fichier de structure des archives/dalles MNS
     input_MNS_structure_file = image_mns_input + os.sep + MNS_ARCHIVE_STRUCTURE_FILE
     if not os.path.isfile(input_MNS_structure_file):
-        print('\n' + bold + red + "Error: MNS archive/tile structure file '%s' not exists!" % input_MNS_structure_file + endC)
-        exit(-1)
-    MNS_tile_structure = readTextFileBySeparator(input_MNS_structure_file, ';')
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: MNS archive/tile structure file \"%s\" not exists!" % input_MNS_structure_file + endC)
+
+    MNS_tile_structure = readTextFileBySeparator(input_MNS_structure_file, ";")
 
     # Gestion des numéros de départements
     if zone == "FXX":
@@ -621,31 +673,27 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
     elif zone == "MAF":
         dpts_list, epsg, schema_name, table_name = ["D978"], 5490, "maf_rgaf09utm20", "collectivite_territoriale"
     else:
-        print('\n' + bold + red + "Error: Zone '%s' is not in the available zones (FXX, GLP, MTQ, GUF, REU, MYT, SPM, BLM, MAF)!" % zone + endC)
-        exit(-1)
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: Zone \"%s\" is not in the available zones (FXX, GLP, MTQ, GUF, REU, MYT, SPM, BLM, MAF)!" % zone + endC)
     if input_epsg_vector != epsg:
-        print('\n' + bold + red + "Error: Input vector EPSG (%s) is not the same as reference EPSG (%s) for this zone ('%s')!" % (input_epsg_vector, epsg, zone) + endC)
-        exit(-1)
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: Input vector EPSG (%s) is not the same as reference EPSG (%s) for this zone (\"%s\")!" % (input_epsg_vector, epsg, zone) + endC)
 
-    print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Fin de la préparation des traitements." + endC)
-
-    #############################################
-    # Gestion des dalles 1 km par département ###
-    #############################################
+    #############
+    # Etape 1/4 # Gestion des dalles 1 km des départements intersectant la zone d'étude
+    #############
 
     if (not os.path.exists(output_MNT_raster) or not os.path.exists(output_MNS_raster)) and (not os.path.exists(MNT_vrt) or not os.path.exists(MNS_vrt)):
-        print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Début de la gestion des dalles 1 km des départements intersectant la zone d'étude." + endC)
+        if debug >= 2:
+            print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 1/4 - Début de la gestion des dalles 1 km des départements intersectant la zone d'étude." + endC + "\n")
 
-        connection = openConnection(DATABASE_NAME, user_name=USER_NAME, password=PASSWORD, ip_host=IP_HOST, num_port=NUM_PORT, schema_name='public')
+        connection = openConnection(DATABASE_NAME, user_name=USER_NAME, password=PASSWORD, ip_host=IP_HOST, num_port=NUM_PORT, schema_name="public")
         data_source_ROI = driver.Open(vector_emprise_input, 0)
         layer_ROI = data_source_ROI.GetLayer(0)
         feature_ROI = layer_ROI.GetFeature(0)
         geometry_ROI = feature_ROI.GetGeometryRef()
         tiles_dpt_ROI_dico = {}
         for dpt in dpts_list:
-            select_get_data, where_get_data = "ST_XMin(%s), ST_XMax(%s), ST_YMin(%s), ST_YMax(%s), ST_AsText(%s)" % (GEOM_FIELD, GEOM_FIELD, GEOM_FIELD, GEOM_FIELD, GEOM_FIELD), "%s = '%s'" % (INSEE_FIELD, dpt[2:])
-            if zone in (NOT_AVAILABLE_ZONE_LIST):
-                schema_name, select_get_data = "fra_wgs84g", "ST_XMin(ST_Transform(%s, %s)), ST_XMax(ST_Transform(%s, %s)), ST_YMin(ST_Transform(%s, %s)), ST_YMax(ST_Transform(%s, %s)), ST_AsText(ST_Transform(%s, %s))" % (GEOM_FIELD, epsg, GEOM_FIELD, epsg, GEOM_FIELD, epsg, GEOM_FIELD, epsg, GEOM_FIELD, epsg)
+            dpt_int = dpt[2:] if zone == "FXX" else dpt[1:]
+            select_get_data, where_get_data = "ST_XMin(%s), ST_XMax(%s), ST_YMin(%s), ST_YMax(%s), ST_AsText(%s)" % (GEOM_FIELD, GEOM_FIELD, GEOM_FIELD, GEOM_FIELD, GEOM_FIELD), "%s = '%s'" % (INSEE_FIELD, dpt_int)
             get_data_dpt = getData(connection, "%s.%s" % (schema_name, table_name), select_get_data, condition=where_get_data)
             xmin_dpt, xmax_dpt, ymin_dpt, ymax_dpt = math.floor(get_data_dpt[0][0]/TILE_SIZE), math.ceil(get_data_dpt[0][1]/TILE_SIZE), math.floor(get_data_dpt[0][2]/TILE_SIZE), math.ceil(get_data_dpt[0][3]/TILE_SIZE)
             geometry_dpt = ogr.CreateGeometryFromWkt(get_data_dpt[0][4])
@@ -663,152 +711,626 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
                 tiles_dpt_ROI_dico[dpt] = tiles_list
         data_source_ROI.Destroy()
         closeConnection(connection)
+        if debug >= 2:
+            print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 1/4 - Fin de la gestion des dalles 1 km des départements intersectant la zone d'étude." + endC + "\n")
 
-        print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Fin de la gestion des dalles 1 km des départements intersectant la zone d'étude." + endC)
+    #############
+    # Etape 2/4 # Création du MNT à partir des données RGE ALTI 1M
+    #############
 
-    #######################
-    ### Création du MNT ###
-    #######################
+    def MNT_creation():
+        if not os.path.exists(output_MNT_raster):
+            if debug >= 2:
+                print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 2/4 - Début de la création du MNT à partir des données RGE ALTI 1M." + endC + "\n")
 
-    if not os.path.exists(output_MNT_raster):
-        print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Début de la création du MNT à partir des données RGE ALTI 1M." + endC)
+            if not os.path.exists(MNT_vrt):
 
-        if not os.path.exists(MNT_vrt):
+                for dpt, tiles_list in tiles_dpt_ROI_dico.items():
 
-            for dpt, tiles_list in tiles_dpt_ROI_dico.items():
+                    # Gestion de l'archive
+                    MNT_zip_files_list_selection = [zip_file for zip_file in MNT_zip_files_list if dpt in zip_file]
+                    if len(MNT_zip_files_list_selection) == 0:
+                        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: There are no MNT archive to treat for the department \"%s\"!" % dpt)
+                    elif len(MNT_zip_files_list_selection) == 1:
+                        MNT_zip_file = MNT_zip_files_list_selection[0]
+                    else:
+                        MNT_date_list = [datetime.datetime(int(MNT_zip_file.split(os.sep)[-2:-1][0].split("-")[0]), int(MNT_zip_file.split(os.sep)[-2:-1][0].split("-")[1]), int(MNT_zip_file.split(os.sep)[-2:-1][0].split("-")[2])) for MNT_zip_file in MNT_zip_files_list_selection]
+                        MNT_date_to_keep = min(MNT_date_list, key = lambda i: abs(i - datetime.datetime(year, 6, 1))).strftime("%Y-%m-%d")
+                        MNT_zip_file = [zip_file for zip_file in MNT_zip_files_list_selection if MNT_date_to_keep in zip_file][0]
+                    MNT_zip_file_structure = read7zArchiveStructure(MNT_zip_file)
+                    for zip_file_structure in MNT_zip_file_structure:
+                        zip_file_structure_split = zip_file_structure.split(os.sep)
+                        if len(zip_file_structure_split) == MNT_LENGTH_STRUCTURE and MNT_SEARCH_STRUCTURE_1 in zip_file_structure_split[1] and MNT_SEARCH_STRUCTURE_2 in zip_file_structure_split[2] and MNT_SEARCH_STRUCTURE_3 in zip_file_structure_split[3]:
+                            MNT_structure = zip_file_structure
+                            break
+                    MNT_dir_structure = MNT_structure.split(os.sep)
+                    MNT_file_structure = MNT_dir_structure[4].split(MNT_SPLIT_STRUCTURE)
 
-                # Gestion de l'archive
-                MNT_zip_files_list_selection = [zip_file for zip_file in MNT_zip_files_list if dpt in zip_file]
-                if len(MNT_zip_files_list_selection) == 0:
-                    raise NameError("Error: There are no MNT archive to treat for the department '%s'!" % dpt)
-                elif len(MNT_zip_files_list_selection) == 1:
-                    MNT_zip_file = MNT_zip_files_list_selection[0]
-                else:
-                    MNT_date_list = [datetime.datetime(int(MNT_zip_file.split(os.sep)[-2:-1][0].split('-')[0]), int(MNT_zip_file.split(os.sep)[-2:-1][0].split('-')[1]), int(MNT_zip_file.split(os.sep)[-2:-1][0].split('-')[2])) for MNT_zip_file in MNT_zip_files_list_selection]
-                    MNT_date_to_keep = min(MNT_date_list, key = lambda i: abs(i - datetime.datetime(year, 6, 1))).strftime("%Y-%m-%d")
-                    MNT_zip_file = [zip_file for zip_file in MNT_zip_files_list_selection if MNT_date_to_keep in zip_file][0]
-                MNT_zip_file_structure = read7zArchiveStructure(MNT_zip_file)
-                for zip_file_structure in MNT_zip_file_structure:
-                    zip_file_structure_split = zip_file_structure.split(os.sep)
-                    if len(zip_file_structure_split) == MNT_LENGTH_STRUCTURE and MNT_SEARCH_STRUCTURE_1 in zip_file_structure_split[1] and MNT_SEARCH_STRUCTURE_2 in zip_file_structure_split[2] and MNT_SEARCH_STRUCTURE_3 in zip_file_structure_split[3]:
-                        MNT_structure = zip_file_structure
-                        break
-                MNT_dir_structure = MNT_structure.split(os.sep)
-                MNT_file_structure = MNT_dir_structure[4].split(MNT_SPLIT_STRUCTURE)
+                    # Initialisation de la liste pour le multi-threading
+                    thread_tiles_list = []
+                    # Export des dalles
+                    for tile in tiles_list:
+                        xmin_tile, xmax_tile, ymin_tile, ymax_tile = tile[0], tile[1], tile[2], tile[3]
+                        MNT_tile = "0%s%s%s" % (xmin_tile, MNT_SPLIT_STRUCTURE, ymax_tile)
+                        if xmin_tile >= 1000:#D004 / D005 / D006 / D02A / D02B / D025 / D054 / D057 / D067 / D068 / D073 / D074 / D083 / D088 / D090
+                            MNT_tile = "%s%s%s" % (xmin_tile, MNT_SPLIT_STRUCTURE, ymax_tile)
+                        elif xmin_tile < 100:#D029
+                            MNT_tile = "00%s%s%s" % (xmin_tile, MNT_SPLIT_STRUCTURE, ymax_tile)
+                        MNT_tile_directory = MNT_dir_structure[0] + os.sep + MNT_dir_structure[1] + os.sep + MNT_dir_structure[2] + os.sep + MNT_dir_structure[3]
+                        MNT_tile_basename = MNT_file_structure[0] + MNT_SPLIT_STRUCTURE + MNT_file_structure[1] + MNT_SPLIT_STRUCTURE + MNT_tile + MNT_SPLIT_STRUCTURE + MNT_file_structure[4] + MNT_SPLIT_STRUCTURE + MNT_file_structure[5] + MNT_SPLIT_STRUCTURE + MNT_file_structure[6]
+                        MNT_tile_file = MNT_tile_directory + os.sep + MNT_tile_basename
+                        MNT_new_file = temp_MNT_directory + os.sep + MNT_tile_basename
+                        if not os.path.exists(MNT_new_file):
+                            command = "7z e -aos %s -o%s %s" % (MNT_zip_file, temp_MNT_directory, MNT_tile_file)
+                            # Execution par multi-threading
+                            thread = SubprocessThread(command)
+                            thread.start()
+                            thread_tiles_list.append(thread)
 
-                # Export des dalles
-                for tile in tiles_list:
-                    xmin_tile, xmax_tile, ymin_tile, ymax_tile = tile[0], tile[1], tile[2], tile[3]
-                    MNT_tile = "0%s%s%s" % (xmin_tile, MNT_SPLIT_STRUCTURE, ymax_tile)
-                    if xmin_tile >= 1000:#D004 / D005 / D006 / D02A / D02B / D025 / D054 / D057 / D067 / D068 / D073 / D074 / D083 / D088 / D090
-                        MNT_tile = "%s%s%s" % (xmin_tile, MNT_SPLIT_STRUCTURE, ymax_tile)
-                    elif xmin_tile < 100:#D029
-                        MNT_tile = "00%s%s%s" % (xmin_tile, MNT_SPLIT_STRUCTURE, ymax_tile)
-                    MNT_tile_directory = MNT_dir_structure[0] + os.sep + MNT_dir_structure[1] + os.sep + MNT_dir_structure[2] + os.sep + MNT_dir_structure[3]
-                    MNT_tile_basename = MNT_file_structure[0] + MNT_SPLIT_STRUCTURE + MNT_file_structure[1] + MNT_SPLIT_STRUCTURE + MNT_tile + MNT_SPLIT_STRUCTURE + MNT_file_structure[4] + MNT_SPLIT_STRUCTURE + MNT_file_structure[5] + MNT_SPLIT_STRUCTURE + MNT_file_structure[6]
-                    MNT_tile_file = MNT_tile_directory + os.sep + MNT_tile_basename
-                    MNT_new_file = temp_MNT_directory + os.sep + MNT_tile_basename
-                    if not os.path.exists(MNT_new_file):
-                        os.system("7z e -aos %s -o%s %s" % (MNT_zip_file, temp_MNT_directory, MNT_tile_file))
+                    # Attente fin de tout les threads
+                    try:
+                        for thread in thread_tiles_list:
+                            thread.join()
+                            if thread.stdout:
+                                if debug >= 3:
+                                    print(f"\nSortie du thread {thread.command}:\n{thread.stdout}\n\n")
+                    except:
+                        print(thread.stderr)
+                        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Erreur d'exécution : impossible de demarrer le thread" + endC)
 
-            # Création du raster virtuel
-            vrt_files_list = ""
-            for input_MNT in glob.glob(temp_MNT_directory + os.sep + "*"):
-                vrt_files_list += input_MNT + '\n'
-            writeTextFile(MNT_to_vrt_files, vrt_files_list)
-            os.system("gdalbuildvrt -a_srs EPSG:%s -input_file_list %s %s" % (epsg, MNT_to_vrt_files, MNT_vrt))
+                # Création du raster virtuel
+                vrt_files_list = ""
+                for input_MNT in glob.glob(temp_MNT_directory + os.sep + "*"):
+                    vrt_files_list += input_MNT + "\n"
+                writeTextFile(MNT_to_vrt_files, vrt_files_list)
+                command = "gdalbuildvrt -a_srs EPSG:%s -input_file_list %s %s" % (epsg, MNT_to_vrt_files, MNT_vrt)
+                exitCode = os.system(command)
+                if exitCode != 0:
+                   print(command)
+                   raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "An error occured during gdalbuildvrt command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
 
-        # Découpage du MNT
-        os.system("gdalwarp -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (xmin_img, ymin_img, xmax_img, ymax_img, pixel_width, pixel_height, vector_emprise_input, MNT_vrt, output_MNT_raster))
+            # Découpage du MNT
+            command = "gdalwarp -wo NUM_THREADS=%s -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (nb_cpus,xmin_img, ymin_img, xmax_img, ymax_img, pixel_width, pixel_height, vector_emprise_input, MNT_vrt, output_MNT_raster)
+            exitCode = os.system(command)
+            if exitCode != 0:
+                print(command)
+                raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "An error occured during otbcli_BandMath command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
 
-        print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Fin de la création du MNT à partir des données RGE ALTI 1M." + endC)
+            if debug >= 2:
+                print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 2/4 - Fin de la création du MNT à partir des données RGE ALTI 1M." + endC + "\n")
 
-    #######################
-    ### Création du MNS ###
-    #######################
+    thread_MNT = threading.Thread(target=MNT_creation)
+    thread_MNT.start()
+    thread_MNT.join()
 
-    if not os.path.exists(output_MNS_raster):
-        print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Début de la création du MNS à partir des données MNS-Correl." + endC)
+    #############
+    # Etape 3/4 # Création du MNS à partir des données MNS-Correl
+    #############
 
-        if not os.path.exists(MNS_vrt):
+    def MNS_creation():
+        if not os.path.exists(output_MNS_raster):
+            if debug >= 2:
+                print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 3/4 - Début de la création du MNS à partir des données MNS-Correl." + endC + "\n")
 
-            for dpt, tiles_list in tiles_dpt_ROI_dico.items():
+            if not os.path.exists(MNS_vrt):
 
-                # Gestion de l'archive
-                MNS_tile_structure_selection = [structure for structure in MNS_tile_structure if dpt in structure]
-                MNS_zip_files_list_selection = [zip_file for zip_file in MNS_zip_files_list if dpt in zip_file]
-                if len(MNS_zip_files_list_selection) == 0:
-                    raise NameError("Error: There are no MNS archive to treat for the department '%s'!" % dpt)
-                elif len(MNS_zip_files_list_selection) == 1:
-                    MNS_zip_file = MNS_zip_files_list_selection[0]
-                    MNS_tile_structure_selected = MNS_tile_structure_selection[0]
-                else:
-                    MNS_years_list = [int(MNS_zip_file.split(os.sep)[-2:-1][0]) for MNS_zip_file in MNS_zip_files_list_selection]
-                    MNS_year_to_keep = str(MNS_years_list[min(range(len(MNS_years_list)), key = lambda i: abs(MNS_years_list[i] - year))])
-                    if str(selected_year-1) in str(MNS_years_list) and str(year+1) in str(MNS_years_list):
-                        MNS_year_to_keep = str(year+1)
-                    MNS_zip_file = [zip_file for zip_file in MNS_zip_files_list_selection if MNS_year_to_keep in zip_file][0]
-                    MNS_tile_structure_selected = [structure for structure in MNS_tile_structure_selection if MNS_year_to_keep in structure][0]
-                MNS_zip_file_structure = read7zArchiveStructure(MNS_zip_file)
-                for zip_file_structure in MNS_zip_file_structure:
-                    zip_file_structure_split = zip_file_structure.split(os.sep)
-                    if len(zip_file_structure_split) == MNS_LENGTH_STRUCTURE and MNS_SEARCH_STRUCTURE_1 in zip_file_structure_split[1] and MNS_SEARCH_STRUCTURE_2 in zip_file_structure_split[2] and MNS_SEARCH_STRUCTURE_3 in zip_file_structure_split[3]:
-                        MNS_structure = zip_file_structure
-                        break
-                MNS_dir_structure = MNS_structure.split(os.sep)
-                MNS_file_structure = MNS_dir_structure[4].split(MNS_SPLIT_STRUCTURE)
+                for dpt, tiles_list in tiles_dpt_ROI_dico.items():
+                    # Gestion de l'archive
+                    MNS_tile_structure_selection = [structure for structure in MNS_tile_structure if dpt in structure]
+                    MNS_zip_files_list_selection = [zip_file for zip_file in MNS_zip_files_list if dpt in zip_file]
+                    if len(MNS_zip_files_list_selection) == 0:
+                        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Error: There are no MNS archive to treat for the department \"%s\"!" % dpt)
+                    elif len(MNS_zip_files_list_selection) == 1:
+                        MNS_zip_file = MNS_zip_files_list_selection[0]
+                        MNS_tile_structure_selected = MNS_tile_structure_selection[0]
+                    else:
+                        MNS_years_list = [int(MNS_zip_file.split(os.sep)[-2:-1][0]) for MNS_zip_file in MNS_zip_files_list_selection]
+                        MNS_year_to_keep = str(MNS_years_list[min(range(len(MNS_years_list)), key = lambda i: abs(MNS_years_list[i] - year))])
+                        if str(year-1) in str(MNS_years_list) and str(year+1) in str(MNS_years_list):
+                            MNS_year_to_keep = str(year+1)
+                        MNS_zip_file = [zip_file for zip_file in MNS_zip_files_list_selection if MNS_year_to_keep in zip_file][0]
+                        MNS_tile_structure_selected = [structure for structure in MNS_tile_structure_selection if MNS_year_to_keep in structure][0]
+                    MNS_zip_file_structure = read7zArchiveStructure(MNS_zip_file)
+                    for zip_file_structure in MNS_zip_file_structure:
+                        zip_file_structure_split = zip_file_structure.split(os.sep)
+                        if len(zip_file_structure_split) == MNS_LENGTH_STRUCTURE and MNS_SEARCH_STRUCTURE_1 in zip_file_structure_split[1] and MNS_SEARCH_STRUCTURE_2 in zip_file_structure_split[2] and MNS_SEARCH_STRUCTURE_3 in zip_file_structure_split[3]:
+                            MNS_structure = zip_file_structure
+                            break
+                    MNS_dir_structure = MNS_structure.split(os.sep)
+                    MNS_file_structure = MNS_dir_structure[4].split(MNS_SPLIT_STRUCTURE)
 
-                # Export des dalles
-                for tile in tiles_list:
-                    xmin_tile, xmax_tile, ymin_tile, ymax_tile = tile[0], tile[1], tile[2], tile[3]
-                    ymax_tile = ymax_tile-1 if MNS_tile_structure_selected[5] == MNS_WRONG_TILE_VALUE else ymax_tile
-                    MNS_tile = "%s0%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile) if MNS_tile_structure_selected[2] == MNS_WRONG_TILE_NAME else "0%s%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile)
-                    if xmin_tile >= 1000:#D004 / D005 / D006 / D02A / D02B / D025 / D054 / D057 / D067 / D068 / D073 / D074 / D083 / D088 / D090
-                        MNS_tile = "%s%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile)
-                    elif xmin_tile < 100:#D029
-                        MNS_tile = "00%s%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile)
-                    MNS_tile_directory = MNS_dir_structure[0] + os.sep + MNS_dir_structure[1] + os.sep + MNS_dir_structure[2] + os.sep + MNS_dir_structure[3]
-                    MNS_tile_basename = MNS_file_structure[0] + MNS_SPLIT_STRUCTURE + MNS_file_structure[1] + MNS_SPLIT_STRUCTURE + MNS_tile + MNS_SPLIT_STRUCTURE + MNS_file_structure[4] + MNS_SPLIT_STRUCTURE + MNS_file_structure[5]
-                    MNS_tile_file = MNS_tile_directory + os.sep + MNS_tile_basename
-                    MNS_new_file = temp_MNS_directory + os.sep + MNS_tile_basename
-                    if not os.path.exists(MNS_new_file):
-                        os.system("7z e -aos %s -o%s %s" % (MNS_zip_file, temp_MNS_directory, MNS_tile_file))
+                    # Initialisation de la liste pour le multi-threading
+                    thread_tiles_list = []
+                    # Export des dalles
+                    for tile in tiles_list:
+                        xmin_tile, xmax_tile, ymin_tile, ymax_tile = tile[0], tile[1], tile[2], tile[3]
+                        ymax_tile = ymax_tile-1 if MNS_tile_structure_selected[5] == MNS_WRONG_TILE_VALUE else ymax_tile
+                        MNS_tile = "%s0%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile) if MNS_tile_structure_selected[2] == MNS_WRONG_TILE_NAME else "0%s%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile)
+                        if xmin_tile >= 1000:#D004 / D005 / D006 / D02A / D02B / D025 / D054 / D057 / D067 / D068 / D073 / D074 / D083 / D088 / D090
+                            MNS_tile = "%s%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile)
+                        elif xmin_tile < 100:#D029
+                            MNS_tile = "00%s%s%s" % (xmin_tile, MNS_SPLIT_STRUCTURE, ymax_tile)
+                        MNS_tile_directory = MNS_dir_structure[0] + os.sep + MNS_dir_structure[1] + os.sep + MNS_dir_structure[2] + os.sep + MNS_dir_structure[3]
+                        MNS_tile_basename = MNS_file_structure[0] + MNS_SPLIT_STRUCTURE + MNS_file_structure[1] + MNS_SPLIT_STRUCTURE + MNS_tile + MNS_SPLIT_STRUCTURE + MNS_file_structure[4] + MNS_SPLIT_STRUCTURE + MNS_file_structure[5]
+                        MNS_tile_file = MNS_tile_directory + os.sep + MNS_tile_basename
+                        MNS_new_file = temp_MNS_directory + os.sep + MNS_tile_basename
+                        if not os.path.exists(MNS_new_file):
+                            command = "7z e -aos %s -o%s %s" % (MNS_zip_file, temp_MNS_directory, MNS_tile_file)
+                            # execution par multi-threading
+                            thread = SubprocessThread(command)
+                            thread.start()
+                            thread_tiles_list.append(thread)
 
-            # Création du raster virtuel
-            vrt_files_list = ""
-            for input_MNS in glob.glob(temp_MNS_directory + os.sep + "*"):
-                vrt_files_list += input_MNS + '\n'
-            writeTextFile(MNS_to_vrt_files, vrt_files_list)
-            os.system("gdalbuildvrt -input_file_list %s %s" % (MNS_to_vrt_files, MNS_vrt))
+                    try:
+                        # Attente fin de tout les threads
+                        for thread in thread_tiles_list:
+                            thread.join()
+                            if thread.stdout:
+                                if debug >= 3:
+                                    print(f"\nSortie du thread {thread.command}:\n{thread.stdout}\n\n")
+                    except:
+                        print(thread.stderr)
+                        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "Erreur d'exécution : impossible de demarrer le thread" + endC)
 
-        # Découpage du MNS
-        os.system("gdalwarp -te %s %s %s %s -tr %s %s -dstnodata 0 -cutline %s %s %s" % (xmin_img, ymin_img, xmax_img, ymax_img, pixel_width, pixel_height, vector_emprise_input, MNS_vrt, output_MNS_raster))
+                # Création du raster virtuel
+                vrt_files_list = ""
+                for input_MNS in glob.glob(temp_MNS_directory + os.sep + "*"):
+                    vrt_files_list += input_MNS + "\n"
+                writeTextFile(MNS_to_vrt_files, vrt_files_list)
+                command = "gdalbuildvrt -input_file_list %s %s" % (MNS_to_vrt_files, MNS_vrt)
+                exitCode = os.system(command)
+                if exitCode != 0:
+                   print(command)
+                   raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "An error occured during gdalbuildvrt command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
+                # Traitement des cas particulier des MNS Outre-Mer mal projetés
+                epsg_vrt, srs_vrt = getProjectionImage(MNS_vrt)
+                if epsg_vrt != epsg:
+                    command = "gdal_edit.py -a_srs EPSG:%s %s" % (epsg, MNS_vrt)
+                    exitCode = os.system(command)
+                    if exitCode != 0:
+                        print(command)
+                        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "An error occured during gdal_edit command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
 
-        print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Fin de la création du MNS à partir des données MNS-Correl." + endC)
+            # Découpage du MNS
+            command = "gdalwarp -wo NUM_THREADS=%s -te %s %s %s %s -tr %s %s -dstnodata 0 -cutline %s %s %s" % (nb_cpus,xmin_img, ymin_img, xmax_img, ymax_img, pixel_width, pixel_height, vector_emprise_input, MNS_vrt, output_MNS_raster)
+            exitCode = os.system(command)
+            if exitCode != 0:
+                print(command)
+                raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "An error occured during gdalwarp command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
 
-    #####################
-    ### Calcul du MNH ###
-    #####################
+            if debug >= 2:
+                print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 3/4 - Fin de la création du MNS à partir des données MNS-Correl." + endC + "\n")
 
-    print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Début du calcul du MNH à partir du MNT RGE ALTI 1M et du MNS MNS-Correl." + endC)
+    thread_MNS = threading.Thread(target=MNS_creation)
+    thread_MNS.start()
+    thread_MNS.join()
+
+    #############
+    # Etape 4/4 # Calcul du MNH à partir du MNT RGE ALTI 1M et du MNS MNS-Correl
+    #############
+    if debug >= 2:
+        print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 4/4 - Début du calcul du MNH à partir du MNT RGE ALTI 1M et du MNS MNS-Correl." + endC + "\n")
 
     expression = "im1b1<=-9999 or im1b1>=9999 or im2b1<=-9999 or im2b1>=9999 ? -1 : (im1b1-im2b1<0 ? 0 : im1b1-im2b1)"
-    os.system("otbcli_BandMath -il %s %s -out '%s?&nodata=-1' -exp '%s'" % (output_MNS_raster, output_MNT_raster, image_mnh_output, expression))
+    command = "otbcli_BandMath -il %s %s -out '%s?&nodata=-1' -exp '%s'" % (output_MNS_raster, output_MNT_raster, image_mnh_output, expression)
+    exitCode = os.system(command)
+    if exitCode != 0:
+        print(command)
+        raise NameError(cyan + "createMnhFromMnsCorrel() : " + bold + red + "An error occured during otbcli_BandMath command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
 
-    print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "Fin du calcul du MNH à partir du MNT RGE ALTI 1M et du MNS MNS-Correl." + endC)
+    if debug >= 2:
+        print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "ETAPE 4/4 - Fin du calcul du MNH à partir du MNT RGE ALTI 1M et du MNS MNS-Correl." + endC + "\n")
 
     ####################################################################
 
     # Suppression des fichiers temporaires
     if not save_results_intermediate:
         if debug >= 3:
-            print('\n' + cyan + "createMnhFromMnsCorrel() : " + endC + "Suppression des fichiers temporaires." + endC)
+            print(cyan + "createMnhFromMnsCorrel() : " + endC + "Suppression des fichiers temporaires." + endC + "\n")
         deleteDir(temp_directory)
-
-    print('\n' + cyan + "createMnhFromMnsCorrel() : " + bold + green + "FIN DES TRAITEMENTS" + endC)
+    if not keep_mnt_mns:
+        removeFile(output_MNT_raster)
+        removeFile(output_MNS_raster)
+    if debug >= 2:
+        print(cyan + "createMnhFromMnsCorrel() : " + bold + green + "FIN DES TRAITEMENTS" + endC + "\n")
 
     # Mise à jour du log
     ending_event = "createMnhFromMnsCorrel() : Fin du traitement : "
+    timeLine(path_time_log, ending_event)
+
+    return 0
+
+########################################################################
+# FONCTION createMnhFromLidarHd()                                      #
+########################################################################
+def createMnhFromLidarHd(vector_emprise_input, image_mnh_output, image_reference_input, lhd_directory_list, keep_mnt_mns=True, nb_cpus=30, path_time_log="", save_results_intermediate=False, overwrite=True):
+    '''
+    # ROLE :
+    #     Création d'un MNH à partir de nuages de points LiDAR HD
+    #
+    # ENTREES DE LA FONCTION :
+    #     vector_emprise_input : fichier vecteur d'entrée, correpondant à l'emprise de la zone d'étude
+    #     image_mnh_output : fichier raster de sortie, correpondant au MNH issu des nuages de points LiDAR HD
+    #     image_reference_input : fichier raster de référence, permettant de caler le MNH généré à d'autres données raster
+    #     lhd_directory_list : liste de répertoires, où sont stockés les nuages de points LiDAR HD. L'ordre des répertoires est important : si la même donnée est dans plusieurs répertoires, le premier sera privilégié.
+    #     keep_mnt_mns : choix de garder les MNT et MNS à la fin du traitement. Par défaut, True
+    #     nb_cpus : nombre de CPUs à utiliser pour lancer l'exécution en parallèle (les threads, ou tâches, seront alors équitablement répartis sur la ressource).
+    #     path_time_log : fichier log de sortie, par défaut vide
+    #     save_results_intermediate : conserver les fichiers temporaires, par défaut = False
+    #     overwrite : écraser si un fichier existant a le même nom qu'un fichier de sortie, par défaut = True
+    #
+    # SORTIES DE LA FONCTION :
+    #     N.A.
+    '''
+    if debug >= 3:
+        print(bold + green + "Création d'un MNH à partir de nuages de points LiDAR HD - Variables dans la fonction :" + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "vector_emprise_input : " + str(vector_emprise_input) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "image_mnh_output : " + str(image_mnh_output) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "image_reference_input : " + str(image_reference_input) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "lhd_directory_list : " + str(lhd_directory_list) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "keep_mnt_mns : " + str(keep_mnt_mns) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "nb_cpus : " + str(nb_cpus) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "path_time_log : " + str(path_time_log) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
+        print(cyan + "createMnhFromLidarHd() : " + endC + "overwrite : " + str(overwrite) + endC + "\n")
+
+    # Définition des constantes
+    TEMP_SUFFIX = "_temp"
+    TXT_EXT, VRT_EXT, JSON_EXT = ".txt", ".vrt", ".json"
+    LHD_BASENAME_1, LHD_BASENAME_2 = "LHD_FXX_", "_PTS_C_LAMB93_IGN69.copc.laz"
+    DTM_TEMP_DIR_BASENAME, DSM_TEMP_DIR_BASENAME = "MNT_par_dalle", "MNS_par_dalle"
+    DTM_SUFFIX, DSM_SUFFIX = "_-_MNT", "_-_MNS"
+    TILE_SIZE = 1000
+    FILLNODATA_MD, FILLNODATA_SI = 2000, 10
+    INPUT_NODATA, OUTPUT_NODATA = -9999, -1
+
+
+    # Nombre de cpus disponibles
+    num_cpus = getNumberCPU() - 2
+    # Si le nombre de CPUs demandé dépasse le nombre de cpus disponibles, il est revu à la baisse et un warning est affiché
+    if nb_cpus > num_cpus:
+        if debug >= 1:
+            print(cyan + "createMnhFromMnsCorrel() : " + bold + yellow + f"Le nombre de threads demandés ({nb_cpus}) est supérieur au nombre de CPUs disponibles ({num_cpus}). Il sera donc réduit." + endC)
+        nb_cpus = num_cpus
+    # ~ # Obtenir la liste de tous les CPUs disponibles
+    # ~ available_cpus = list(range(psutil.cpu_count(logical=True)))
+    # ~ # Sélectionner les n premiers CPUs
+    # ~ selected_cpus = available_cpus[:nb_cpus]
+    # ~ # Appliquer l'affinité au processus actuel
+    # ~ p = psutil.Process(os.getpid())
+    # ~ p.cpu_affinity(selected_cpus)
+
+
+    # Mise à jour du log
+    starting_event = "createMnhFromLidarHd() : Début du traitement : "
+    timeLine(path_time_log, starting_event)
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "DEBUT DES TRAITEMENTS" + endC + "\n")
+
+    # Définition des variables "basename/dirname"
+    image_mnh_output_dirname = os.path.dirname(image_mnh_output)
+    image_mnh_output_basename = os.path.basename(os.path.splitext(image_mnh_output)[0])
+    image_mnh_output_extension = os.path.splitext(image_mnh_output)[1]
+
+    # Définition des variables répertoires
+    temp_directory = image_mnh_output_dirname + os.sep + image_mnh_output_basename + TEMP_SUFFIX
+    dtm_tiles_directory = temp_directory + os.sep + DTM_TEMP_DIR_BASENAME
+    dsm_tiles_directory = temp_directory + os.sep + DSM_TEMP_DIR_BASENAME
+
+    # Définition des variables fichiers
+    dtm_to_vrt_files = temp_directory + os.sep + image_mnh_output_basename + DTM_SUFFIX + TXT_EXT
+    dtm_raster_vrt = temp_directory + os.sep + image_mnh_output_basename + DTM_SUFFIX + VRT_EXT
+    dtm_raster_temp = temp_directory + os.sep + image_mnh_output_basename + DTM_SUFFIX + image_mnh_output_extension
+    dtm_raster = image_mnh_output_dirname + os.sep + image_mnh_output_basename + DTM_SUFFIX + image_mnh_output_extension
+    dsm_to_vrt_files = temp_directory + os.sep + image_mnh_output_basename + DSM_SUFFIX + TXT_EXT
+    dsm_raster_vrt = temp_directory + os.sep + image_mnh_output_basename + DSM_SUFFIX + VRT_EXT
+    dsm_raster_temp = temp_directory + os.sep + image_mnh_output_basename + DSM_SUFFIX + image_mnh_output_extension
+    dsm_raster = image_mnh_output_dirname + os.sep + image_mnh_output_basename + DSM_SUFFIX + image_mnh_output_extension
+
+    # Nettoyage des traitements précédents
+    if overwrite:
+        if debug >= 3:
+            print(cyan + "createMnhFromLidarHd() : " + endC + "Nettoyage des traitements précédents." + endC + "\n")
+        removeFile(image_mnh_output)
+        removeFile(dtm_raster)
+        removeFile(dsm_raster)
+        cleanTempData(temp_directory)
+    else:
+        if os.path.exists(image_mnh_output):
+            print(cyan + "createMnhFromLidarHd() : " + bold + yellow + "Le fichier de sortie existe déjà et ne sera pas regénéré." + endC + "\n")
+            raise
+        pass
+
+    if not os.path.exists(dtm_tiles_directory):
+        os.makedirs(dtm_tiles_directory)
+    if not os.path.exists(dsm_tiles_directory):
+        os.makedirs(dsm_tiles_directory)
+
+    ####################################################################
+
+    ###########
+    # Etape 0 # Préparation des traitements
+    ###########
+
+    # Test existence du fichier vecteur d'emprise
+    if not os.path.exists(vector_emprise_input):
+        raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "Error: Input vector file \"%s\" not exists!" % vector_emprise_input + endC)
+
+    # Test existence du fichier raster de référence
+    if not os.path.exists(image_reference_input):
+        raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "Error: Input raster file \"%s\" not exists!" % image_reference_input + endC)
+
+    # Gestion du driver du fichier d'emprise d'étude
+    format_vector_list = [ogr.GetDriver(i).GetDescription() for i in range(ogr.GetDriverCount())]
+    i = 0
+    for input_format_vector in format_vector_list:
+        driver = ogr.GetDriverByName(input_format_vector)
+        data_source_input = driver.Open(vector_emprise_input, 0)
+        if data_source_input is not None:
+            data_source_input.Destroy()
+            break
+        i += 1
+    input_format_vector = format_vector_list[i]
+    driver = ogr.GetDriverByName(input_format_vector)
+
+    # Gestion de l'emprise d'étude
+    data_source_ROI = driver.Open(vector_emprise_input, 0)
+    layer_ROI = data_source_ROI.GetLayer(0)
+    feature_ROI = layer_ROI.GetFeature(0)
+    geometry_ROI = feature_ROI.GetGeometryRef()
+    extent_ROI = layer_ROI.GetExtent()
+    xmin_ROI, xmax_ROI, ymin_ROI, ymax_ROI = math.floor(extent_ROI[0]/TILE_SIZE), math.ceil(extent_ROI[1]/TILE_SIZE), math.floor(extent_ROI[2]/TILE_SIZE), math.ceil(extent_ROI[3]/TILE_SIZE)
+
+    # Gestion du raster de référence
+    xmin_ref, xmax_ref, ymin_ref, ymax_ref = getEmpriseImage(image_reference_input)
+    pixel_width, pixel_height = getPixelWidthXYImage(image_reference_input)
+
+    # Gestion des dalles 1 km intersectant la ROI
+    LHD_files_list = []
+    for x in range(xmin_ROI, xmax_ROI, 1):
+        for y in range(ymin_ROI+1, ymax_ROI+1, 1):
+            xmin_tile, xmax_tile, ymin_tile, ymax_tile = (x*TILE_SIZE), (x*TILE_SIZE + TILE_SIZE), (y*TILE_SIZE - TILE_SIZE), (y*TILE_SIZE)
+            geometry_tile = ogr.CreateGeometryFromWkt("POLYGON ((%s %s, %s %s, %s %s, %s %s, %s %s))" % (xmin_tile, ymax_tile, xmax_tile, ymax_tile, xmax_tile, ymin_tile, xmin_tile, ymin_tile, xmin_tile, ymax_tile))
+            intersect_tile_ROI = geometry_tile.Intersects(geometry_ROI)
+            if intersect_tile_ROI:
+                tile_name = "0%s_%s" % (x, y)
+                if x >= 1000:#D004 / D005 / D006 / D02A / D02B / D025 / D054 / D057 / D067 / D068 / D073 / D074 / D083 / D088 / D090
+                    tile_name = "%s_%s" % (x, y)
+                elif x < 100:#D029
+                    tile_name = "00%s_%s" % (x, y)
+                for LHD_directory in lhd_directory_list:
+                    LHD_file = LHD_BASENAME_1 + tile_name + LHD_BASENAME_2
+                    if os.path.exists(LHD_directory + os.sep + LHD_file) and not any(map(lambda x: LHD_file in x, LHD_files_list)):
+                        LHD_files_list.append(LHD_directory + os.sep + LHD_file)
+
+    #############
+    # Etape 1/5 # Calcul du MNT sur chaque nuage de points
+    #############
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 1/5 - Début du calcul du MNT sur chaque nuage de points." + endC + "\n")
+
+    if not os.path.exists(dtm_raster):
+        tasks = []
+        for LHD_file in LHD_files_list:
+            LHD_basename = os.path.basename(LHD_file).split(".")[0]
+            DTM_raster_tile = dtm_tiles_directory + os.sep + LHD_basename + DTM_SUFFIX + image_mnh_output_extension
+            DTM_raster_tile_JSON = dtm_tiles_directory + os.sep + LHD_basename + DTM_SUFFIX + JSON_EXT
+            if not os.path.exists(DTM_raster_tile):
+                JSON = """[\n"""
+                JSON += """    "%s",\n""" % LHD_file
+                JSON += """    {\n"""
+                JSON += """        "type":"filters.smrf",\n"""
+                JSON += """        "ignore":"Classification[0:1],Classification[3:6],Classification[7:7],Classification[8:8],Classification[10:65],Classification[67:255]"\n"""
+                JSON += """    },\n"""
+                JSON += """    {\n"""
+                JSON += """        "type":"filters.range",\n"""
+                JSON += """        "limits":"Classification[2:2],Classification[9:9],Classification[66:66]"\n"""
+                JSON += """    },\n"""
+                JSON += """    {\n"""
+                JSON += """        "type":"writers.gdal",\n"""
+                JSON += """        "filename":"%s",\n""" % DTM_raster_tile
+                JSON += """        "output_type":"mean",\n"""
+                JSON += """        "gdaldriver":"GTiff",\n"""
+                JSON += """        "resolution":%s,\n""" % abs(pixel_width)
+                JSON += """        "data_type":"float"\n"""
+                JSON += """    }\n"""
+                JSON += """]\n"""
+                writeTextFile(DTM_raster_tile_JSON, JSON)
+                tasks.append((LHD_file, "pdal pipeline %s" % DTM_raster_tile_JSON))
+            else:
+                print(bold + yellow + "    Le MNT pour le fichier \"%s\" existe déjà." % (LHD_file) + endC)
+        time.sleep(2)
+
+        def process_command(task):
+            LHD_file,command = task
+            if debug >= 1:
+                print(bold + green + "    Traitement MNT de \"%s\"..." % (LHD_file) + endC)
+            try:
+                thread = SubprocessThread(command)
+                thread.start()
+                thread.join()
+                if debug >= 1:
+                    print(bold + yellow + "        Traitement MNT de \"%s\" fait" % (LHD_file) + endC)
+            except Exception as e:
+                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + f"Erreur d'exécution MNT de {LHD_file} : {str(e)}" + endC)
+
+        if tasks:
+            with ThreadPoolExecutor(max_workers=nb_cpus) as executor:
+                results = list(executor.map(process_command, tasks))
+        else:
+            if debug >= 1:
+                print(bold + red + "Traitement MNT : Aucune tuile à traiter" + endC)
+    else:
+        print(yellow + "    L'assemblage des dalles MNT a déjà été réalisé." + endC)
+
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 1/5 - Fin du calcul du MNT sur chaque nuage de points." + endC + "\n")
+
+    #############
+    # Etape 2/5 # Calcul du MNS sur chaque nuage de points
+    #############
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 2/5 - Début du calcul du MNS sur chaque nuage de points." + endC + "\n")
+
+    if not os.path.exists(dsm_raster):
+        tasks = []
+        for LHD_file in LHD_files_list:
+            LHD_basename = os.path.basename(LHD_file).split(".")[0]
+            DSM_raster_tile = dsm_tiles_directory + os.sep + LHD_basename + DSM_SUFFIX + image_mnh_output_extension
+            DSM_raster_tile_JSON = dsm_tiles_directory + os.sep + LHD_basename + DSM_SUFFIX + JSON_EXT
+            if not os.path.exists(DSM_raster_tile):
+                JSON = """[\n"""
+                JSON += """    "%s",\n""" % LHD_file
+                JSON += """    {\n"""
+                JSON += """        "type":"filters.smrf",\n"""
+                JSON += """        "ignore":"Classification[0:1],Classification[7:7],Classification[8:8],Classification[10:16],Classification[18:255]"\n"""
+                JSON += """    },\n"""
+                JSON += """    {\n"""
+                JSON += """        "type":"filters.range",\n"""
+                JSON += """        "limits":"Classification[2:6],Classification[9:9],Classification[17:17]"\n"""
+                JSON += """    },\n"""
+                JSON += """    {\n"""
+                JSON += """        "type":"writers.gdal",\n"""
+                JSON += """        "filename":"%s",\n""" % DSM_raster_tile
+                JSON += """        "output_type":"mean",\n"""
+                JSON += """        "gdaldriver":"GTiff",\n"""
+                JSON += """        "resolution":%s,\n""" % abs(pixel_width)
+                JSON += """        "data_type":"float"\n"""
+                JSON += """    }\n"""
+                JSON += """]\n"""
+                writeTextFile(DSM_raster_tile_JSON, JSON)
+                tasks.append((LHD_file, "pdal pipeline %s" % DSM_raster_tile_JSON))
+            else:
+                print(bold + yellow + "Le MNS pour le fichier \"%s\" existe déjà." % (LHD_file) + endC)
+        time.sleep(2)
+
+        def process_command(task):
+            LHD_file,command = task
+            if debug >= 1:
+                print(bold + green + "    Traitement MNS de \"%s\"..." % (LHD_file) + endC)
+            try:
+                thread = SubprocessThread(command)
+                thread.start()
+                thread.join()
+                if debug >= 1:
+                    print(bold + yellow + "        Traitement MNS de \"%s\" fait" % (LHD_file) + endC)
+            except Exception as e:
+                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + f"Erreur d'exécution MNS de {LHD_file} : {str(e)}" + endC)
+
+        if tasks:
+            with ThreadPoolExecutor(max_workers=nb_cpus) as executor:
+                results = list(executor.map(process_command, tasks))
+        else:
+            if debug >= 1:
+                print(bold + red + "Traitement MNS : Aucune tuile à traiter" + endC)
+    else:
+        print(yellow + "    L'assemblage des dalles MNS a déjà été réalisé." + endC)
+
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 2/5 - Fin du calcul du MNS sur chaque nuage de points." + endC + "\n")
+
+    #############
+    # Etape 3/5 # Assemblage des dalles MNT
+    #############
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 3/5 - Début de l'assemblage des dalles MNT." + endC + "\n")
+
+    if not os.path.exists(dtm_raster):
+        if debug >= 3:
+            print(bold + green + "    Assemblage des dalles MNT issues des nuages de points." + endC)
+        if not os.path.exists(dtm_raster_temp):
+            if not os.path.exists(dtm_raster_vrt):
+                VRT_files_list = ""
+                for DTM_raster in glob.glob(dtm_tiles_directory + os.sep + "*" + image_mnh_output_extension):
+                    VRT_files_list += DTM_raster + "\n"
+                writeTextFile(dtm_to_vrt_files, VRT_files_list)
+                command = "gdalbuildvrt -input_file_list %s %s" % (dtm_to_vrt_files, dtm_raster_vrt)
+                exitCode = os.system(command)
+                if exitCode != 0:
+                   print(command)
+                   raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdalbuildvrt command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
+            command = "gdal_fillnodata.py -md %s -si %s %s %s" % (FILLNODATA_MD, FILLNODATA_SI, dtm_raster_vrt, dtm_raster_temp)
+            exitCode = os.system(command)
+            if exitCode != 0:
+               print(command)
+               raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdal_fillnodata command to compute MNH Final" + image_mnh_output + ". See error message above." + endC)
+        command =  "gdalwarp -wo NUM_THREADS=%s -co NUM_THREADS=%s -co BIGTIFF=YES -co TILED=YES -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (nb_cpus, nb_cpus, xmin_ref, ymin_ref, xmax_ref, ymax_ref, pixel_width, pixel_height, vector_emprise_input, dtm_raster_temp, dtm_raster)
+        exitCode = os.system(command)
+        if exitCode != 0:
+            print(command)
+            raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdalwarp command to compute MNH Final" + image_mnh_output + ". See error message above." + endC)
+    else:
+        print(yellow + "    L'assemblage des dalles MNT a déjà été réalisé." + endC)
+
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 3/5 - Fin de l'assemblage des dalles MNT." + endC + "\n")
+
+    #############
+    # Etape 4/5 # Assemblage des dalles MNS
+    #############
+
+    print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 4/5 - Début de l'assemblage des dalles MNS." + endC + "\n")
+
+    if not os.path.exists(dsm_raster):
+        if debug >= 3:
+            print(bold + green + "    Assemblage des dalles MNS issues des nuages de points." + endC)
+        if not os.path.exists(dsm_raster_temp):
+            if not os.path.exists(dsm_raster_vrt):
+                VRT_files_list = ""
+                for DSM_raster in glob.glob(dsm_tiles_directory + os.sep + "*" + image_mnh_output_extension):
+                    VRT_files_list += DSM_raster + "\n"
+                writeTextFile(dsm_to_vrt_files, VRT_files_list)
+                command = "gdalbuildvrt -input_file_list %s %s" % (dsm_to_vrt_files, dsm_raster_vrt)
+                exitCode = os.system(command)
+                if exitCode != 0:
+                    print(command)
+                    raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdalbuildvrt command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
+            command = "gdal_fillnodata.py -md %s -si %s %s %s" % (FILLNODATA_MD, FILLNODATA_SI, dsm_raster_vrt, dsm_raster_temp)
+            exitCode = os.system(command)
+            if exitCode != 0:
+               print(command)
+               raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdal_fillnodata command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
+
+        command = "gdalwarp -wo NUM_THREADS=%s -co NUM_THREADS=%s -co BIGTIFF=YES -co TILED=YES -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (nb_cpus, nb_cpus, xmin_ref, ymin_ref, xmax_ref, ymax_ref, pixel_width, pixel_height, vector_emprise_input, dsm_raster_temp, dsm_raster)
+        exitCode = os.system(command)
+        if exitCode != 0:
+            print(command)
+            raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdalwarp command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
+    else:
+        print(yellow + "    L'assemblage des dalles MNS a déjà été réalisé." + endC)
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 4/5 - Fin de l'assemblage des dalles MNS." + endC + "\n")
+
+    #############
+    # Etape 5/5 # Calcul du MNH issu de nuages de points LiDAR HD
+    #############
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 5/5 - Début du calcul du MNH issu de nuages de points LiDAR HD." + endC + "\n")
+
+    expression = "im1b1==%s or im2b1==%s ? %s : (im1b1-im2b1<0 ? 0 : im1b1-im2b1)" % (INPUT_NODATA, INPUT_NODATA, OUTPUT_NODATA)
+    command = "otbcli_BandMath -il %s %s -out '%s?&nodata=%s' -exp '%s'" % (dsm_raster, dtm_raster, image_mnh_output, OUTPUT_NODATA, expression)
+    exitCode = os.system(command)
+    if exitCode != 0:
+        print(command)
+        raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during otbcli_BandMath command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "ETAPE 5/5 - Fin du calcul du MNH issu de nuages de points LiDAR HD." + endC + "\n")
+
+    ####################################################################
+
+    # Suppression des fichiers temporaires
+    if not save_results_intermediate:
+        if debug >= 3:
+            print(cyan + "createMnhFromLidarHd() : " + endC + "Suppression des fichiers temporaires." + endC + "\n")
+        deleteDir(temp_directory)
+    if not keep_mnt_mns:
+        removeFile(dtm_raster)
+        removeFile(dsm_raster)
+    if debug >= 2:
+        print(cyan + "createMnhFromLidarHd() : " + bold + green + "FIN DES TRAITEMENTS" + endC + "\n")
+
+    # Mise à jour du log
+    ending_event = "createMnhFromLidarHd() : Fin du traitement : "
     timeLine(path_time_log, ending_event)
 
     return 0
@@ -822,6 +1344,7 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
 # Exemples de lancement en ligne de commande :
 # python -m MnhCreation -is /mnt/RAM_disk/MNS_50cm.tif -it /mnt/RAM_disk/MNT_1m.tif -ithr /mnt/Data/10_Agents_travaux_en_cours/Gilles/Test_QualityMNS/Bordeaux_Metropole_Est_NDVI.tif -v /mnt/RAM_disk/emprise2.shp -o /mnt/RAM_disk/MNH_zone_test.tif -bias 0.8  -ibdrl /mnt/Geomatique/REF_GEO/BD_Topo/D33/ED16/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_PRIMAIRE_BDT_033.SHP /mnt/Geomatique/REF_GEO/BD_Topo/D33/ED16/SHP/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_SECONDAIRE_BDT_033.SHP -bufrl 5.0 3.0  -sqlrl "FRANCHISST != 'Tunnel'":"FRANCHISST != 'Tunnel'" -thrval 0.25 -log /mnt/RAM_disk/fichierTestLog.txt
 # python -m MnhCreation -is /mnt/Geomatique/REF_DTER_OCC/MNS_Correl -it /mnt/Geomatique/REF_DTER_OCC/RGE_ALTI/RGE_ALTI_1M -iref /mnt/RAM_disk/MnhCreationFromMnsCorrel/reference.tif -v /mnt/RAM_disk/MnhCreationFromMnsCorrel/ROI.shp -o /mnt/RAM_disk/MnhCreationFromMnsCorrel/MNH.tif -year 2022 -zone FXX
+# python -m MnhCreation -lhddl /mnt/RAM_disk/MnhCreationFromLidarHd/data_LiDAR_HD/nuages_de_points /mnt/Geomatique/REF_DTER_OCC/LiDAR_HD/nuages_de_points -iref /mnt/RAM_disk/MnhCreationFromLidarHd/reference.tif -v /mnt/RAM_disk/MnhCreationFromLidarHd/ROI.shp -o /mnt/RAM_disk/MnhCreationFromLidarHd/MNH.tif
 
 def main(gui=False):
 
@@ -850,10 +1373,17 @@ def main(gui=False):
                                     -v /mnt/RAM_disk/MnhCreationFromMnsCorrel/ROI.shp \n\
                                     -o /mnt/RAM_disk/MnhCreationFromMnsCorrel/MNH.tif \n\
                                     -year 2022 \n\
-                                    -zone FXX")
+                                    -zone FXX \n\
+                                    -cpus 30 \n\
+              python -m MnhCreation -lhddl /mnt/RAM_disk/MnhCreationFromLidarHd/data_LiDAR_HD/nuages_de_points /mnt/Geomatique/REF_DTER_OCC/LiDAR_HD/nuages_de_points \n\
+                                    -iref /mnt/RAM_disk/MnhCreationFromLidarHd/reference.tif \n\
+                                    -v /mnt/RAM_disk/MnhCreationFromLidarHd/ROI.shp \n\
+                                    -o /mnt/RAM_disk/MnhCreationFromLidarHd/MNH.tif \n\
+                                    -cpus 30")
 
-    parser.add_argument('-is','--image_mns_input',default="",help="Image MNS input, or Input MNS archives directory for MNH creation with MNS-Correl.", type=str, required=True)
-    parser.add_argument('-it','--image_mnt_input',default="",help="Image MNT input, or Input MNT archives directory for MNH creation with MNS-Correl.", type=str, required=True)
+    parser.add_argument('-is','--image_mns_input',default="",help="Image MNS input, or Input MNS archives directory for MNH creation with MNS-Correl.", type=str, required=False)
+    parser.add_argument('-it','--image_mnt_input',default="",help="Image MNT input, or Input MNT archives directory for MNH creation with MNS-Correl.", type=str, required=False)
+    parser.add_argument("-lhddl", "--lhd_directory_list", default=None, nargs="+", type=str, required=False, help="List of folders, containing LiDAR HD points clouds files.")
     parser.add_argument('-ithr','--image_threshold_input',default="",help="Image threshold BD road input", type=str, required=False)
     parser.add_argument('-iref','--image_reference_input',default="",help="Input reference image for MNH creation with MNS-Correl.", type=str, required=False)
     parser.add_argument('-v','--vector_emprise_input',default="",help="Input emprise vector study.", type=str, required=True)
@@ -872,9 +1402,11 @@ def main(gui=False):
     parser.add_argument('-simp','--simplify_vector_param',default=10.0,help="Parameter of polygons simplification. By default : 10.0", type=float, required=False)
     parser.add_argument('-year', '--year', choices=range(2000,2050), default=2022, type=int, required=False, help="Year to be treated to produce MNH with MNS-Correl. Default: 2022.")
     parser.add_argument('-zone', '--zone', choices=["FXX","GLP","MTQ","GUF","REU","MYT","SPM","BLM","MAF"], default="FXX", type=str, required=False, help="Zone to be treated to produce MNH with MNS-Correl. Default: 'FXX'.")
+    parser.add_argument("-nsdm", "--keep_mnt_mns", action="store_false", default=True, required=False, help="Keep temporary DTM and DSM from MNS-Correl or LiDAR HD process. Default: True.")
     parser.add_argument("-epsg",'--epsg',default=0,help="Option : Projection parameter of data if 0 used projection of raster file", type=int, required=False)
     parser.add_argument("-ndv",'--no_data_value',default=0,help="Option : Pixel value for raster file to no data, default : 0 ", type=int, required=False)
     parser.add_argument('-ram','--ram_otb',default=0,help="Ram available for processing otb applications (in MB)", type=int, required=False)
+    parser.add_argument('-cpus','--nb_cpus',default=30,help="Number of CPUs available for processing all treatments", type=int, required=False)
     parser.add_argument('-raf','--format_raster', default="GTiff", help="Option : Format output image, by default : GTiff (GTiff, HFA...)", type=str, required=False)
     parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output file.", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
@@ -890,14 +1422,20 @@ def main(gui=False):
     # Récupération de l'image MNS d'entrée/du répertoire de stockage des archives MNS-Correl
     if args.image_mns_input != None:
         image_mns_input = args.image_mns_input
-        if not os.path.exists(image_mns_input):
-            raise NameError (cyan + "MnhCreation : " + bold + red  + "File/Directory %s not existe!" %(image_mns_input) + endC)
+        # ~ if not os.path.exists(image_mns_input):
+            # ~ raise NameError (cyan + "MnhCreation : " + bold + red  + "File/Directory %s not exists!" %(image_mns_input) + endC)
 
     # Récupération de l'image MNT d'entrée/du répertoire de stockage des archives RGE ALTI 1M
     if args.image_mnt_input != None:
         image_mnt_input = args.image_mnt_input
-        if not os.path.exists(image_mnt_input):
-            raise NameError (cyan + "MnhCreation : " + bold + red  + "File/Directory %s not existe!" %(image_mnt_input) + endC)
+        # ~ if not os.path.exists(image_mnt_input):
+            # ~ raise NameError (cyan + "MnhCreation : " + bold + red  + "File/Directory %s not exists!" %(image_mnt_input) + endC)
+
+    # Récupération de la liste des répertoires de stockage des nuages de points LiDAR HD
+    if args.lhd_directory_list != None:
+        lhd_directory_list = args.lhd_directory_list
+    else :
+        lhd_directory_list = []
 
     # Récupération de l'image de filtrage d'entrée
     if args.image_threshold_input != None:
@@ -911,7 +1449,7 @@ def main(gui=False):
     if args.vector_emprise_input != None :
         vector_emprise_input = args.vector_emprise_input
         if not os.path.isfile(vector_emprise_input):
-            raise NameError (cyan + "MnhCreation : " + bold + red  + "File %s not existe!" %(vector_emprise_input) + endC)
+            raise NameError (cyan + "MnhCreation : " + bold + red  + "File %s not exists!" %(vector_emprise_input) + endC)
 
     # Récupération de l'image MNT de sortie
     if args.image_mnh_output!= None:
@@ -983,6 +1521,10 @@ def main(gui=False):
     if args.zone != None:
         zone = args.zone
 
+    # Récupération du paramètre de conservation des MNT et MNS temporaires (cas MNS-Correl ou LiDAR HD)
+    if args.keep_mnt_mns != None:
+        keep_mnt_mns = args.keep_mnt_mns
+
     # Paramettre de projection
     if args.epsg != None:
         epsg = args.epsg
@@ -994,6 +1536,10 @@ def main(gui=False):
     # Récupération du parametre ram
     if args.ram_otb != None:
         ram_otb = args.ram_otb
+
+    # Récupération du nombre de CPUs aloués
+    if args.nb_cpus != None:
+        nb_cpus = args.nb_cpus
 
     # Paramètre format des images de sortie
     if args.format_raster != None:
@@ -1031,6 +1577,7 @@ def main(gui=False):
         print(bold + green + "MnhCreation : Variables dans le parser" + endC)
         print(cyan + "MnhCreation : " + endC + "image_mns_input : " + str(image_mns_input) + endC)
         print(cyan + "MnhCreation : " + endC + "image_mnt_input : " + str(image_mnt_input) + endC)
+        print(cyan + "MnhCreation : " + endC + "lhd_directory_list : " + str(lhd_directory_list) + endC)
         print(cyan + "MnhCreation : " + endC + "image_threshold_input : " + str(image_threshold_input) + endC)
         print(cyan + "MnhCreation : " + endC + "image_reference_input : " + str(image_reference_input) + endC)
         print(cyan + "MnhCreation : " + endC + "vector_emprise_input : " + str(vector_emprise_input) + endC)
@@ -1049,9 +1596,11 @@ def main(gui=False):
         print(cyan + "MnhCreation : " + endC + "simplify_vector_param : " + str(simplify_vector_param) + endC)
         print(cyan + "MnhCreation : " + endC + "year : " + str(year) + endC)
         print(cyan + "MnhCreation : " + endC + "zone : " + str(zone) + endC)
+        print(cyan + "MnhCreation : " + endC + "keep_mnt_mns : " + str(keep_mnt_mns) + endC)
         print(cyan + "MnhCreation : " + endC + "epsg : " + str(epsg) + endC)
         print(cyan + "MnhCreation : " + endC + "no_data_value : " + str(no_data_value) + endC)
         print(cyan + "MnhCreation : " + endC + "ram_otb : " + str(ram_otb) + endC)
+        print(cyan + "MnhCreation : " + endC + "nb_cpus : " + str(nb_cpus) + endC)
         print(cyan + "MnhCreation : " + endC + "format_raster : " + str(format_raster) + endC)
         print(cyan + "MnhCreation : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "MnhCreation : " + endC + "extension_raster : " + str(extension_raster) + endC)
@@ -1067,13 +1616,15 @@ def main(gui=False):
     if not os.path.isdir(repertory_output):
         os.makedirs(repertory_output)
 
-    # Exécution si création du MNH à partir de MNT et MNS déjà créés (fichiers en entrée)
-    if os.path.isfile(image_mns_input) and os.path.isfile(image_mnt_input):
-        createMnh(image_mns_input, image_mnt_input, image_threshold_input, vector_emprise_input, image_mnh_output, automatic, bd_road_vector_input_list, bd_road_buff_list, sql_road_expression_list, bd_build_vector_input_list, height_bias, threshold_bd_value, threshold_delta_h, mode_interpolation, method_interpolation, interpolation_bco_radius, simplify_vector_param, epsg, no_data_value, ram_otb, path_time_log, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
-
-    # Exécution si création du MNH à partir du MNS-Correl (image_mnt_input et image_mns_input sont des répertoires et non des fichiers)
+    # Cas création MNH à partir de nuages de points LiDAR HD
+    if lhd_directory_list != []:
+        createMnhFromLidarHd(vector_emprise_input, image_mnh_output, image_reference_input, lhd_directory_list, keep_mnt_mns, nb_cpus, path_time_log, save_results_intermediate, overwrite)
+    # Cas création MNH à partir de données MNS-Correl et RGE ALTI 1M
+    elif os.path.isdir(image_mns_input) and os.path.isdir(image_mnt_input):
+        createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_reference_input, image_mnt_input, image_mns_input, year, zone, keep_mnt_mns, nb_cpus, path_time_log, save_results_intermediate, overwrite)
+    # Cas classique (MNT et MNS existent déjà en fichiers raster)
     else:
-        createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_reference_input, image_mnt_input, image_mns_input, year, zone, path_time_log, save_results_intermediate, overwrite)
+        createMnh(image_mns_input, image_mnt_input, image_threshold_input, vector_emprise_input, image_mnh_output, automatic, bd_road_vector_input_list, bd_road_buff_list, sql_road_expression_list, bd_build_vector_input_list, height_bias, threshold_bd_value, threshold_delta_h, mode_interpolation, method_interpolation, interpolation_bco_radius, simplify_vector_param, epsg, no_data_value, ram_otb, path_time_log, format_raster, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite)
 
 # ================================================
 

@@ -83,7 +83,7 @@ class StructSRMParameter:
 ###########################################################################################################################################
 # FONCTION segmentImage()                                                                                                                 #
 ###########################################################################################################################################
-def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vector_output, segmentation_mode, sms_parametres_struct, sms2_parametres_struct, srm_parametres_struct, path_time_log, ram_otb=0, format_vector='ESRI Shapefile', format_raster='TIF', extension_vector=".shp",extension_raster=".tif", save_results_intermediate=False, overwrite=True):
+def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vector_output, segmentation_mode, sms_parametres_struct, sms2_parametres_struct, srm_parametres_struct, path_time_log, ram_otb=0, format_vector='ESRI Shapefile', format_raster='GTiff', extension_vector=".shp",extension_raster=".tif", save_results_intermediate=False, overwrite=True):
     """
     # ROLE:
     #    appliquer une segmentation à une image
@@ -99,7 +99,7 @@ def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vec
     #    srm_parametres_struct : les paramètres du seuillage par Region Mergées
     #    ram_otb : memoire RAM disponible pour les applications OTB
     #    format_vector : format du fichier vecteur. Optionnel, par default : 'ESRI Shapefile'
-    #    format_raster : format du fichier raster.
+    #    format_raster : format du fichier raster, par default : 'GTiff'.
     #    extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
     #    extension_raster : extension du fichier raster de sortie, par defaut = '.tif'
     #    save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
@@ -137,12 +137,14 @@ def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vec
         print(cyan + "segmentImage() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
         print(cyan + "segmentImage() : " + endC + "overwrite : " + str(overwrite) + endC)
 
-    sortie_s = 0
-    sortie_double = []
+    output_raster = False
+    output_vector = False
     # Verification de l'implementation de valeurs pour les deux formats de sortie possibles
     # Seule la sortie raster est demandée
     if segmented_raster_output != '' and segmented_vector_output == '':
         check = os.path.isfile(segmented_raster_output)
+        output_raster = True
+        output_vector = False
         if check and not overwrite :
             print(cyan + "segmentImage() : " + bold + green +  "Image already segmented" + "." + endC)
         else :
@@ -155,9 +157,11 @@ def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vec
 
             if debug >= 3:
                 print(cyan + "segmentImage() : " + bold + green +  "Applying segmented image", "..." , '\n' + endC)
-                sortie_s = 1 #une sortie raster est demandée
+
     # Seule la sortie vecteur est demandée
     if segmented_vector_output != '' and segmented_raster_output == '':
+        output_vector = True
+        output_raster = False
         check = os.path.isfile(segmented_vector_output)
         if check and not overwrite :
             print(cyan + "segmentImage() : " + bold + green +  "Image already segmented" + "." + endC)
@@ -171,11 +175,14 @@ def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vec
 
             if debug >= 3:
                 print(cyan + "segmentImage() : " + bold + green +  "Applying segmented image", "..." , '\n' + endC)
-                sortie_s = 2 #une sortie vecteur est demandée
+
     # Les deux sorties sont demandées
     if segmented_vector_output != '' and segmented_raster_output != '':
         check = os.path.isfile(segmented_vector_output)
         check2 = os.path.isfile(segmented_raster_output)
+        output_raster = True
+        output_vector = True
+
         if check and not overwrite :
             print(cyan + "segmentImage() : " + bold + green +  "Image already segmented in vector version" + "." + endC)
         else :
@@ -188,7 +195,7 @@ def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vec
 
             if debug >= 3:
                 print(cyan + "segmentImage() : " + bold + green +  "Applying segmented image", "..." , '\n' + endC)
-                sortie_double.append(31) #une sortie raster et vecteur est demandée, le fichier vecteur seulement est vérifié
+                #sortie_double.append(31) #une sortie raster et vecteur est demandée, le fichier vecteur seulement est vérifié
         if check2 and not overwrite :
             print(cyan + "segmentImage() : " + bold + green +  "Image already segmented in raster version" + "." + endC)
         else :
@@ -201,40 +208,16 @@ def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vec
 
             if debug >= 3:
                 print(cyan + "segmentImage() : " + bold + green +  "Applying segmented image", "..." , '\n' + endC)
-                sortie_double.append(32) #une sortie raster est demandée, le fichier vecteur
-
+                #sortie_double.append(32) #une sortie raster est demandée, le fichier vecteur
 
     # Segmentation :
-    if segmentation_mode.lower() == "sms2":
-        if sortie_s == 1 or (32 in sortie_double):
-            command = "otbcli_Segmentation -in %s -mode raster -mode.raster.out %s -filter meanshift "  %(image_input, segmented_raster_output)
-            if debug >=2:
-                print(cyan + "segmentImage() : " + bold + green + "Debut de la segmentation de l'image" + endC)
-                print(command)
-            exitCode = os.system(command)
-            if exitCode != 0:
-                print(command)
-                raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_Segmentation Meanshift command. See error message above.")
-        if sortie_s == 2 or (31 in sortie_double):
-            if mask_input != '':
-                command = "otbcli_Segmentation -in %s -mode vector -mode.vector.out %s -mode.vector.inmask %s -filter meanshift -filter.meanshift.minsize %s" %(image_input, segmented_vector_output, mask_input, sms2_parametres_struct.min_region_size)
-            else :
-                command = "otbcli_Segmentation -in %s -mode vector -mode.vector.out %s -filter meanshift -filter.meanshift.minsize %s" %(image_input, segmented_vector_output, sms2_parametres_struct.min_region_size)
-            if debug >=2:
-                print(cyan + "segmentImage() : " + bold + green + "Debut de la segmentation de l'image" + endC)
-                print(command)
-            exitCode = os.system(command)
-            if exitCode != 0:
-                print(command)
-                raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_Segmentation Meanshift command. See error message above.")
-        print('\n' + cyan + "segmentImage() : " + bold + green + "Segmentation applied!" + endC)
-
+    # Par otbcli_LargeScaleMeanShift
     if segmentation_mode.lower() == "sms" :
-        # Par otbcli_LargeScaleMeanShift
 
-        if sortie_s == 1 or (32 in sortie_double):
-            raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_LSMSSegmentation command : you can't have a raster exit.")
-        if sortie_s == 2 or (31 in sortie_double):
+        if not output_vector :
+            raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_LargeScaleMeanShift command : you can't have a vector exit.")
+
+        if output_vector :
             command = "otbcli_LargeScaleMeanShift -in %s  -spatialr %d -ranger %f -minsize %d -tilesizex %d -tilesizey %d -mode.vector.out %s" %(image_input, sms_parametres_struct.spatial_radius, sms_parametres_struct.range_radius, sms_parametres_struct.min_segement_size, sms_parametres_struct.tile_size, sms_parametres_struct.tile_size, segmented_vector_output)
 
         if ram_otb > 0:
@@ -250,16 +233,43 @@ def segmentImage(image_input, mask_input, segmented_raster_output, segmented_vec
             raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_LSMSSegmentation command. See error message above.")
         print('\n' + cyan + "segmentImage() : " + bold + green + "Segmentation applied!" + endC)
 
+    # Par otbcli_Segmentation
+    if segmentation_mode.lower() == "sms2":
+        if output_raster :
+            command = "otbcli_Segmentation -in %s -mode raster -mode.raster.out %s -filter meanshift "  %(image_input, segmented_raster_output)
+            if debug >=2:
+                print(cyan + "segmentImage() : " + bold + green + "Debut de la segmentation de l'image" + endC)
+                print(command)
+            exitCode = os.system(command)
+            if exitCode != 0:
+                print(command)
+                raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_Segmentation  command. See error message above.")
+
+        if output_vector :
+            if mask_input != '':
+                command = "otbcli_Segmentation -in %s -mode vector -mode.vector.out %s -mode.vector.inmask %s -filter meanshift -filter.meanshift.minsize %s" %(image_input, segmented_vector_output, mask_input, sms2_parametres_struct.min_region_size)
+            else :
+                command = "otbcli_Segmentation -in %s -mode vector -mode.vector.out %s -filter meanshift -filter.meanshift.minsize %s" %(image_input, segmented_vector_output, sms2_parametres_struct.min_region_size)
+            if debug >=2:
+                print(cyan + "segmentImage() : " + bold + green + "Debut de la segmentation de l'image" + endC)
+                print(command)
+            exitCode = os.system(command)
+            if exitCode != 0:
+                print(command)
+                raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_Segmentation Meanshift command. See error message above.")
+        print('\n' + cyan + "segmentImage() : " + bold + green + "Segmentation applied!" + endC)
+
+    # Par otbcli_GenericRegionMerging
     if segmentation_mode.lower() == "srm" :
-        # Par otbcli_GenericRegionMerging
 
-        if sortie_s == 1 or (32 in sortie_double):
-            raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_GenericRegionMerging command : you can't have a raster exit.")
+        if not output_vector :
+            raise NameError(cyan + "segmentImage() : " + bold + red + "An error occured during otbcli_GenericRegionMerging command : you can't have a vector exit.")
 
-        repertory_output = os.path.dirname(segmented_vector_output)
-        layer_name = os.path.splitext(os.path.basename(segmented_vector_output))[0]
-        segmented_raster_tmp = repertory_output + os.sep + os.path.splitext(os.path.basename(segmented_vector_output))[0] + os.path.splitext(os.path.basename(image_input))[1]
-        if sortie_s == 2 or (31 in sortie_double):
+        if output_vector:
+            repertory_output = os.path.dirname(segmented_vector_output)
+            layer_name = os.path.splitext(os.path.basename(segmented_vector_output))[0]
+            segmented_raster_tmp = repertory_output + os.sep + os.path.splitext(os.path.basename(segmented_vector_output))[0] + os.path.splitext(os.path.basename(image_input))[1]
+
             command = "otbcli_GenericRegionMerging -in %s -criterion %s -threshold %f -niter %d -speed %d  -cw %f -sw %f -out %s %s" %(image_input, srm_parametres_struct.homogeneity_criterion, srm_parametres_struct.threshol_criterion, srm_parametres_struct.number_iteration, srm_parametres_struct.segmentation_speed, srm_parametres_struct.weight_spectral_homogeneity, srm_parametres_struct.weight_spatial_homogeneity, segmented_raster_tmp, CODAGE)
 
         if ram_otb > 0:
@@ -349,7 +359,7 @@ def main(gui=False):
     parser.add_argument('-srm.wsi','--weight_spatial',default=0.3,help="Weight for the spatial homogeneity", type=float, required=False)
     parser.add_argument('-ram','--ram_otb',default=0,help="Ram available for processing otb applications (in MB)", type=int, required=False)
     parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output file.", type=str, required=False)
-    parser.add_argument('-ref','--format_raster', default="image TIFF",help="Format of the output file.", type=str, required=False)
+    parser.add_argument('-ref','--format_raster', default="GTiff",help="Format of the output file.", type=str, required=False)
     parser.add_argument('-vee','--extension_vector',default=".shp",help="Option : Extension file for vector. By default : '.shp'", type=str, required=False)
     parser.add_argument('-ree','--extension_raster',default=".tif",help="Option : Extension file for Raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-log','--path_time_log',default="",help="Name of log", type=str, required=False)
@@ -385,28 +395,50 @@ def main(gui=False):
         if segmentation_mode.lower() not in ['sms', 'sms2', 'srm'] :
             raise NameError(cyan + "Segmentation : " + bold + red + "Parameter 'segmentation_mode' value  is not in list ['sms2','sms', 'srm']." + endC)
 
-    # Récupération des parametres de l'algo de MeanShift
+    # Récupération des parametres de l'algo de Large Scale MeanShift 'sms'
+
+    # Le paramétre du rayon de voisinage spatial pour lea moyen
+    if args.spatialr != None:
+        spatialr = args.spatialr
+
+    # Le paramétre du seuil de distance euclidienne
+    if args.range != None:
+        ranger = args.ranger
+
+    # Le paramétre du seuil de taille minimale du segment
+    if args.minsize != None:
+        minsize = args.minsize
+
+    # Taille de la grille de travail
+    if args.tilesize!= None:
+        tilesize = args.tilesize
+
+    # Récupération des parametres de l'algo de MeanShift 'sms2'
     # Le paramétre du rayon de voisinage spatial pour lea moyen
     if args.spatialr2 != None:
-        spatialr = args.spatialr2
+        spatialr2 = args.spatialr2
 
     # Le paramétre du seuil de distance euclidienne
     if args.ranger2 != None:
-        ranger = args.ranger2
+        ranger2 = args.ranger2
 
-    # Le paramétre du seuil de taille minimale du segment
-    if args.minsize2 != None:
-        minsize = args.minsize2
+    # Le paramétre du nombre d'iterations
+    if args.number_iteration2 != None:
+        number_iteration2 = args.number_iteration2
 
     # Le paramétre du seuil de taille minimale du segment lors de la segmentation
     if args.minregsize2 != None:
-        minregsize = args.minregsize2
+        minregsize2 = args.minregsize2
+
+    # Le paramétre du seuil de taille minimale du segment
+    if args.minsize2 != None:
+        minsize2 = args.minsize2
 
     # Taille de la grille de travail
     if args.tilesize2!= None:
-        tilesize = args.tilesize2
+        tilesize2 = args.tilesize2
 
-    # Récupération des parametres de l'algo de Region Merging
+    # Récupération des parametres de l'algo de Region Merging 'srm'
     # Le paramétre du ctritère
     if args.homogeneity_criterion != None:
         homogeneity_criterion = args.homogeneity_criterion
@@ -503,21 +535,21 @@ def main(gui=False):
     if not os.path.isdir(repertory_output):
         os.makedirs(repertory_output)
 
-    # Regroupement des parametres du SMS2 dans une structure
-    sms2_parametres_struct = StructSMS2Parameter()
-    sms2_parametres_struct.spatial_radius = spatialr
-    sms2_parametres_struct.range_radius = ranger
-    sms2_parametres_struct.number_iteration = number_iteration
-    sms2_parametres_struct.min_region_size = minregsize
-    sms2_parametres_struct.minsize = minsize
-    sms2_parametres_struct.tile_size = tilesize
-
     # Regroupement des parametres du SMS dans une structure
     sms_parametres_struct = StructSMSParameter()
     sms_parametres_struct.spatial_radius = spatialr
     sms_parametres_struct.range_radius = ranger
     sms_parametres_struct.min_segement_size = minsize
     sms_parametres_struct.tile_size = tilesize
+
+    # Regroupement des parametres du SMS2 dans une structure
+    sms2_parametres_struct = StructSMS2Parameter()
+    sms2_parametres_struct.spatial_radius = spatialr2
+    sms2_parametres_struct.range_radius = ranger2
+    sms2_parametres_struct.number_iteration = number_iteration2
+    sms2_parametres_struct.min_region_size = minregsize2
+    sms2_parametres_struct.minsize = minsize2
+    sms2_parametres_struct.tile_size = tilesize2
 
     # Regroupement des parametres du SRM dans une structure
     srm_parametres_struct = StructSRMParameter()
