@@ -31,8 +31,9 @@ from Lib_display import bold,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_file import cleanTempData, deleteDir, removeFile, removeVectorFile
 from Lib_log import timeLine
 from Lib_postgis import createDatabase, openConnection, importVectorByOgr2ogr, executeQuery, exportVectorByOgr2ogr, closeConnection, dropDatabase
+from Lib_raster import getEmpriseImage
 from Lib_text import appendTextFileCR
-from Lib_vector import cutVector, getAttributeNameList, renameFieldsVector
+from Lib_vector import cutVector, getAttributeNameList, getEmpriseVector, renameFieldsVector
 from CrossingVectorRaster import statisticsVectorRaster
 
 # Niveau de debug (variable globale)
@@ -140,7 +141,13 @@ def soilOccupationChange(input_plot_vector, output_plot_vector, footprint_vector
     print(cyan + "soilOccupationChange() : " + bold + green + "ETAPE 0/2 - Début de la préparation des traitements." + endC + '\n')
 
     # Découpage du parcellaire à la zone d'étude
-    cutVector(footprint_vector, input_plot_vector, plot_vector_cut, overwrite=overwrite, format_vector=format_vector)
+    image_xmin, image_xmax, image_ymin, image_ymax = getEmpriseImage(input_tx_files_list[0])
+    vector_xmin, vector_xmax, vector_ymin, vector_ymax = getEmpriseVector(input_plot_vector, format_vector)
+
+    if round(vector_xmin, 4) < round(image_xmin, 4) or round(vector_xmax, 4) > round(image_xmax, 4) or round(vector_ymin, 4) < round(image_ymin, 4) or round(vector_ymax, 4) > round(image_ymax, 4) :
+        cutVector(footprint_vector, input_plot_vector, plot_vector_cut, overwrite=overwrite, format_vector=format_vector)
+    else:
+        plot_vector_cut = input_plot_vector
 
     # Récupération du nom des champs dans le fichier source (pour isoler les champs nouvellement créés par la suite, et les renommer)
     attr_names_list_origin = getAttributeNameList(input_plot_vector, format_vector=format_vector)
