@@ -46,7 +46,7 @@ debug = 3
 ###########################################################################################################################################
 # DEFINITION DE LA FONCTION addDataBaseExo                                                                                                #
 ###########################################################################################################################################
-def addDataBaseExo(image_input, image_classif_add_output, class_file_dico, class_buffer_dico, class_sql_dico, path_time_log, format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True, simplifie_param=10.0) :
+def addDataBaseExo(image_input, image_classif_add_output, class_file_dico, class_buffer_dico, class_sql_dico, path_time_log, format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True, simplifie_param=10.0, buff=0.0, fact_buf=0.5) :
     """
     # ROLE:
     #    Ajouter des BD exogènes à la classification
@@ -64,6 +64,8 @@ def addDataBaseExo(image_input, image_classif_add_output, class_file_dico, class
     #    save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
     #    overwrite : boolen ecrasement ou non des fichiers ayant un nom similaire, par defaut à True
     #    simplifie_param : parmetre de simplification des polygones
+    #    buff : buffer à appliquer par défaut dans le cas d'un choix de buffer selon une colonne où il peut y avoir des manques.
+	#    fact_buff : facteur de la valeur des buffers à appliquer
     #
     # SORTIES DE LA FONCTION :
     #    Aucun
@@ -88,6 +90,9 @@ def addDataBaseExo(image_input, image_classif_add_output, class_file_dico, class
         print(cyan + "addDataBaseExo() : " + endC + "extension_vector : " + str(extension_vector) + endC)
         print(cyan + "addDataBaseExo() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
         print(cyan + "addDataBaseExo() : " + endC + "overwrite : " + str(overwrite) + endC)
+        print(cyan + "addDataBaseExo() : " + endC + "simplifie_param : " + str(simplifie_param) + endC)
+        print(cyan + "addDataBaseExo() : " + endC + "buff : " + str(buff) + endC)
+        print(cyan + "addDataBaseExo() : " + endC + "fact_buf : " + str(fact_buf) + endC)
 
     # Constantes
     FOLDER_MASK_TEMP = 'Mask_'
@@ -197,7 +202,6 @@ def addDataBaseExo(image_input, image_classif_add_output, class_file_dico, class
                 output_vector_buff = repertory_samples_buff_temp + os.sep + vector_name + SUFFIX_VECTOR_BUFF + extension_vector
                 sql_expression = class_sql_dico[macroclass_label][index_info]
                 buffer_str = class_buffer_dico[macroclass_label][index_info]
-                buff = 0.0
                 col_name_buf = ""
                 try:
                     buff = float(buffer_str)
@@ -235,7 +239,7 @@ def addDataBaseExo(image_input, image_classif_add_output, class_file_dico, class
 
                     # 3.2 : Bufferiser lesvecteurs découpé avec la valeur défini dans le dico ou trouver dans la base du vecteur lui même si le nom de la colonne est passée dans le dico
                     if os.path.isfile(output_vector_cut) and ((buff != 0) or (col_name_buf != "")) :
-                        bufferVector(output_vector_cut, output_vector_buff, buff, col_name_buf, 0.5, 10, format_vector)
+                        bufferVector(output_vector_cut, output_vector_buff, buff, col_name_buf, fact_buf, 10, format_vector)
                     else :
                         print(cyan + "addDataBaseExo() : " + bold + green + "Pas de buffer sur le fichier du nom : " + endC + output_vector_cut)
                         output_vector_buff = output_vector_cut
@@ -341,6 +345,8 @@ def main(gui=False):
     parser.add_argument('-classBuf','--class_buffer_dico',default="",nargs="+",help="Dictionary of class containt buffer, (format : classeLabel:[sizeBuffer][..]), ex. 11000:3,5.0,,7 12200:0,", type=str, required=False)
     parser.add_argument('-classSql','--class_sql_dico',default="",nargs="+",help="Dictionary of class containt sql request, (format : classeLabel:[SqlRequest][..]), ex. 11000:NATURE ='Autoroute' OR NATURE ='Route 2 Chausses',NATURE ='Route 2 Chausses' 12200:NATURE = 'Lac naturel'", type=str, required=False)
     parser.add_argument('-simp','--simple_param_vector',default=10.0,help="Parameter of polygons simplification. By default : 10.0", type=float, required=False)
+    parser.add_argument('-buff','--buff',default=0.0,help="Parameter of default buffer. By default : 0.0", type=float, required=False)
+    parser.add_argument('-fact_buff','--factor_buffer',default=0.5,help="Buffer factor parameter, which will be multiplied to each buffer. By default : 0.5", type=float, required=False)
     parser.add_argument('-vef','--format_vector', default="ESRI Shapefile",help="Format of the output file.", type=str, required=False)
     parser.add_argument('-rae','--extension_raster', default=".tif", help="Option : Extension file for image raster. By default : '.tif'", type=str, required=False)
     parser.add_argument('-vee','--extension_vector',default=".shp",help="Option : Extension file for vector. By default : '.shp'", type=str, required=False)
@@ -391,6 +397,14 @@ def main(gui=False):
     # Simplifie_param param
     if args.simple_param_vector != None:
         simplifie_param = args.simple_param_vector
+        
+    # buffer param
+    if args.buff != None:
+        buff = args.buff
+        
+    # factor buffer param
+    if args.factor_buffer != None:
+        factor_buffer = args.factor_buffer
 
     # Récupération du format des vecteurs de sortie
     if args.format_vector != None :
@@ -427,6 +441,8 @@ def main(gui=False):
         print(cyan + "DataBaseSuperposition : " + endC + "class_buffer_dico : " + str(class_buffer_dico) + endC)
         print(cyan + "DataBaseSuperposition : " + endC + "class_sql_dico : " + str(class_sql_dico) + endC)
         print(cyan + "DataBaseSuperposition : " + endC + "simple_param_vector : " + str(simplifie_param) + endC)
+        print(cyan + "DataBaseSuperposition : " + endC + "buff : " + str(buff) + endC)
+        print(cyan + "DataBaseSuperposition : " + endC + "factor_buffer : " + str(factor_buffer) + endC)
         print(cyan + "DataBaseSuperposition : " + endC + "format_vector : " + str(format_vector) + endC)
         print(cyan + "DataBaseSuperposition : " + endC + "extension_raster : " + str(extension_raster) + endC)
         print(cyan + "DataBaseSuperposition : " + endC + "extension_vector : " + str(extension_vector) + endC)
@@ -442,7 +458,7 @@ def main(gui=False):
         os.makedirs(repertory_output)
 
     # Execution de la fonction pour une image
-    addDataBaseExo(image_input, image_output, class_file_dico, class_buffer_dico, class_sql_dico, path_time_log, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite,simplifie_param)
+    addDataBaseExo(image_input, image_output, class_file_dico, class_buffer_dico, class_sql_dico, path_time_log, format_vector, extension_raster, extension_vector, save_results_intermediate, overwrite, simplifie_param, buff, factor_buffer)
 
 # ================================================
 
