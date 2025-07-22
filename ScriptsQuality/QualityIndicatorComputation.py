@@ -117,7 +117,7 @@ def computeQualityIndicator(classif_image_file, validation_input_vector, validat
     if class_ref_list != class_pro_list:
         print(cyan + "computeQualityIndicator() : " + bold + yellow + "Classes are different between classification and shapefile!"  + '\n' + endC)
         print(cyan + "computeQualityIndicator() : " + bold + yellow + "Missing micro classes are set to 0"  + '\n' + endC)
-        matrix, class_missing_list = correctMatrix(class_ref_list, class_pro_list, matrix)
+        matrix, class_missing_list = correctMatrix(class_ref_list, class_pro_list, matrix, no_data_value)
         print(cyan + "computeQualityIndicator() : " + bold + yellow + "class_missing_list"  + '\n' + endC + str(class_missing_list))
 
     class_count = len(matrix[0])- len(class_missing_list)

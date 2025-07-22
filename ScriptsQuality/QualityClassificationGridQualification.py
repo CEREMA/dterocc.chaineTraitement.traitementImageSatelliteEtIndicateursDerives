@@ -54,12 +54,12 @@ debug = 1
 def comparareClassificationToReferenceGrid(image_input, vector_cut_input, vector_sample_input, vector_grid_input, vector_grid_output, size_grid, field_value_verif, no_data_value, path_time_log, epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
     """
     # ROLE:
-    #     Estimer la qualiter d'une image de classifition par zone d'une grille. La grille peut être créer ou donner en fichier d'entrée.
-    #     La comparaison se fait avec un fichier shape de référence contant des données de controles (par exemple la bd topo bati de l'IGN).
-    #     Le résultat est enregistré dans un ficher grille dans la table attibutaire une valeur de qualité par polygone de la grille.
+    #     Estimer la qualité d'une image de classification par zone d'une grille. La grille peut être créée ou fournie en fichier d'entrée.
+    #     La comparaison se fait avec un fichier shape de référence contenant des données de contrôle (par exemple la bd topo bati de l'IGN).
+    #     Le résultat est enregistré dans un ficher grille avec dans la table attibutaire une valeur de qualité par polygone.
     #
     # ENTREES DE LA FONCTION :
-    #     image_input : l'image d'entrée qui sera découpé
+    #     image_input : l'image d'entrée qui sera découpée
     #     vector_cut_input: le vecteur pour le découpage (zone d'étude)
     #     vector_sample_input : le vecteur d'échantillon de référence
     #     vector_grid_input : le fichier de grille d'entrée vecteur contenant la grille d'étude déja créee

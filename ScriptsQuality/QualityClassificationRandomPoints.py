@@ -38,10 +38,10 @@ from scipy.stats import chi2
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_log import timeLine
 from osgeo import ogr
-from Lib_raster import getPixelWidthXYImage, getGeometryImage, getEmpriseImage, getPixelsValueListImage, cutImageByVector, createVectorMask
+from Lib_raster import getPixelWidthXYImage, getGeometryImage, getEmpriseImage, getPixelsValueListImage, cutImageByVector, createVectorMask, getPixelValueImage
 from Lib_vector import createPointsFromCoordList, cutVectorAll, readVectorFilePoints, addNewFieldVector, setAttributeValuesList
 from Lib_file import removeVectorFile, copyVectorFile, removeFile, renameVectorFile
-
+from tqdm import tqdm
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
 # debug = 2 : affichage supérieur de commentaires lors de l'execution du script etc...
@@ -99,7 +99,7 @@ def computeNumberPointsToShoot(k_class, percent_class_near_fifty, l_khi=1, alpha
 def estimateQualityClassification(image_input, vector_cut_input, vector_sample_input, vector_output, nb_dot, no_data_value, column_name_vector, column_name_ref, column_name_class, path_time_log, epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
     """
     # ROLE:
-    #     Estimer la qualiter d'une image de classifition par tirage aléatoire de points dans une zone d'étude d'une image de classification
+    #     Estimer la qualitée d'une image de classification par tirage aléatoire de points dans une zone d'étude d'une image de classification
     #     et récupération de valeur des points de test dans l'image de classification
     #
     # ENTREES DE LA FONCTION :
@@ -130,9 +130,7 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
     starting_event = "estimateQualityClassification() : Masks creation starting : "
     timeLine(path_time_log,starting_event)
 
-    print(endC)
-    print(bold + green + "## START : CREATE PRINT POINTS FILE FROM CLASSIF IMAGE" + endC)
-    print(endC)
+    print(f"{bold}{green}## START : CREATE  POINTS FILE FROM CLASSIF IMAGE{endC}")
 
     if debug >= 2:
         print(bold + green + "estimateQualityClassification() : Variables dans la fonction" + endC)
@@ -155,64 +153,59 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
         print(cyan + "estimateQualityClassification() : " + endC + "overwrite : " + str(overwrite) + endC)
 
     # ETAPE 0 : PREPARATION DES FICHIERS INTERMEDIAIRES
-
-    CODAGE = "uint16"
+    output_dir = os.path.dirname(vector_output)
+    if not os.path.exists(output_dir) :
+        os.makedirs(output_dir)
 
     SUFFIX_STUDY = '_study'
     SUFFIX_CUT = '_cut'
     SUFFIX_TEMP = '_temp'
     SUFFIX_SAMPLE = '_sample'
 
-    repertory_output = os.path.dirname(vector_output)
     base_name = os.path.splitext(os.path.basename(vector_output))[0]
 
-    vector_output_temp = repertory_output + os.sep + base_name + SUFFIX_TEMP + extension_vector
-    raster_study = repertory_output + os.sep + base_name + SUFFIX_STUDY + extension_raster
-    vector_study = repertory_output + os.sep + base_name + SUFFIX_STUDY + extension_vector
-    raster_cut = repertory_output + os.sep + base_name + SUFFIX_CUT + extension_raster
-    vector_sample_temp = repertory_output + os.sep + base_name + SUFFIX_SAMPLE + SUFFIX_TEMP + extension_vector
+    vector_output_temp = output_dir + os.sep + base_name + SUFFIX_TEMP + extension_vector
+    raster_study = output_dir + os.sep + base_name + SUFFIX_STUDY + extension_raster
+    vector_study = output_dir + os.sep + base_name + SUFFIX_STUDY + extension_vector
+    raster_cut = output_dir + os.sep + base_name + SUFFIX_CUT + extension_raster
+    vector_sample_temp = output_dir + os.sep + base_name + SUFFIX_SAMPLE + SUFFIX_TEMP + extension_vector
 
-    # Mise à jour des noms de champs
-    input_ref_col = ""
-    val_ref = 0
-    if (column_name_vector != "") and (not column_name_vector is None):
+    # Mise à jour ou initialisation des noms de champs
+    val_ref = -1
+    if column_name_vector:
         input_ref_col = column_name_vector
-    if (column_name_ref != "") and (not column_name_ref is None):
+    if column_name_ref:
         val_ref_col = column_name_ref
-    if (column_name_class != "") and (not column_name_class is None):
-        val_class_col = column_name_class
+    if column_name_class:
+       val_class_col = column_name_class
 
     # ETAPE 1 : DEFINIR UN SHAPE ZONE D'ETUDE
-
-    if (not vector_cut_input is None) and (vector_cut_input != "") and (os.path.isfile(vector_cut_input)) :
+    cutting_action = False
+    if vector_cut_input and os.path.isfile(vector_cut_input) :
         cutting_action = True
         vector_study = vector_cut_input
-
     else :
         cutting_action = False
         createVectorMask(image_input, vector_study)
 
     # ETAPE 2 : DECOUPAGE DU RASTEUR PAR LE VECTEUR D'EMPRISE SI BESOIN
-
     if cutting_action :
-        # Identification de la tailles de pixels en x et en y
         pixel_size_x, pixel_size_y = getPixelWidthXYImage(image_input)
 
-        # Si le fichier de sortie existe deja le supprimer
-        if os.path.exists(raster_cut) :
-            removeFile(raster_cut)
-
-        # Commande de découpe
-        if not cutImageByVector(vector_study, image_input, raster_cut, pixel_size_x, pixel_size_y, False, no_data_value, 0, format_raster, format_vector) :
-            raise NameError(cyan + "estimateQualityClassification() : " + bold + red + "Une erreur c'est produite au cours du decoupage de l'image : " + image_input + endC)
-        if debug >=2:
-            print(cyan + "estimateQualityClassification() : " + bold + green + "DECOUPAGE DU RASTER %s AVEC LE VECTEUR %s" %(image_input, vector_study) + endC)
+        if os.path.exists(raster_cut) and not overwrite :
+            if debug >=1 :
+                print(f"{cyan} estimateQualityClassification() : le rasteur découpé au vecteur d'emprise existe déjà ici {raster_cut}{endC}")
+        else:
+            if os.path.exists(raster_cut):
+                removeFile(raster_cut)
+            if not cutImageByVector(vector_study, image_input, raster_cut, pixel_size_x, pixel_size_y, False, no_data_value, 0, format_raster, format_vector) :
+                raise NameError(cyan + "estimateQualityClassification() : " + bold + red + "Une erreur c'est produite au cours du decoupage de l'image : " + image_input + endC)
+            if debug >=2:
+                print(cyan + "estimateQualityClassification() : " + bold + green + "DECOUPAGE DU RASTER %s AVEC LE VECTEUR %s" %(image_input, vector_study) + endC)
     else :
         raster_cut = image_input
 
     # ETAPE 3 : CREATION DE LISTE POINTS AVEC DONNEE ISSU D'UN FICHIER RASTER
-
-    # Gémotrie de l'image
     cols, rows, bands = getGeometryImage(raster_cut)
     xmin, xmax, ymin, ymax = getEmpriseImage(raster_cut)
     pixel_width, pixel_height = getPixelWidthXYImage(raster_cut)
@@ -229,44 +222,50 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
         print("pixel_height : " + str(pixel_height))
 
     # ETAPE 3-1 : CAS CREATION D'UN FICHIER DE POINTS PAR TIRAGE ALEATOIRE DANS LA MATRICE IMAGE
-    if (vector_sample_input is None) or (vector_sample_input == "")  :
+    if not vector_sample_input:
         is_sample_file = False
-
-        # Les dimensions de l'image
         nb_pixels = abs(cols * rows)
 
-        # Tirage aléatoire des points
-        drawn_dot_list = []
-        while len(drawn_dot_list) < nb_dot :
-            val = random.randint(0,nb_pixels)
-            if not val in drawn_dot_list :
-                drawn_dot_list.append(val)
-
-        # Creation d'un dico index valeur du tirage et attibuts pos_x, pos_y et value pixel
-        points_random_value_dico = {}
-
+        # Création de la liste de points tirés aléatoirement
+        valid_points = []
         points_coordonnees_list = []
-        for point in drawn_dot_list:
-            pos_y = point // cols
-            pos_x = point % cols
-            coordonnees_list = [pos_x, pos_y]
-            points_coordonnees_list.append(coordonnees_list)
+        attempts = 0
+        max_attempts = nb_dot * 10 # evite la loop infinie
+        drawn_dot_list = []
+        while len(valid_points) < nb_dot and attempts < max_attempts:
+            point_idx = random.randint(0, nb_pixels -1)
+            if point_idx in drawn_dot_list :
+                attempts +=1
+                continue
+
+            pos_x = point_idx % cols
+            pos_y = point_idx // cols
+
+            valid_points.append(point_idx)
+            points_coordonnees_list.append([pos_x, pos_y])
+            attempts +=1
+
+        if debug >= 2:
+            print(f"Points valides générés: {len(valid_points)} sur {nb_dot} demandés")
 
         # Lecture dans le fichier raster des valeurs
-        values_list = getPixelsValueListImage(raster_cut, points_coordonnees_list)
-        print(values_list)
-        for idx_point in range (len(drawn_dot_list)):
-            val_class = values_list[idx_point]
-            coordonnees_list = points_coordonnees_list[idx_point]
-            pos_x = coordonnees_list[0]
-            pos_y = coordonnees_list[1]
-            coor_x = xmin + (pos_x * abs(pixel_width))
-            coor_y = ymax - (pos_y * abs(pixel_height))
-            point_attr_dico = {"Ident":idx_point, val_ref_col:int(val_ref), val_class_col:int(val_class)}
-            points_random_value_dico[idx_point] = [[coor_x, coor_y], point_attr_dico]
+        values_list = getPixelsValueListImage(raster_cut, points_coordonnees_list) #récupère simplement la valeur du point sur la bande 1..
+
+        points_random_value_dico = {}
+        for idx in range (len(valid_points)):
+            val_class = values_list[idx] #valeur pixel bande 1
+            coordonnees = points_coordonnees_list[idx]
+            pos_x = coordonnees[0]
+            pos_y = coordonnees[1]
+
+            coor_x = xmin + ((pos_x + 0.5)* abs(pixel_width))
+            coor_y = ymax - ((pos_y + 0.5)* abs(pixel_height))
+
+            point_attr_dico = {"Ident":idx, val_ref_col:int(val_ref), val_class_col:int(val_class)}
+            points_random_value_dico[idx] = [[coor_x, coor_y], point_attr_dico]
 
             if debug >=4:
-                print("idx_point : " + str(idx_point))
+                print("idx : " + str(idx))
                 print("pos_x : " + str(pos_x))
                 print("pos_y : " + str(pos_y))
                 print("coor_x : " + str(coor_x))
@@ -274,7 +273,7 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
                 print("val_class : " + str(val_class))
                 print("")
 
-    # ETAPE 3-2 : CAS D'UN FICHIER DE POINTS DEJA EXISTANT MISE A JOUR DE LA DONNEE ISSU Du RASTER
+    # ETAPE 3-2 : CAS D'UN FICHIER DE POINTS DEJA EXISTANT MISE A JOUR DE LA DONNEE ISSU DU RASTER
     else :
         # Le fichier de points d'analyses existe
         is_sample_file = True
@@ -322,7 +321,6 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
 
     # Creer le fichier de points
     if is_sample_file and os.path.exists(vector_sample_temp) :
-
         attribute_dico = {val_class_col:ogr.OFTInteger}
         # Recopie du fichier
         removeVectorFile(vector_output_temp)
@@ -345,7 +343,6 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
     else :
         # Définir les attibuts du fichier résultat
         attribute_dico = {"Ident":ogr.OFTInteger, val_ref_col:ogr.OFTInteger, val_class_col:ogr.OFTInteger}
-
         createPointsFromCoordList(attribute_dico, points_random_value_dico, vector_output_temp, epsg, format_vector)
 
     # Découpage du fichier de points d'echantillons
@@ -355,11 +352,6 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
 
     # Suppression des données intermédiaires
     if not save_results_intermediate:
-        if cutting_action :
-            removeFile(raster_cut)
-        else :
-            removeVectorFile(vector_study)
-            removeFile(raster_study)
         if is_sample_file :
             removeVectorFile(vector_sample_temp)
         removeVectorFile(vector_output_temp)
@@ -374,6 +366,304 @@ def estimateQualityClassification(image_input, vector_cut_input, vector_sample_i
 
     return
 
+###########################################################################################################################################
+# FONCTION estimateQualityClassification_byClass()                                                                                        #
+###########################################################################################################################################
+def estimateQualityClassification_byClass(image_input, vector_cut_input, vector_sample_input, vector_output, nb_dot, no_data_value, column_name_vector, column_name_ref, column_name_class, path_time_log, epsg=2154, format_raster='GTiff', format_vector="ESRI Shapefile", extension_raster=".tif", extension_vector=".shp", save_results_intermediate=False, overwrite=True):
+    """
+    # ROLE:
+    #     Estimer la qualitée d'une image de classification par tirage aléatoire de points dans une zone d'étude d'une image de classification
+    #     et récupération de valeur des points de test dans l'image de classification
+    #
+    # ENTREES DE LA FONCTION :
+    #     image_input : l'image d'entrée qui sera découpé
+    #     vector_cut_input: le vecteur pour le découpage (zone d'étude)
+    #     vector_sample_input : le vecteur d'échantillon de points
+    #     vector_output : le fichier de sortie contenant les points du tirage aléatoire, ou issus du vecteur d'échantillon
+    #     nb_dot : nombre de points du tirage aléatoire
+    #     no_data_value : Valeur de  pixel du no data
+    #     column_name_vector : champ du fichier vecteur d'entrée contenant l'information de classe (= référence)
+    #     column_name_ref : champ du fichier vecteur de sortie contenant l'information de classe de référence (issu du fichier d'entrée, ou pour validation a posteriori)
+    #     column_name_class : champ du fichier vecteur de sortie contenant l'information de classe issue du raster d'entrée
+    #     path_time_log : le fichier de log de sortie
+    #     epsg : Optionnel : par défaut 2154
+    #     format_raster : Format de l'image de sortie, par défaut : GTiff
+    #     format_vector  : format du vecteur de sortie, par defaut = 'ESRI Shapefile'
+    #     extension_raster : extension des fichiers raster de sortie, par defaut = '.tif'
+    #     extension_vector : extension du fichier vecteur de sortie, par defaut = '.shp'
+    #     save_results_intermediate : fichiers de sorties intermediaires nettoyees, par defaut = False
+    #     overwrite : écrase si un fichier existant a le même nom qu'un fichier de sortie, par defaut a True
+    #
+    # SORTIES DE LA FONCTION :
+    #    un fichier vecteur contenant les points de controles avec en attributs la valeurs de références (par photo interpretation) et la valeur de la classification
+    #
+    """
+
+    # Mise à jour du Log
+    starting_event = "estimateQualityClassification() : Masks creation starting : "
+    timeLine(path_time_log,starting_event)
+
+    print(f"{bold}{green}## START : CREATE  POINTS FILE FROM CLASSIF IMAGE{endC}")
+
+    if debug >= 2:
+        print(bold + green + "estimateQualityClassification() : Variables dans la fonction" + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "image_input : " + str(image_input) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "vector_cut_input : " + str(vector_cut_input) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "vector_sample_input : " + str(vector_sample_input) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "vector_output : " + str(vector_output) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "nb_dot : " + str(nb_dot) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "no_data_value : " + str(no_data_value) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "column_name_vector : " + str(column_name_vector) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "column_name_ref : " + str(column_name_ref) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "column_name_class : " + str(column_name_class) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "path_time_log : " + str(path_time_log) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "epsg  : " + str(epsg) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "format_raster : " + str(format_raster) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "format_vector : " + str(format_vector) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "extension_raster : " + str(extension_raster) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "extension_vector : " + str(extension_vector) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
+        print(cyan + "estimateQualityClassification() : " + endC + "overwrite : " + str(overwrite) + endC)
+
+    # ETAPE 0 : PREPARATION DES FICHIERS INTERMEDIAIRES
+    output_dir = os.path.dirname(vector_output)
+    if not os.path.exists(output_dir) :
+        os.makedirs(output_dir)
+
+    SUFFIX_STUDY = '_study'
+    SUFFIX_CUT = '_cut'
+    SUFFIX_TEMP = '_temp'
+    SUFFIX_SAMPLE = '_sample'
+
+    base_name = os.path.splitext(os.path.basename(vector_output))[0]
+
+    vector_output_temp = output_dir + os.sep + base_name + SUFFIX_TEMP + extension_vector
+    raster_study = output_dir + os.sep + base_name + SUFFIX_STUDY + extension_raster
+    vector_study = output_dir + os.sep + base_name + SUFFIX_STUDY + extension_vector
+    raster_cut = output_dir + os.sep + base_name + SUFFIX_CUT + extension_raster
+    vector_sample_temp = output_dir + os.sep + base_name + SUFFIX_SAMPLE + SUFFIX_TEMP + extension_vector
+
+    # Mise à jour ou initialisation des noms de champs
+    val_ref = -1
+    if column_name_vector:
+        input_ref_col = column_name_vector
+    if column_name_ref:
+        val_ref_col = column_name_ref
+    if column_name_class:
+       val_class_col = column_name_class
+
+    # ETAPE 1 : DEFINIR UN SHAPE ZONE D'ETUDE
+    cutting_action = False
+    if vector_cut_input and os.path.isfile(vector_cut_input) :
+        cutting_action = True
+        vector_study = vector_cut_input
+    else :
+        cutting_action = False
+        createVectorMask(image_input, vector_study)
+
+    # ETAPE 2 : DECOUPAGE DU RASTEUR PAR LE VECTEUR D'EMPRISE SI BESOIN
+    if cutting_action :
+        pixel_size_x, pixel_size_y = getPixelWidthXYImage(image_input)
+
+        if os.path.exists(raster_cut) and not overwrite :
+            if debug >=1 :
+                print(f"{cyan} estimateQualityClassification() : le rasteur découpé au vecteur d'emprise existe déjà ici {raster_cut}{endC}")
+        else:
+            if os.path.exists(raster_cut):
+                removeFile(raster_cut)
+            if not cutImageByVector(vector_study, image_input, raster_cut, pixel_size_x, pixel_size_y, False, no_data_value, 0, format_raster, format_vector) :
+                raise NameError(cyan + "estimateQualityClassification() : " + bold + red + "Une erreur c'est produite au cours du decoupage de l'image : " + image_input + endC)
+            if debug >=2:
+                print(cyan + "estimateQualityClassification() : " + bold + green + "DECOUPAGE DU RASTER %s AVEC LE VECTEUR %s" %(image_input, vector_study) + endC)
+    else :
+        raster_cut = image_input
+
+    # ETAPE 3 : CREATION DE LISTE POINTS AVEC DONNEE ISSU D'UN FICHIER RASTER
+    cols, rows, bands = getGeometryImage(raster_cut)
+    xmin, xmax, ymin, ymax = getEmpriseImage(raster_cut)
+    pixel_width, pixel_height = getPixelWidthXYImage(raster_cut)
+
+    if debug >=2:
+        print("cols : " + str(cols))
+        print("rows : " + str(rows))
+        print("bands : " + str(bands))
+        print("xmin : " + str(xmin))
+        print("ymin : " + str(ymin))
+        print("xmax : " + str(xmax))
+        print("ymax : " + str(ymax))
+        print("pixel_width : " + str(pixel_width))
+        print("pixel_height : " + str(pixel_height))
+
+    # ETAPE 3-1 : CAS CREATION D'UN FICHIER DE POINTS PAR TIRAGE ALEATOIRE DANS LA MATRICE IMAGE
+    if not vector_sample_input:
+        is_sample_file = False
+        nb_pixels = abs(cols * rows)
+
+        # Création de la liste de points tirés aléatoirement
+        valid_points = []
+        points_coordonnees_list = []
+        attempts = 0
+        max_attempts = nb_dot * 500 # evite la loop infinie
+        drawn_dot_list = []
+
+        # Initialisation de la barre de progression
+        with tqdm(total=nb_dot, desc="Tirage de points (valeur=2)", unit="pts") as pbar:
+            while len(valid_points) < nb_dot and attempts < max_attempts:
+                point_idx = random.randint(0, nb_pixels - 1)
+                if point_idx in drawn_dot_list:
+                    attempts += 1
+                    continue
+
+                pos_x = point_idx % cols
+                pos_y = point_idx // cols
+
+                # Vérifier la valeur du pixel avant d'ajouter le point
+                pixel_value = getPixelsValueListImage(raster_cut, [[pos_x, pos_y]])[0]
+
+                # Ne garder que les points avec valeur = 2
+                if pixel_value == 2:
+                    valid_points.append(point_idx)
+                    points_coordonnees_list.append([pos_x, pos_y])
+                    drawn_dot_list.append(point_idx)
+                    # Mise à jour de la barre de progression
+                    pbar.update(1)
+                    pbar.set_postfix({
+                        'Trouvés': len(valid_points),
+                        'Essais': attempts,
+                        'Taux': f"{len(valid_points)/attempts*100:.1f}%" if attempts > 0 else "0%"
+                    })
+
+                attempts += 1
+
+                # Mise à jour périodique de la description même sans nouveau point trouvé
+                if attempts % 1000 == 0:
+                    pbar.set_postfix({
+                        'Trouvés': len(valid_points),
+                        'Essais': attempts,
+                        'Taux': f"{len(valid_points)/attempts*100:.1f}%" if attempts > 0 else "0%"
+                    })
+
+        if debug >= 2:
+            print(f"Points valides générés avec valeur = 2: {len(valid_points)} sur {nb_dot} demandés")
+            print(f"Nombre total d'essais: {attempts}")
+
+        # Lecture dans le fichier raster des valeurs
+        values_list = getPixelsValueListImage(raster_cut, points_coordonnees_list) #récupère simplement la valeur du point sur la bande 1..
+
+        points_random_value_dico = {}
+        for idx in range (len(valid_points)):
+            val_class = values_list[idx] #valeur pixel bande 1
+            coordonnees = points_coordonnees_list[idx]
+            pos_x = coordonnees[0]
+            pos_y = coordonnees[1]
+
+            coor_x = xmin + ((pos_x + 0.5)* abs(pixel_width))
+            coor_y = ymax - ((pos_y + 0.5)* abs(pixel_height))
+
+            point_attr_dico = {"Ident":idx, val_ref_col:int(val_ref), val_class_col:int(val_class)}
+            points_random_value_dico[idx] = [[coor_x, coor_y], point_attr_dico]
+
+            if debug >=4:
+                print("idx : " + str(idx))
+                print("pos_x : " + str(pos_x))
+                print("pos_y : " + str(pos_y))
+                print("coor_x : " + str(coor_x))
+                print("coor_y : " + str(coor_y))
+                print("val_class : " + str(val_class))
+                print("")
+
+    # ETAPE 3-2 : CAS D'UN FICHIER DE POINTS DEJA EXISTANT MISE A JOUR DE LA DONNEE ISSU DU RASTER
+    else :
+        # Le fichier de points d'analyses existe
+        is_sample_file = True
+        cutVectorAll(vector_study, vector_sample_input, vector_sample_temp, format_vector)
+        if input_ref_col != "":
+            points_coordinates_dico = readVectorFilePoints(vector_sample_temp, [input_ref_col], format_vector)
+        else:
+            points_coordinates_dico = readVectorFilePoints(vector_sample_temp, [], format_vector)
+
+        # Création du dico
+        points_random_value_dico = {}
+
+        points_coordonnees_list = []
+        for index_key in points_coordinates_dico:
+            # Recuperer les valeurs des coordonnees
+            coord_info_list = points_coordinates_dico[index_key]
+            coor_x = coord_info_list[0]
+            coor_y = coord_info_list[1]
+            pos_x = int(round((coor_x - xmin) / abs(pixel_width)))
+            pos_y = int(round((ymax - coor_y) / abs(pixel_height)))
+            coordonnees_list = [pos_x, pos_y]
+            points_coordonnees_list.append(coordonnees_list)
+
+        # Lecture dans le fichier raster des valeurs
+        values_list = getPixelsValueListImage(raster_cut, points_coordonnees_list)
+
+        for index_key in points_coordinates_dico:
+            # Récuperer les valeurs des coordonnees
+            coord_info_list = points_coordinates_dico[index_key]
+            coor_x = coord_info_list[0]
+            coor_y = coord_info_list[1]
+            # Récupérer la classe de référence dans le vecteur d'entrée
+            if input_ref_col != "":
+                label = coord_info_list[2]
+                val_ref = label.get(input_ref_col)
+            # Récupérer la classe issue du raster d'entrée
+            val_class = values_list[index_key]
+            # Création du dico contenant identifiant du point, valeur de référence, valeur du raster d'entrée
+            point_attr_dico = {"Ident":index_key, val_ref_col:int(val_ref), val_class_col:int(val_class)}
+            if debug >= 4:
+                print("point_attr_dico: " + str(point_attr_dico))
+            points_random_value_dico[index_key] = [[coor_x, coor_y], point_attr_dico]
+
+    # ETAPE 4 : CREATION ET DECOUPAGE DU FICHIER VECTEUR RESULTAT PAR LE SHAPE D'ETUDE
+
+    # Creer le fichier de points
+    if is_sample_file and os.path.exists(vector_sample_temp) :
+        attribute_dico = {val_class_col:ogr.OFTInteger}
+        # Recopie du fichier
+        removeVectorFile(vector_output_temp)
+        copyVectorFile(vector_sample_temp, vector_output_temp)
+
+        # Ajout des champs au fichier de sortie
+        for field_name in attribute_dico :
+            addNewFieldVector(vector_output_temp, field_name, attribute_dico[field_name], 0, None, None, format_vector)
+
+        # Préparation des donnees
+        field_new_values_list = []
+        for index_key in points_random_value_dico:
+            point_attr_dico = points_random_value_dico[index_key][1]
+            point_attr_dico.pop(val_ref_col, None)
+            field_new_values_list.append(point_attr_dico)
+
+        # Ajout des donnees
+        setAttributeValuesList(vector_output_temp, field_new_values_list, format_vector)
+
+    else :
+        # Définir les attibuts du fichier résultat
+        attribute_dico = {"Ident":ogr.OFTInteger, val_ref_col:ogr.OFTInteger, val_class_col:ogr.OFTInteger}
+        createPointsFromCoordList(attribute_dico, points_random_value_dico, vector_output_temp, epsg, format_vector)
+
+    # Découpage du fichier de points d'echantillons
+    cutVectorAll(vector_study, vector_output_temp, vector_output, format_vector)
+
+    # ETAPE 5 : SUPPRESIONS FICHIERS INTERMEDIAIRES INUTILES
+
+    # Suppression des données intermédiaires
+    if not save_results_intermediate:
+        if is_sample_file :
+            removeVectorFile(vector_sample_temp)
+        removeVectorFile(vector_output_temp)
+
+    print(endC)
+    print(bold + green + "## END : CREATE PRINT POINTS FILE FROM CLASSIF IMAGE" + endC)
+    print(endC)
+
+    # Mise à jour du Log
+    ending_event = "estimateQualityClassification() : Masks creation ending : "
+    timeLine(path_time_log,ending_event)
+
+    return
 ###########################################################################################################################################
 # MISE EN PLACE DU PARSER                                                                                                                 #
 ###########################################################################################################################################
