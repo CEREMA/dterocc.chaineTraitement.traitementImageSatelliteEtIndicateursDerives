@@ -20,14 +20,14 @@ sudo apt install python3-tifffile
 ```
 
 
-##  OpenMesh
+##  OpenMesh ## v11.0.0
 
-Download source package **version 9.0**: [ici](https://www.graphics.rwth-aachen.de/software/openmesh/download/)
+Download source package **version 11.0.0**: [ici](https://www.graphics.rwth-aachen.de/software/openmesh/download/)
 ```sh
 cd <path_to_project_folder> # where OpenMesh .tar.gz is stored
-tar -xvf OpenMesh-9.0.tar.gz # extract
+tar -xvf OpenMesh11.0.0.tar.gz # extract
 # build and compile lib
-cd OpenMesh-9.0.0/
+cd OpenMesh-11.0.0/
 mkdir build
 cd build
 cmake .. -DBUILD_APPS=OFF
@@ -36,13 +36,13 @@ sudo make install
 ```
 
 
-## OpenCV
+## OpenCV ## v4.10.0
 ```sh
 # Download and unpack sources
 cd <path_to_project_folder>
-wget -O opencv.zip https://github.com/opencv/opencv/archive/4.x.zip
+wget -O opencv.zip https://github.com/opencv/opencv/archive/4.10.0.zip
 unzip opencv.zip
-mv opencv-4.x OpenCV
+mv opencv-4.10.0 OpenCV
 cd OpenCV
 # Create build directory, configure and build
 mkdir -p build && cd build
@@ -52,37 +52,36 @@ sudo make install
 ```
 
 
-## CGAL
+## CGAL ## v6.0.1
 
 Download and unpack sources package [ici](https://github.com/CGAL/cgal/releases/tag/v5.6) (bottom of page)
 
 ```sh
 # unpack sources
 cd <path_to_project_folder>
-unzip CGAL-5.6-library.zip
+unzip CGAL-6.0.1-library.zip
 # Create build directory, configure and build
-cd CGAL-5.6/
+cd CGAL-6.0.1/
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 sudo make install
 ```
 
-## GLOG
+## GLOG ## v0.7.1
 
 ```sh
 cd <path_to_project_folder>
 git clone https://github.com/google/glog.git
 cd glog
-git checkout v0.6.0
-
+git checkout v0.7.1
 mkdir build
 cd build
 cmake ..
-make -j
+make -j 16
 sudo make install
 ```
 
-## CCM
+## CCM vxxx
 
 ```sh
 cd <path_to_project_folder>
@@ -90,7 +89,7 @@ tar -xvf CCM.tar.xz
 cd CCM
 mkdir build && cd build
 cmake ..
-make
+make -j16
 sudo make install
 # Update the Dynamic Linker Cache
 sudo ldconfig

@@ -7,7 +7,7 @@
 
 #############################################################################################################################################
 #                                                                                                                                           #
-# SCRIPT DE CREATION D4UNE SEGMENTATION MORPHOLOGIE URBAINE AFIN DE SEGMENTER LES POLYGONES A L'ECHELLE DES QUARTIERS                       #
+# SCRIPT DE CREATION D'UNE SEGMENTATION MORPHOLOGIE URBAINE AFIN DE SEGMENTER LES POLYGONES A L'ECHELLE DES QUARTIERS                       #
 #                                                                                                                                           #
 #############################################################################################################################################
 
@@ -34,8 +34,8 @@ import os, sys, glob, copy, string, time, shutil, numpy, argparse
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
 from Lib_log import timeLine
 from CreateDataIndicateurPseudoRGB import createDataIndicateurPseudoRGB
-from CCMsegmentation import processingCCM, DICT_CCM_BEST_PARAMETERS
-from CCMpostprocessing import segPostProcessing
+from SLICsegmentation import processingSLIC, DEFAULT_PARAMETERS_SLIC
+from SegPostProcessing import segPostProcessing
 from PolygonsMerging import segPolygonsMerging
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
@@ -46,7 +46,7 @@ debug = 2
 ###########################################################################################################################################
 # FONCTION processSegmentationUrbanMorpho()                                                                                               #
 ###########################################################################################################################################
-def processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_file_input, TCD_file_input, IMD_file_input,  vectors_road_input_list, vectors_build_input_list, vectors_water_area_input_list, sql_exp_road_list, sql_exp_build_list, sql_exp_water_list, pseudoRGB_file_output, raster_road_width_output, raster_build_height_output, vector_roads_output, vector_waters_area_output, vector_file_seg_ccm, vector_file_seg_post, vector_file_seg_output, roads_width_field="LARGEUR", road_importance_field="IMPORTANCE", road_importance_threshold=4, buffer_size_road=35.0, min_area_water_area=100000.0, project_encoding="latin1", server_postgis="localhost", port_number=5432, user_postgis="postgres", password_postgis="postgres", database_postgis="cutbylines", schema_postgis="public", resolution=5, no_data_value=0, epsg=2154, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", path_time_log="", save_results_intermediate=False, overwrite=True) :
+def processSegmentationUrbanMorpho(base_folder, emprise_vector, OSO_file_input, QML_file_input, vectors_road_input_list, vectors_railway_input_list, vectors_build_input_list, vectors_water_area_input_list, sql_exp_road_list, sql_exp_railway_list, sql_exp_build_list, sql_exp_water_list, OSO_file_output, pseudoRGB_file_output, raster_build_height_output, vector_roads_output, vector_roads_main_output, vector_waters_area_output, vector_line_skeleton_main_roads_output, vector_roads_pres_seg_output, vector_file_seg_algo, vector_file_seg_post, vector_file_seg_output, optimize_slic_parameters=True, road_importance_field="IMPORTANCE", road_importance_threshold=4, road_width_field="LARGEUR", road_nature_field="NATURE", railway_nature_field="NATURE", railway_importance_values="Principale", buffer_size_skeleton=35.0, extension_length_lines=20,  min_area_water_area=100000.0, project_encoding="latin1", server_postgis="localhost", port_number=5433, user_postgis="postgres", password_postgis="postgres", database_postgis="cutbylines", schema_postgis="public", resolution=5, no_data_value=0, epsg=2154, format_raster='GTiff', format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", path_time_log="", save_results_intermediate=False, overwrite=True) :
 
     """
     # ROLE:
@@ -54,29 +54,37 @@ def processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_
     #
     # ENTREES DE LA FONCTION :
     #     base_folder (str): Base repertoire de travail des fichiers temporaires et de sorties.
-    #     ccm_folder (str): Repertoire ou sont stocker les code source de l'algo CCM C++ script.
     #     emprise_vector (str): le vecteur d'emprise de référence.
-    #     GRA_file_input (str): chemin vers le fichier raster d'entrée GRA (Grassland).
-    #     TCD_file_input (str):chemin vers le fichier raster d'entrée TCD (Tree Cover Density).
-    #     IMD_file_input (str): chemin vers lefichier raster d'entrée IMD (Imperviousness Density).
+    #     OSO_file_input (str): chemin vers le fichier raster d'entrée OSO(Occupation du sol).
+    #     QML_file_input (str):chemin vers le fichier xml de style pour l'OSO (Fichier de style QGIS).
     #     vectors_road_input_list (list) : les fichiers contenant les routes d'entrée (routes primaires et secondaires).
+    #     vectors_railway_input_list (list) : list of paths to railway files (voies ferrées).
     #     vectors_build_input_list (list) : les fichiers contenant les batis d'entrée.
     #     vectors_water_area_input_list (list) : les fichiers contenant les surfaces en eau d'entrée.
     #     sql_exp_road_list (list) : liste d'expression sql pour le filtrage des fichiers vecteur de bd exogenes routes.
+    #     sql_exp_railway_list (list) : liste d'expression sql pour le filtrage des fichiers vecteur de bd exogenes voies ferrées.
     #     sql_exp_build_list (list) : liste d'expression sql pour le filtrage des fichiers vecteur de bd exogenes batis.
     #     sql_exp_water_list (list) : liste d'expression sql pour le filtrage des fichiers vecteur de bd exogenes surfaces en eau.
+    #     OSO_file_output (str): fichier rastrer découpé de l'OSO resultat en sortie.
     #     pseudoRGB_file_output (str): fichier de pseudo-RGB image resultat en sortie.
-    #     raster_road_width_output (str):  fichier de sortie rasteur largeur de routes.
     #     raster_build_height_output (str):  fichier de sortie rasteur des batis.
     #     vector_roads_output (str): fichier de sortie vecteur contenant toutes les routes.
+    #     vector_roads_main_output (str) :  fichier de sortie vecteur des routes importantes à  2 voies buffurisé.
     #     vector_waters_area_output (str): fichier de sortie vecteur contenant toutes les surfaces en eaux.
-    #     vector_file_seg_ccm (str): fichier temporaire vecteur contenant la segmentation sortie de l'algo CCM.
+    #     vector_line_skeleton_main_roads_output (str) : fichier de sortie vecteur contenant le skelette ligne des routes principales.
+    #     vector_roads_pres_seg_output (str) : fichier de sortie vecteur contenant une prés segmentation avec les routes.
+    #     vector_file_seg_algo (str): fichier temporaire vecteur contenant la segmentation sortie de l'algo CCM ou SLIC.
     #     vector_file_seg_post (str): fichier temporaire vecteur contenant la segmentation sortie de post tratement.
     #     vector_file_seg_output (str): fichier final vecteur contenant la segmentation apres fusion.
-    #     roads_width_field (str): name of the column containing road width data (default: "LARGEUR").
+    #     optimize_slic_parameters (bool) : activation du calcul optimisation des parametres de SLIC( default: True).
     #     road_importance_field (str) : champs importance des routes (par defaut : "IMPORTANCE").
     #     road_importance_threshold (int) : valeur du seuil d'importance (par défaut : 4).
-    #     buffer_size_road (float) : valeur du buffer pour l'importance des routes (par défaut : 35.0).
+    #     road_width_field (str) : champs largeur des routes (par defaut : "LARGEUR").
+    #     road_nature_field (str) : champ nature des routes (par défaut : "NATURE").
+    #     railway_nature_field : champs nature des voies ferrées (par defaut : "NATURE").
+    #     railway_importance_values : valeur des voies ferrées à garder (par defaut : "Principale").
+    #     buffer_size_skeleton (float) : valeur du buffer pour l'importance des routes pour la creation du squelette (par défaut : 35.0).
+    #     extension_length_lines (int) : taille de l'extension des lignes pour la segmentation route (par défaut : 20).
     #     min_area_water_area (float) : seuil minimale pour les surfaces d'eau (par défaut : 100000.0).
     #     project_encoding : encodage des fichiers d'entrés
     #     server_postgis : nom du serveur postgis
@@ -105,29 +113,36 @@ def processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_
     if debug >= 3:
         print(bold + green + "Variables dans le processSegmentationUrbanMorpho - Variables générales" + endC)
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "base_folder : " + str(base_folder))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "ccm_folder : " + str(ccm_folder))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "emprise_vector : " + str(emprise_vector))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "GRA_file_input : " + str(GRA_file_input))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "TCD_file_input : " + str(TCD_file_input))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "IMD_file_input : " + str(IMD_file_input))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "OSO_file_input : " + str(OSO_file_input))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "QML_file_input : " + str(QML_file_input))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vectors_road_input_list : " + str(vectors_road_input_list))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vectors_railway_input_list : " + str(vectors_railway_input_list))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vectors_build_input_list : " + str(vectors_build_input_list))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vectors_water_area_input_list : " + str(vectors_water_area_input_list))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "sql_exp_road_list : " + str(sql_exp_road_list))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "sql_exp_railway_list : " + str(sql_exp_railway_list))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "sql_exp_build_list : " + str(sql_exp_build_list))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "sql_exp_water_list : " + str(sql_exp_water_list))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "OSO_file_output : " + str(OSO_file_output))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "pseudoRGB_file_output : " + str(pseudoRGB_file_output))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "raster_road_width_output : " + str(raster_road_width_output))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "raster_build_height_output : " + str(raster_build_height_output))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_roads_output : " + str(vector_roads_output))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_roads_main_output : " + str(vector_roads_main_output))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_waters_area_output : " + str(vector_waters_area_output))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_file_seg_ccm : " + str(vector_file_seg_ccm))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_line_skeleton_main_roads_output : " + str(vector_line_skeleton_main_roads_output))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_roads_pres_seg_output : " + str(vector_roads_pres_seg_output))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_file_seg_algo : " + str(vector_file_seg_algo))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_file_seg_post : " + str(vector_file_seg_post))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "vector_file_seg_output : " + str(vector_file_seg_output))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "roads_width_field : " + str(roads_width_field))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "road_importance_field : " + str(road_importance_field))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "road_importance_threshold : " + str(road_importance_threshold))
-        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "buffer_size_road : " + str(buffer_size_road))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "road_width_field : " + str(road_width_field))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "road_nature_field : " + str(road_nature_field))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "railway_nature_field : " + str(railway_nature_field))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "railway_importance_values : " + str(railway_importance_values))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "buffer_size_skeleton : " + str(buffer_size_skeleton))
+        print(cyan + "processSegmentationUrbanMorpho() : " + endC + "extension_length_lines : " + str(extension_length_lines))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "min_area_water_area : " + str(min_area_water_area))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "project_encoding : " + str(project_encoding))
         print(cyan + "processSegmentationUrbanMorpho() : " + endC + "server_postgis : " + str(server_postgis))
@@ -152,29 +167,46 @@ def processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_
     timeLine(path_time_log,starting_event)
     print(bold + green + "## START : SEGMENTATION  URBAN  MORPHOLOGY" + endC)
 
-    # 1) CreateDataIndicateurPseudoRGB
+    # 1) Create Data Indicateur and PseudoRGB
     createDataIndicateurPseudoRGB(base_folder,
                                   emprise_vector,
-                                  GRA_file_input,
-                                  TCD_file_input,
-                                  IMD_file_input,
+                                  OSO_file_input,
+                                  QML_file_input,
                                   vectors_road_input_list,
+                                  vectors_railway_input_list,
                                   vectors_build_input_list,
                                   vectors_water_area_input_list,
                                   sql_exp_road_list,
+                                  sql_exp_railway_list,
                                   sql_exp_build_list,
                                   sql_exp_water_list,
+                                  OSO_file_output,
                                   pseudoRGB_file_output,
-                                  raster_road_width_output,
                                   raster_build_height_output,
                                   vector_roads_output,
+                                  vector_roads_main_output,
                                   vector_waters_area_output,
-                                  roads_width_field,
+                                  vector_line_skeleton_main_roads_output,
+                                  vector_roads_pres_seg_output,
                                   road_importance_field,
                                   road_importance_threshold,
+                                  road_width_field,
+                                  road_nature_field,
+                                  railway_nature_field,
+                                  railway_importance_values,
+                                  buffer_size_skeleton,
+                                  extension_length_lines,
+                                  min_area_water_area,
                                   resolution,
                                   no_data_value,
                                   epsg,
+                                  server_postgis,
+                                  port_number,
+                                  user_postgis,
+                                  password_postgis,
+                                  database_postgis,
+                                  schema_postgis,
+                                  project_encoding,
                                   format_raster,
                                   format_vector,
                                   extension_raster,
@@ -184,46 +216,34 @@ def processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_
                                   overwrite
                                   )
 
-    # 2) CCMsegmentation
-    dict_ccm_parameters = DICT_CCM_BEST_PARAMETERS
-    processingCCM(base_folder,
+    # 2) SLIC segmentation
+    slic_parameters = DEFAULT_PARAMETERS_SLIC
+    processingSLIC(base_folder,
                   emprise_vector,
                   pseudoRGB_file_output,
-                  vector_file_seg_ccm,
-                  ccm_folder,
-                  dict_ccm_parameters,
-                  resolution,
+                  OSO_file_output,
+                  vector_file_seg_algo,
+                  optimize_slic_parameters,
+                  slic_parameters,
                   no_data_value,
                   epsg,
-                  format_raster,
                   format_vector,
-                  extension_raster,
                   extension_vector,
                   path_time_log,
                   save_results_intermediate,
                   overwrite
                   )
 
-
-    # 3) CCMpostprocessing
+    # 3) PostProcessing of segmentation
     segPostProcessing(base_folder,
                       emprise_vector,
-                      vector_file_seg_ccm,
-                      vector_roads_output,
+                      vector_roads_pres_seg_output,
+                      vector_file_seg_algo,
+                      vector_line_skeleton_main_roads_output,
                       vector_waters_area_output,
                       vector_file_seg_post,
-                      road_importance_field,
-                      road_importance_threshold,
-                      buffer_size_road,
-                      min_area_water_area,
                       no_data_value,
                       epsg,
-                      server_postgis,
-                      port_number,
-                      user_postgis,
-                      password_postgis,
-                      database_postgis,
-                      schema_postgis,
                       format_raster,
                       format_vector,
                       extension_raster,
@@ -233,16 +253,24 @@ def processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_
                       overwrite
                       )
 
-    # 4) PolygonsMerging
+    # 4) Polygons Merging
     segPolygonsMerging(base_folder,
                        emprise_vector,
-                       pseudoRGB_file_output,
-                       raster_road_width_output,
+                       OSO_file_output,
                        raster_build_height_output,
+                       vector_roads_output,
+                       vector_roads_main_output,
                        vector_file_seg_post,
                        vector_file_seg_output,
                        no_data_value,
                        epsg,
+                       server_postgis,
+                       port_number,
+                       project_encoding,
+                       user_postgis,
+                       password_postgis,
+                       database_postgis,
+                       schema_postgis,
                        format_raster,
                        format_vector,
                        extension_raster,
@@ -267,22 +295,25 @@ def processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_
 # Il n'est pas executé lors d'un import UrbanMorphologySegmentation.py
 # Exemple de lancement en ligne de commande:
 # python UrbanMorphologySegmentation.py -r /mnt/RAM_disk/INTEGRATION
-#                                      -e /mnt/RAM_disk/INTEGRATION/emprise/toulouse_emprise.shp
-#                                      -gra /mnt/RAM_disk/INTEGRATION/GRA_2018_010m_E36N23_03035_v010.tif
-#                                      -tcd /mnt/RAM_disk/INTEGRATION/TCD_2018_010m_E36N23_03035_v020.tif
-#                                      -imd /mnt/RAM_disk/INTEGRATION/IMD_2018_010m_E36N23_03035_v020.tif
+#                                      -e /mnt/RAM_disk/INTEGRATION/emprise/Emprise_Toulouse_Metropole.shp
+#                                      -oso /mnt/RAM_disk/INTEGRATION/OCS_2023_in.tif
+#                                      -qml /mnt/RAM_disk/INTEGRATION/oso_modif.qml
 #                                      -vrl /mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_PRIMAIRE_BDT_031.SHP /mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_SECONDAIRE_BDT_031.SHP
+#                                      -val /mnt/RAM_disk/INTEGRATION/bd_topo/N_TRONCON_VOIE_FERREE_BDT_031.SHP
 #                                      -vbl /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDIFFERENCIE_BDT_031.shp /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDUSTRIEL_BDT_031.shp /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_REMARQUABLE_BDT_031.shp
 #                                      -vwl /mnt/RAM_disk/INTEGRATION/bd_topo/N_SURFACE_EAU_BDT_031.shp
 #                                      -sqlr "FRANCHISST !='Tunnel'":"FRANCHISST !='Tunnel'"
+#                                      -sqla "ETAT ='NR'"
 #                                      -sqlb "":"NATURE !='Serre'":""
 #                                      -sqlw "REGIME ='Permanent'"
+#                                      -ofo /mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_cut.tif
 #                                      -rgb /mnt/RAM_disk/INTEGRATION/create_data/result/pseudoRGB_seg_res5.tif
-#                                      -rrw /mnt/RAM_disk/INTEGRATION/create_data/result/roads_width.tif
 #                                      -rbh /mnt/RAM_disk/INTEGRATION/create_data/result/builds_height.tif
 #                                      -vro /mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp
-#                                      -vwo /mnt/RAM_disk/INTEGRATION2/create_data/result/all_waters_area.shp
-#                                      -vccm /mnt/RAM_disk/INTEGRATION/ccm/result/toulouse_seg_ccm.shp
+#                                      -vwo /mnt/RAM_disk/INTEGRATION/create_data/result/all_waters_area.shp
+#                                      -vsk /mnt/RAM_disk/INTEGRATION/create_data/result/skeleton_primary_roads.shp
+#                                      -vrps /mnt/RAM_disk/INTEGRATION/create_data/result/pres_seg_road.shp
+#                                      -vfsa /mnt/RAM_disk/INTEGRATION/slic_lissage_chaiken_5.shp
 #                                      -vpost /mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouse_seg_post.shp
 #                                      -vseg /mnt/RAM_disk/INTEGRATION/seg_res_fusion/res/toulouse_seg_end.shp
 
@@ -294,56 +325,67 @@ def main(gui=False):
     Objectif : Découper des fichiers raster et vecteurs. \n\
     Example : python UrbanMorphologySegmentation.py \n\
     python UrbanMorphologySegmentation.py -r /mnt/RAM_disk/INTEGRATION \n\
-                                      -e /mnt/RAM_disk/INTEGRATION/emprise/toulouse_emprise.shp \n\
-                                      -gra /mnt/RAM_disk/INTEGRATION/GRA_2018_010m_E36N23_03035_v010.tif \n\
-                                      -tcd /mnt/RAM_disk/INTEGRATION/TCD_2018_010m_E36N23_03035_v020.tif \n\
-                                      -imd /mnt/RAM_disk/INTEGRATION/IMD_2018_010m_E36N23_03035_v020.tif \n\
+                                      -e /mnt/RAM_disk/INTEGRATION/emprise_fusion.shp \n\
+                                      -oso /mnt/RAM_disk/OSO_20220101_RASTER_V1-0/DATA/OCS_2022.tif \n\
+                                      -qml /mnt/RAM_disk/INTEGRATION/SLIC/test.qml \n\
                                       -vrl /mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_PRIMAIRE_BDT_031.SHP /mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_SECONDAIRE_BDT_031.SHP \n\
-                                      -vbl /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDIFFERENCIE_BDT_031.shp /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDUSTRIEL_BDT_031.shp /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_REMARQUABLE_BDT_031.shp \n\
-                                      -vwl /mnt/RAM_disk/INTEGRATION/bd_topo/N_SURFACE_EAU_BDT_031.shp \n\
+                                      -val /mnt/RAM_disk/INTEGRATION/bd_topo/N_TRONCON_VOIE_FERREE_BDT_031.SHP \n\
+                                      -vbl /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDIFFERENCIE_BDT_031.SHP /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDUSTRIEL_BDT_031.SHP /mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_REMARQUABLE_BDT_031.SHP \n\
+                                      -vwl /mnt/RAM_disk/INTEGRATION/bd_topo/N_SURFACE_EAU_BDT_031.SHP \n\
                                       -sqlr \"FRANCHISST !='Tunnel'\":\"FRANCHISST !='Tunnel'\" \n\
+                                      -sqla \"ETAT ='NR'\" \n\
                                       -sqlb \"\":\"NATURE !='Serre'\":\"\" \n\
                                       -sqlw \"REGIME ='Permanent'\" \n\
+                                      -ofo /mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_cut.tif \n\
                                       -rgb /mnt/RAM_disk/INTEGRATION/create_data/result/pseudoRGB_seg_res5.tif \n\
-                                      -rrw /mnt/RAM_disk/INTEGRATION/create_data/result/roads_width.tif \n\
                                       -rbh /mnt/RAM_disk/INTEGRATION/create_data/result/builds_height.tif \n\
                                       -vro /mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp \n\
-                                      -vwo /mnt/RAM_disk/INTEGRATION2/create_data/result/all_waters_area.shp \n\
-                                      -vccm /mnt/RAM_disk/INTEGRATION/ccm/result/toulouse_seg_ccm.shp \n\
+                                      -vwo /mnt/RAM_disk/INTEGRATION/create_data/result/all_waters_area.shp \n\
+                                      -vsk /mnt/RAM_disk/INTEGRATION/create_data/result/skeleton_primary_roads.shp \n\
+                                      -vrps /mnt/RAM_disk/INTEGRATION/create_data/result/pres_seg_road.shp \n\
+                                      -vfsa /mnt/RAM_disk/INTEGRATION/slic_lissage_chaiken_5.shp \n\
                                       -vpost /mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouseseg_post.shp \n\
                                       -vseg /mnt/RAM_disk/INTEGRATION/seg_res_fusion/res/toulouse_seg_end.shp")
 
     parser.add_argument('-r','--base_folder',default="",help="Working repertory.", type=str, required=True)
-    parser.add_argument('-ccm','--ccm_folder',default="/home/scgsi/CCM",help="CCM code repertory.", type=str, required=False)
     parser.add_argument('-e','--emprise_vector',default="",help="Vector input contain the vector emprise reference.", type=str, required=True)
-    parser.add_argument('-gra','--GRA_file_input',default="",help="Raster input copernicus, High Resolution Layer Grassland.", type=str, required=True)
-    parser.add_argument('-tcd','--TCD_file_input',default="",help="Raster input copernicus, High Resolution Layer Tree Cover Density.", type=str, required=True)
-    parser.add_argument('-imd','--IMD_file_input',default="",help="Raster input copernicus, .High Resolution Layer Imperviousness.", type=str, required=True)
+    parser.add_argument('-oso','--OSO_file_input',default="",help="Raster input OSO, Occupation du SOL.", type=str, required=True)
+    parser.add_argument('-qml','--QML_file_input',default="",help="File input QML, style QGIS for OSO.", type=str, required=True)
     parser.add_argument('-vrl','--vectors_road_input_list',default="",nargs="+",help="List vectors input contain roads.", type=str, required=True)
+    parser.add_argument('-val','--vectors_railway_input_list',default="",nargs="+",help="List vectors input contain railway.", type=str, required=False)
     parser.add_argument('-vbl','--vectors_build_input_list',default="",nargs="+",help="List vectors input contain builds.", type=str, required=True)
     parser.add_argument('-vwl','--vectors_water_area_input_list',default="",nargs="+",help="Vector input contain the water area.", type=str, required=True)
     parser.add_argument('-sqlr','--sql_exp_road_list',default=None,help="List containt sql expression to filter each db file road input (separator is ':' and not used \" for string value)", type=str, required=False)
+    parser.add_argument('-sqla','--sql_exp_railway_list',default=None,help="List containt sql expression to filter each db file railway input (separator is ':' and not used \" for string value)", type=str, required=False)
     parser.add_argument('-sqlb','--sql_exp_build_list',default=None,help="List containt sql expression to filter each db file build input (separator is ':' and not used \" for string value)", type=str, required=False)
     parser.add_argument('-sqlw','--sql_exp_water_list',default=None,help="List containt sql expression to filter each db file water input (separator is ':' and not used \" for string value)", type=str, required=False)
+    parser.add_argument('-ofo','--OSO_file_output',default="",help="Raster output oso cut on emprise.", type=str, required=True)
     parser.add_argument('-rgb','--pseudoRGB_file_output',default="",help="Raster output image pseudo rgb.", type=str, required=True)
-    parser.add_argument('-rrw','--raster_road_width_output',default="",help="Raster output road width.", type=str, required=True)
     parser.add_argument('-rbh','--raster_build_height_output',default="",help="Raster output build height.", type=str, required=True)
     parser.add_argument('-vro','--vector_roads_output',default="",help="Vector all roads output.", type=str, required=True)
+    parser.add_argument('-vrm','--vector_roads_main_output',default="",help="Vector buff main roads output.", type=str, required=True)
     parser.add_argument('-vwo','--vector_waters_area_output',default="",help="Vector all waters area output.", type=str, required=True)
-    parser.add_argument('-vccm','--vector_file_seg_ccm',default="",help="Vector segmentation output of CCM algorithm.", type=str, required=True)
+    parser.add_argument('-vsk','--vector_line_skeleton_main_roads_output',default="",help="Vector lines contain skeletopn of main roads output.", type=str, required=True)
+    parser.add_argument('-vrps','--vector_roads_pres_seg',default="",help="Vector segmentation output of crossing roads.", type=str, required=True)
+    parser.add_argument('-vfsa','--vector_file_seg_algo',default="",help="Vector segmentation output of processing algorithm.", type=str, required=True)
     parser.add_argument('-vpost','--vector_file_seg_post',default="",help="Vector segmentation output of post treatment.", type=str, required=True)
     parser.add_argument('-vseg','--vector_file_seg_output',default="",help="Vector segmentation output ending.", type=str, required=True)
-    parser.add_argument('-rwf','--roads_width_field',default="LARGEUR",help="Option : Field name of width road.", type=str, required=False)
+    parser.add_argument('-osp','--optimize_slic_parameters',action='store_true',default=False,help="Optimize SLIC parametres. By default, False.", required=False)
     parser.add_argument('-rif','--road_importance_field',default="IMPORTANCE",help="Option : Field name of importance road.", type=str, required=False)
     parser.add_argument('-rit','--road_importance_threshold',default=4,help="Option : Threshold value of importance road.", type=int, required=False)
-    parser.add_argument('-bsr', '--buffer_size_road', default=35.0, help="Option : Size of buffer contain importante road in meter. By default : 35.0.", type=float, required=False)
+    parser.add_argument('-rwf','--road_width_field',default="LARGEUR",help="Option : Field name of width road.", type=str, required=False)
+    parser.add_argument('-rnf','--road_nature_field',default="NATURE",help="Option : Field name of nature road.", type=str, required=False)
+    parser.add_argument('-anf','--railway_nature_field',default="NATURE",help="Option : Field name of nature road.", type=str, required=False)
+    parser.add_argument('-aiv','--railway_importance_values',default="Principale",help="Option : Field name of nature road.", type=str, required=False)
+    parser.add_argument('-bsr', '--buffer_size_skeleton', default=35.0, help="Option : Size of buffer contain importante road in meter. By default : 35.0.", type=float, required=False)
+    parser.add_argument('-ell', '--extension_length_lines', default=20, help="Option : Size of length extention lines. By default : 20.", type=int, required=False)
     parser.add_argument('-mwa', '--min_area_water_area', default=50000.0, help="Option : min water area  in meter². By default : 100000.0.", type=float, required=False)
     parser.add_argument('-pe','--project_encoding', default="latin1",help="Project encoding.", type=str, required=False)
     parser.add_argument('-serv','--server_postgis', default="localhost",help="Postgis serveur name or ip.", type=str, required=False)
-    parser.add_argument('-port','--port_number', default=5432,help="Postgis port number.", type=int, required=False)
+    parser.add_argument('-port','--port_number', default=5433,help="Postgis port number.", type=int, required=False)
     parser.add_argument('-user','--user_postgis', default="postgres",help="Postgis user name.", type=str, required=False)
     parser.add_argument('-pwd','--password_postgis', default="postgres",help="Postgis password user.", type=str, required=False)
-    parser.add_argument('-db','--database_postgis', default="cutbylines",help="Postgis database name.", type=str, required=False)
+    parser.add_argument('-db','--database_postgis', default="segmentation",help="Postgis database name.", type=str, required=False)
     parser.add_argument('-sch','--schema_postgis', default="public",help="Postgis schema name.", type=str, required=False)
     parser.add_argument('-res', '--resolution', default=5.0, help="Option : Resolution pixel coordinate X and Y in meter. By default : 5.0.", type=float, required=False)
     parser.add_argument('-ndv','--no_data_value', default=0, help="Option : Value of the pixel no data. By default : 0.", type=int, required=False)
@@ -366,38 +408,34 @@ def main(gui=False):
         if not os.path.isdir(base_folder):
             os.makedirs(base_folder)
 
-    # Récupération des répertoire code source de CCM
-    if args.ccm_folder != None:
-        ccm_folder = args.ccm_folder
-        if not os.path.isdir(ccm_folder):
-            os.makedirs(ccm_folder)
-
     # Récupération du vecteur d'emprise
     if args.emprise_vector != None :
         emprise_vector = args.emprise_vector
         if not os.path.isfile(emprise_vector):
             raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(emprise_vector) + endC)
 
-    # Récupération des fichiers raster copernicus HR-Layer
-    if args.GRA_file_input != None :
-        GRA_file_input = args.GRA_file_input
-        if not os.path.isfile(GRA_file_input):
-            raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(GRA_file_input) + endC)
+    # Récupération des fichiers raster OSO et de son style QML
+    if args.OSO_file_input != None :
+        OSO_file_input = args.OSO_file_input
+        if not os.path.isfile(OSO_file_input):
+            raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(OSO_file_input) + endC)
 
-    if args.TCD_file_input != None :
-        TCD_file_input = args.TCD_file_input
-        if not os.path.isfile(TCD_file_input):
-            raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(TCD_file_input) + endC)
-
-    if args.IMD_file_input != None :
-        IMD_file_input = args.IMD_file_input
-        if not os.path.isfile(IMD_file_input):
-            raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(IMD_file_input) + endC)
+    if args.QML_file_input != None :
+        QML_file_input = args.QML_file_input
+        if not os.path.isfile(QML_file_input):
+            raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(QML_file_input) + endC)
 
     # Récupération des vecteurs d'entrées routes
     if args.vectors_road_input_list != None:
         vectors_road_input_list = args.vectors_road_input_list
         for vector_input in vectors_road_input_list :
+            if not os.path.isfile(vector_input):
+                raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(vector_input) + endC)
+
+    # Récupération des vecteurs d'entrées des voies ferrées
+    if args.vectors_railway_input_list != None:
+        vectors_railway_input_list = args.vectors_railway_input_list
+        for vector_input in vectors_railway_input_list :
             if not os.path.isfile(vector_input):
                 raise NameError (cyan + "UrbanMorphologySegmentation : " + bold + red  + "File %s not existe!" %(vector_input) + endC)
 
@@ -423,6 +461,14 @@ def main(gui=False):
     else :
         sql_exp_road_list = []
 
+    # liste des expression sql pour filtrer les vecteurs de bd exogenes des voies ferrées
+    if args.sql_exp_railway_list != None:
+        sql_exp_railway_list = args.sql_exp_railway_list.replace('"','').split(":")
+        if len(sql_exp_railway_list) != len(vectors_railway_input_list) :
+             raise NameError (cyan + "MacroSamplesCreation : " + bold + red  + "List sql expression size %d is differente at size bd railway vector input list!" %(len(sql_exp_railway_list)) + endC)
+    else :
+        sql_exp_railway_list = []
+
     # liste des expression sql pour filtrer les vecteurs de bd exogenes de batis
     if args.sql_exp_build_list != None:
         sql_exp_build_list = args.sql_exp_build_list.replace('"','').split(":")
@@ -439,13 +485,13 @@ def main(gui=False):
     else :
         sql_exp_water_list = []
 
+    # Récupération du raster de sortie OSO découpé
+    if args.OSO_file_output != None :
+        OSO_file_output = args.OSO_file_output
+
     # Récupération du raster de sortie image RGB
     if args.pseudoRGB_file_output != None :
         pseudoRGB_file_output = args.pseudoRGB_file_output
-
-    # Récupération du raster de sortie largeur de route
-    if args.raster_road_width_output != None :
-        raster_road_width_output = args.raster_road_width_output
 
     # Récupération du raster de sortie hauteur des batis
     if args.raster_build_height_output != None :
@@ -455,13 +501,25 @@ def main(gui=False):
     if args.vector_roads_output != None :
         vector_roads_output = args.vector_roads_output
 
+    # Récupération du vecteur de sortie des routes principales 2 voies buffurisées
+    if args.vector_roads_main_output != None :
+        vector_roads_main_output = args.vector_roads_main_output
+
     # Récupération du vecteur de sortie fusion de toutes les surfaces en eau
     if args.vector_waters_area_output != None :
         vector_waters_area_output = args.vector_waters_area_output
 
-    # Récupération du vecteur temporaire segmentation sortie de l'algo CCM
-    if args.vector_file_seg_ccm != None :
-        vector_file_seg_ccm = args.vector_file_seg_ccm
+    # Récupération du vecteur de sortie skelette des lines des routes principales
+    if args.vector_line_skeleton_main_roads_output != None :
+        vector_line_skeleton_main_roads_output = args.vector_line_skeleton_main_roads_output
+
+    # Récupération du vecteur temporaire segmentation sortie du croisement des routes
+    if args.vector_roads_pres_seg != None :
+        vector_roads_pres_seg = args.vector_roads_pres_seg
+
+    # Récupération du vecteur temporaire segmentation sortie de l'algo CCM / SLIC
+    if args.vector_file_seg_algo != None :
+        vector_file_seg_algo = args.vector_file_seg_algo
 
     # Récupération du vecteur temporaire segmentation sortie du post traitement
     if args.vector_file_seg_post != None :
@@ -471,11 +529,11 @@ def main(gui=False):
     if args.vector_file_seg_output != None :
         vector_file_seg_output = args.vector_file_seg_output
 
-    # Récupération du nom du champs largeur pour les routes
-    if args.roads_width_field != None :
-        roads_width_field = args.roads_width_field
+    # Récupération de l'option d'optimisation des paramtres de SLIC
+    if args.optimize_slic_parameters!= None:
+        optimize_slic_parameters = args.optimize_slic_parameters
 
-    # Récupération du nom du champs importnace des routes
+    # Récupération du nom du champs importance des routes
     if args.road_importance_field != None :
         road_importance_field = args.road_importance_field
 
@@ -483,9 +541,29 @@ def main(gui=False):
     if args.road_importance_threshold != None :
         road_importance_threshold = args.road_importance_threshold
 
-   # Récupération de la valeur du buffer pour l'importance des routes
-    if args.buffer_size_road != None :
-        buffer_size_road = args.buffer_size_road
+    # Récupération du nom du champs largeur des routes
+    if args.road_width_field != None :
+        road_width_field = args.road_width_field
+
+    # Récupération du nom du champs nature des routes
+    if args.road_nature_field != None :
+        road_nature_field = args.road_nature_field
+
+    # Récupération du nom du champs nature des voies ferrées
+    if args.railway_nature_field != None :
+        railway_nature_field = args.railway_nature_field
+
+    # Récupération des valeurs de l'importance des voies ferrées
+    if args.railway_importance_values != None :
+        railway_importance_values = args.railway_importance_values
+
+   # Récupération de la valeur du buffer pour l'importance des routes pour la creation du squelette
+    if args.buffer_size_skeleton != None :
+        buffer_size_skeleton = args.buffer_size_skeleton
+
+   # Récupération de la valeur de la longueur pour l'extention des routes pour la creation de la segmentation route
+    if args.extension_length_lines != None :
+        extension_length_lines = args.extension_length_lines
 
    # Récupération de la valeur de seuil minimale pour les surfaces d'eau
     if args.min_area_water_area != None :
@@ -567,29 +645,37 @@ def main(gui=False):
     if debug >= 3:
         print(bold + green + "UrbanMorphologySegmentation : Variables dans le parser" + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "base_folder : " + str(base_folder) + endC)
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "ccm_folder : " + str(ccm_folder) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "emprise_vector : " + str(emprise_vector) + endC)
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "GRA_file_input : " + str(GRA_file_input) + endC)
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "TCD_file_input : " + str(TCD_file_input) + endC)
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "IMD_file_input : " + str(IMD_file_input) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "OSO_file_input : " + str(OSO_file_input) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "QML_file_input : " + str(QML_file_input) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "vectors_road_input_list : " + str(vectors_road_input_list) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "vectors_railway_input_list : " + str(vectors_railway_input_list) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "vectors_build_input_list : " + str(vectors_build_input_list) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "vectors_water_area_input_list : " + str(vectors_water_area_input_list) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "sql_exp_road_list : " + str(sql_exp_road_list) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "sql_exp_railway_list : " + str(sql_exp_railway_list) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "sql_exp_build_list : " + str(sql_exp_build_list) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "sql_exp_water_list : " + str(sql_exp_water_list) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "OSO_file_output : " + str(OSO_file_output) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "pseudoRGB_file_output : " + str(pseudoRGB_file_output) + endC)
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "raster_road_width_output : " + str(raster_road_width_output) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "raster_build_height_output : " + str(raster_build_height_output) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_roads_output : " + str(vector_roads_output) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_roads_main_output : " + str(vector_roads_main_output) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_waters_area_output : " + str(vector_waters_area_output))
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_file_seg_ccm : " + str(vector_file_seg_ccm) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_line_skeleton_main_roads_output : " + str(vector_line_skeleton_main_roads_output))
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_roads_pres_seg : " + str(vector_roads_pres_seg))
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_file_seg_algo : " + str(vector_file_seg_algo) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_file_seg_post : " + str(vector_file_seg_post) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "vector_file_seg_output : " + str(vector_file_seg_output) + endC)
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "roads_width_field : " + str(roads_width_field) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "optimize_slic_parameters : " + str(optimize_slic_parameters) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "road_importance_field : " + str(road_importance_field) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "road_importance_threshold : " + str(road_importance_threshold) + endC)
-        print(cyan + "UrbanMorphologySegmentation : " + endC + "buffer_size_road : " + str(buffer_size_road) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "road_width_field : " + str(road_width_field) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "road_nature_field : " + str(road_nature_field) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "railway_nature_field : " + str(railway_nature_field) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "railway_importance_values : " + str(railway_importance_values) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "buffer_size_skeleton : " + str(buffer_size_skeleton) + endC)
+        print(cyan + "UrbanMorphologySegmentation : " + endC + "extension_length_lines : " + str(extension_length_lines) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "min_area_water_area : " + str(min_area_water_area) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "project_encoding : " + str(project_encoding) + endC)
         print(cyan + "UrbanMorphologySegmentation : " + endC + "server_postgis : " + str(server_postgis) + endC)
@@ -613,7 +699,7 @@ def main(gui=False):
     # EXECUTION DE LA FONCTION
 
     # execution de la fonction pour une image
-    processSegmentationUrbanMorpho(base_folder, ccm_folder, emprise_vector, GRA_file_input, TCD_file_input, IMD_file_input, vectors_road_input_list, vectors_build_input_list, vectors_water_area_input_list, sql_exp_road_list, sql_exp_build_list, sql_exp_water_list, pseudoRGB_file_output, raster_road_width_output, raster_build_height_output, vector_roads_output, vector_waters_area_output, vector_file_seg_ccm, vector_file_seg_post, vector_file_seg_output, roads_width_field, road_importance_field, road_importance_threshold, buffer_size_road, min_area_water_area, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, resolution, no_data_value, epsg, format_raster, format_vector, extension_raster, extension_vector, path_time_log, save_results_intermediate, overwrite)
+    processSegmentationUrbanMorpho(base_folder, emprise_vector, OSO_file_input, QML_file_input, vectors_road_input_list, vectors_railway_input_list, vectors_build_input_list, vectors_water_area_input_list, sql_exp_road_list, sql_exp_railway_list, sql_exp_build_list, sql_exp_water_list, OSO_file_output, pseudoRGB_file_output, raster_build_height_output, vector_roads_output, vector_roads_main_output, vector_waters_area_output, vector_line_skeleton_main_roads_output, vector_roads_pres_seg, vector_file_seg_algo, vector_file_seg_post, vector_file_seg_output, optimize_slic_parameters, road_importance_field, road_importance_threshold, road_width_field, road_nature_field, railway_nature_field, railway_importance_values, buffer_size_skeleton, extension_length_lines, min_area_water_area, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, resolution, no_data_value, epsg, format_raster, format_vector, extension_raster, extension_vector, path_time_log, save_results_intermediate, overwrite)
 
 # ================================================
 
