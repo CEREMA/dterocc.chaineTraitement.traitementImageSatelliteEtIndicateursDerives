@@ -13,12 +13,17 @@
 """
  Ce module défini des fonctions faisant  l'outil GRASS.
 """
-import sys,os,shutil,glob, time, subprocess
+import sys, os, re, shutil, glob, time, subprocess
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
 from Lib_file import deleteDir
 from Lib_operator import switch, case
 import grass.script as grass
 import grass.script.setup as gsetup
+try:
+    from grass.script.core import create_location
+except:
+    from grass.core import create_location
+
 from Lib_raster import getPixelSizeImage, getProjectionImage, getEmpriseImage, getPixelWidthXYImage
 
 # debug = 0 : affichage minimum de commentaires lors de l'exécution du script
@@ -29,38 +34,39 @@ debug = 3
 # ATTENTION : pour appeler GRASS, il faut avoir mis à jour le fichier .profile (/home/scgsi/.profile). Ajouter à la fin du fichier (attention au numéro de version de GRASS qui peut changer, ici 7.2) :
 '''
 # Paramétrages GRASS :
-export GISBASE="/usr/lib/grass72"
+export GISBASE="/usr/lib/grass83"
 export PATH="$PATH:$GISBASE/bin:$GISBASE/scripts"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$GISBASE/lib"
 export GIS_LOCK=$$
-export GISRC="$HOME/.grass7"
+export GISRC="$HOME/.grass8"
 export PYTHONPATH="$PYTHONPATH:$GISBASE/etc/python"
 '''
 
 #########################################################################
 # FONCTION connectionGrass()                                            #
 #########################################################################
-#   Rôle : Permet l'initialisation si la base GRASS avant création ou la connexion à une base GRASS déjà créer
-#   Paramètres :
-#       gisbase : variable d'environnement de GRASS. Par défaut, os.environ['GISBASE'].
-#       gisdb : nom de la géodatabase, 1er niveau. Par défaut, "GRASS_database".
-#       location : nom du secteur de la géodatabase, 2ème niveau. Par défaut, "".
-#       mapset : nom du jeu de cartes de la géodatabase, 3ème niveau. Par défaut, "PERMANENT".
-#       projection : code EPSG (entier), de l'espace de travail. Par défaut, 2154.
-
-def connectionGrass(gisbase, gisdb, location="", mapset="PERMANENT", projection=2154) :
+def connectionGrass(gisbase, gisdb, location="", mapset="PERMANENT", epsg=2154):
+    """
+    #   Rôle : Permet l'initialisation si la base GRASS_7 avant création ou la connexion à une base GRASS déjà créer
+    #   Paramètres :
+    #       gisbase : variable d'environnement de GRASS_7. Par défaut, os.environ['GISBASE'].
+    #       gisdb : nom de la géodatabase, 1er niveau. Par défaut, "GRASS_database".
+    #       location : nom du secteur de la géodatabase, 2ème niveau. Par défaut, "".
+    #       mapset : nom du jeu de cartes de la géodatabase, 3ème niveau. Par défaut, "PERMANENT".
+    #       epsg : code EPSG (entier), de l'espace de travail. Par défaut, 2154.
+    """
+    # Initialise GRASS environment
     if location == "" :
         gsetup.init(gisbase, gisdb)
     else :
         if not os.path.exists(gisdb + os.sep + location):
-            grass.core.create_location(gisdb, location, projection)
+            grass.core.create_location(gisdb, location, epsg)
         gsetup.init(gisbase, gisdb, location, mapset)
     return
-
 #########################################################################
 # FONCTION initializeGrass()                                            #
 #########################################################################
-def initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, projection=2154, gisbase=os.environ['GISBASE'], gisdb="GRASS_database", location="LOCATION", mapset="MAPSET", clean_old=True, overwrite=True):
+def initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg=2154, gisbase=None, gisdb="GRASS_database", location="LOCATION", mapset="PERMANENT", clean_old=True, overwrite=True):
     """
     #   Rôle : Permet la initialisation d'une base GRASS, pour l'appel de fonctions Grass
     #   Paramètres :
@@ -71,7 +77,108 @@ def initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y
     #       ymax : valeur de l'emprise maximale en Y, de l'espace de travail
     #       pixel_size_x : résolution spatiale en X (largeur), de l'espace de travail
     #       pixel_size_y : résolution spatiale en Y (hauteur), de l'espace de travail
-    #       projection : code EPSG (entier), de l'espace de travail. Par défaut, 2154.
+    #       epsg : code EPSG (entier), de l'espace de travail. Par défaut, 2154.
+    #       gisbase : variable d'environnement de GRASS. Par défaut, None.
+    #       gisdb : nom de la géodatabase, 1er niveau. Par défaut, "GRASS_database".
+    #       location : nom du secteur de la géodatabase, 2ème niveau. Par défaut, "LOCATION".
+    #       mapset : nom du jeu de cartes de la géodatabase, 3ème niveau. Par défaut, "MAPSET/LOCATION".
+    #       clean_old : nettoyage de la géodatabase si elle existe déjà. Par défaut, True.
+    #       overwrite : (option) supprime ou non les fichiers existants ayant le meme nom.
+    """
+
+    if debug >= 2:
+        print(cyan + "initializeGrass() : " + bold + green + "Preparation de la geodatabase GRASS dans le dossier : " + endC + work_dir)
+
+    #  Vérifier GISBASE
+    if gisbase is None:
+        gisbase = os.environ.get('GISBASE')
+        if gisbase is None:
+            raise RuntimeError(cyan + "initializeGrass() : " + bold + red + "GISBASE non défini. passe gisbase or export GISBASE before running." + endC)
+
+    # Création du répertoire de travail : 'work_dir' si il n'existe pas
+    if not os.path.exists(work_dir):
+        os.makedirs(work_dir)
+
+    # Determiner la version de GRASS
+    # ex: /usr/lib/grass83  -> on cherche des chiffres dans le nom
+    base_name = os.path.basename(gisbase)
+    m = re.search(r'grass(\d+)', base_name)
+    version = 7
+    if m:
+        try:
+            version = int(m.group(1)[0])  # '83' -> '8'
+        except Exception:
+            pass
+
+    # Initialisation en fonction de la version de GRASS
+    if version == 8 :
+        gisbase,gisdb,location,mapset = initializeGrass_v8(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg=epsg, gisbase=gisbase, gisdb=gisdb, location=location, mapset="PERMANENT", clean_old=clean_old, overwrite=overwrite)
+    else :
+        gisbase,gisdb,location,mapset = initializeGrass_v7(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg=epsg, gisbase=gisbase, gisdb=gisdb, location=location, mapset="MAPSET", clean_old=clean_old, overwrite=overwrite)
+
+    # Renvoie les informations de connexion (propres)
+    return gisbase, gisdb, location, mapset
+
+
+#########################################################################
+# FONCTION initializeGrass_v8()                                         #
+#########################################################################
+def initializeGrass_v8(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg=2154, gisbase=None, gisdb="GRASS_database", location="LOCATION", mapset="PERMANENT", clean_old=True, overwrite=True):
+    """
+    #   Rôle : Permet la initialisation d'une base GRASS, pour l'appel de fonctions Grass
+    #   Paramètres :
+    #       work_dir : dossier de traitement, où seront stockées les données de la géodatabase (généralement, un dossier temporaire)
+    #       xmin : valeur de l'emprise minimale en X, de l'espace de travail
+    #       xmax : valeur de l'emprise maximale en X, de l'espace de travail
+    #       ymin : valeur de l'emprise minimale en Y, de l'espace de travail
+    #       ymax : valeur de l'emprise maximale en Y, de l'espace de travail
+    #       pixel_size_x : résolution spatiale en X (largeur), de l'espace de travail
+    #       pixel_size_y : résolution spatiale en Y (hauteur), de l'espace de travail
+    #       epsg : code EPSG (entier), de l'espace de travail. Par défaut, 2154.
+    #       gisbase : variable d'environnement de GRASS. Par défaut, None.
+    #       gisdb : nom de la géodatabase, 1er niveau. Par défaut, "GRASS_database".
+    #       location : nom du secteur de la géodatabase, 2ème niveau. Par défaut, "LOCATION".
+    #       mapset : nom du jeu de cartes de la géodatabase, 3ème niveau. Par défaut, "MAPSET".
+    #       clean_old : nettoyage de la géodatabase si elle existe déjà. Par défaut, True.
+    #       overwrite : (option) supprime ou non les fichiers existants ayant le meme nom.
+    """
+
+    # Nettoyage des données GRASS venant d'un traitement précédent : attention, on repart à 0 !
+    gisdb = os.path.join(work_dir, gisdb)
+    if os.path.exists(gisdb) and clean_old:
+        deleteDir(gisdb)
+
+    loc_path = os.path.join(gisdb, location, mapset)
+    if not os.path.exists(loc_path):
+        print(cyan + "initializeGrass_v8() : " + bold + green + f"Création du secteur GRASS {location}..." + endC)
+        subprocess.run(["grass", "-c", f"EPSG:{epsg}",os.path.join(gisdb, location), "-e"], check=True)
+    else:
+        print(cyan + "initializeGrass_v8() : " + bold + yellow + f"Le secteur {location} existe déjà." + endC)
+
+    # Étape 2 : Initialiser la session Python GRASS ---
+    session = gsetup.init(gisdb, location, mapset)
+
+    # Étape 3 : Définir la région sur l’emprise du vecteur ---
+    grass.run_command("g.region", n=ymax, s=ymin, e=xmax, w=xmin, ewres=abs(pixel_size_x), nsres=abs(pixel_size_y), overwrite=overwrite)
+
+    # Renvoie les informations de connexion (propres)
+    return gisbase, gisdb, location, mapset
+
+#########################################################################
+# FONCTION initializeGrass_v7()                                         #
+#########################################################################
+def initializeGrass_v7(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg=2154, gisbase=None, gisdb="GRASS_database", location="LOCATION", mapset="MAPSET", clean_old=True, overwrite=True):
+    """
+    #   Rôle : Permet la initialisation d'une base GRASS, pour l'appel de fonctions Grass
+    #   Paramètres :
+    #       work_dir : dossier de traitement, où seront stockées les données de la géodatabase (généralement, un dossier temporaire)
+    #       xmin : valeur de l'emprise minimale en X, de l'espace de travail
+    #       xmax : valeur de l'emprise maximale en X, de l'espace de travail
+    #       ymin : valeur de l'emprise minimale en Y, de l'espace de travail
+    #       ymax : valeur de l'emprise maximale en Y, de l'espace de travail
+    #       pixel_size_x : résolution spatiale en X (largeur), de l'espace de travail
+    #       pixel_size_y : résolution spatiale en Y (hauteur), de l'espace de travail
+    #       epsg : code EPSG (entier), de l'espace de travail. Par défaut, 2154.
     #       gisbase : variable d'environnement de GRASS. Par défaut, os.environ['GISBASE'].
     #       gisdb : nom de la géodatabase, 1er niveau. Par défaut, "GRASS_database".
     #       location : nom du secteur de la géodatabase, 2ème niveau. Par défaut, "LOCATION".
@@ -80,13 +187,8 @@ def initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y
     #       overwrite : (option) supprime ou non les fichiers existants ayant le meme nom.
     """
 
-    # On récupère le nom du dossier de traitement, dans lequel on rajoute un sous-dossier (1er niveau de la géodatabase)
-    gisdb = work_dir + os.sep + gisdb
-
-    if debug >= 2:
-        print(cyan + "initializeGrass() : " + bold + green + "Preparation de la geodatabase GRASS dans le dossier : " + endC + work_dir)
-
     # Nettoyage des données GRASS venant d'un traitement précédent : attention, on repart à 0 !
+    gisdb = work_dir + os.sep + gisdb
     if os.path.exists(gisdb) and clean_old:
         deleteDir(gisdb)
 
@@ -95,11 +197,14 @@ def initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y
         os.makedirs(gisdb)
 
     # Initialisation de la connexion à la géodatabase encore vide (pour récupérer les scripts GRASS et créer le 2ème niveau)
+    print("Debug GF :")
+    print(gisbase)
+    print(gisdb)
     connectionGrass(gisbase, gisdb)
 
     # Création du 2ème niveau de la géodatabase : 'location', avec un système de coordonnées spécifique
     # Initialisation de la connexion à la géodatabase par défaut (pour créer notre propre 'mapset')
-    connectionGrass(gisbase, gisdb, location, 'PERMANENT', projection)
+    connectionGrass(gisbase, gisdb, location, 'PERMANENT', epsg)
 
     # Création du 3ème niveau de la géodatabase : 'mapset', avec une emprise et une résolution spatiale spécifiques
     if not os.path.exists(gisdb + os.sep + location + os.sep + mapset):
@@ -112,7 +217,7 @@ def initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y
             shutil.copy(file_to_copy, gisdb + os.sep + location + os.sep + mapset)
 
     # Initialisation du 'mapset' de travail
-    connectionGrass(gisbase, gisdb, location, mapset, projection)
+    connectionGrass(gisbase, gisdb, location, mapset, epsg)
 
     if debug >= 2:
         print(cyan + "initializeGrass() : " + bold + green + "Geodatabase GRASS prete." + endC)
@@ -228,7 +333,7 @@ def smoothGeomGrass(input_vector, output_vector, param_generalize_dico, format_v
     #
     #   # Exemple d'exécution :
     #   xmin, xmax, ymin, ymax = getEmpriseVector(input_vector, format_vector)
-    #   initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, projection, gisbase, gisdb, location, mapset, True)
+    #   initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg, gisbase, gisdb, location, mapset, True)
     #   param_generalize_dico = {"method":"chaiken", "threshold":1}
     #   smoothGeomGrass(input_vector, output_vector, param_generalize_dico, gisbase, gisdb, location, mapset, "ESRI_Shapefile")
     #
@@ -288,7 +393,7 @@ def splitGrass(input_vector, output_vector, param_split_length, format_vector="E
     #
     #   # Exemple d'exécution :
     #   xmin, xmax, ymin, ymax = getEmpriseVector(input_vector, format_vector)
-    #   initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, projection, gisbase, gisdb, location, mapset, True)
+    #   initializeGrass(work_dir, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg, gisbase, gisdb, location, mapset, True)
     #   splitGrass(input_vector, output_vector, 10, gisbase, gisdb, location, mapset, "ESRI_Shapefile")
     #
     """
@@ -552,7 +657,7 @@ def convertRGBtoHIS(image_input, raster_red_input, raster_green_input, raster_bl
     name_raster_saturation = filename + "_S"
 
     # INITIALISATION DE LA CONNEXION A L'ENVIRONNEMENT GRASS
-    initializeGrass(repository, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, projection=epsg)
+    initializeGrass(repository, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg)
 
     # PARAMETRAGE DES IMAGES ROUGE VERT ET BLEUE
     # Noms des rasters
@@ -636,7 +741,7 @@ def shadowMask(image_input, raster_shadow_output, year, month, day, hour, minute
     pixel_size_x, pixel_size_y = getPixelWidthXYImage(image_input)      # taille d'un pixel
     epsg, _ = getProjectionImage(image_input)                           # Recuperation de la valeur de la projection du rasteur d'entrée
     xmin, xmax, ymin, ymax = getEmpriseImage(image_input)               # Recuperation de l'emprise du rasteur d'entrée
-    initializeGrass(repository, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, projection=epsg)
+    initializeGrass(repository, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg)
 
     # Import de l'image d'entrée
     filename_in = os.path.splitext(os.path.basename(image_input))[0].replace('-', '_')

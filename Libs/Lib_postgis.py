@@ -659,7 +659,7 @@ def updateData(connection, table_name, column_name, new_value, condition):
 ########################################################################
 # FONCTION importVectorByOgr2ogr()                                     #
 ########################################################################
-def importVectorByOgr2ogr(database_name, vector_name, table_name, user_name='postgres', password='postgres', ip_host='localhost', num_port='5432', schema_name='public', epsg='2154', codage='UTF-8', geometry_type='GEOMETRY', geometry_name='geom', fid_name='fid'):
+def importVectorByOgr2ogr(database_name, vector_name, table_name, user_name='postgres', password='postgres', ip_host='localhost', num_port='5432', schema_name='public', epsg='2154', codage='UTF-8', geometry_type='GEOMETRY', geometry_name='geom', fid_name='fid', print_cmd=True):
     """
     # Rôle : importer des données vecteurs dans une base de données PostgreSQL (via ogr2ogr)
     # Paramètres en entrée :
@@ -698,7 +698,7 @@ def importVectorByOgr2ogr(database_name, vector_name, table_name, user_name='pos
     command += "ogr2ogr -overwrite -a_srs 'EPSG:%s' -f PostgreSQL PG:'host=%s port=%s dbname=%s user=%s password=%s' %s -nln %s.%s -nlt %s -lco GEOMETRY_NAME=%s -lco FID=%s --config PG_USE_COPY YES" % (epsg, ip_host, num_port, database_name, user_name, password, vector_name, schema_name, table_name, geometry_type, geometry_name, fid_name)
 
     try:
-        if debug>=3:
+        if debug>=3 and print_cmd:
             print(command)
         os.system(command)
 
@@ -712,7 +712,7 @@ def importVectorByOgr2ogr(database_name, vector_name, table_name, user_name='pos
 ########################################################################
 # FONCTION exportVectorByOgr2ogr()                                     #
 ########################################################################
-def exportVectorByOgr2ogr(database_name, vector_name, table_name, user_name='postgres', password='postgres', ip_host='localhost', num_port='5432', schema_name='public', format_type='ESRI Shapefile', ogr2ogr_more_parameters=''):
+def exportVectorByOgr2ogr(database_name, vector_name, table_name, user_name='postgres', password='postgres', ip_host='localhost', num_port='5432', schema_name='public', format_type='ESRI Shapefile', ogr2ogr_more_parameters='', print_cmd=True):
     """
     # Rôle : exporter une table d'une base de données vers un fichier vecteur (via ogr2ogr)
     # Paramètres en entrée :
@@ -733,7 +733,7 @@ def exportVectorByOgr2ogr(database_name, vector_name, table_name, user_name='pos
         command += " %s" % ogr2ogr_more_parameters
 
     try:
-        if debug>=3:
+        if debug>=3 and print_cmd:
             print(command)
         os.system(command)
 
@@ -821,7 +821,7 @@ def exportShape(database_name, vector_name, table_name, user_name='postgres', pa
 ########################################################################
 # FONCTION importRaster()                                              #
 ########################################################################
-def importRaster(database_name, file_name, band_number, table_name, user_name='postgres', password='postgres', ip_host='localhost', num_port='5432', schema_name='public', epsg='2154', nodata_value='0', tile_size='auto', overview_factor='2,4,8'):
+def importRaster(database_name, file_name, band_number, table_name, user_name='postgres', password='postgres', ip_host='localhost', num_port='5432', schema_name='public', epsg='2154', nodata_value='0', tile_size='auto'):
     """
     # Rôle : importer un raster dans une base de données (via raster2pgsql : http://postgis.net/docs/manual-dev/using_raster_dataman.html#RT_Raster_Loader)
     # Paramètres en entrée :
@@ -833,11 +833,10 @@ def importRaster(database_name, file_name, band_number, table_name, user_name='p
     #   password : mot de passe du serveur PostgreSQL (par défaut : 'postgres')
     #   ip_host : adresse IP du serveur PostgreSQL (par défaut : 'localhost')
     #   num_port : numéro de port du serveur PostgreSQL (par défaut : '5432')
+    #   schema_name : nom du schema à utiliser (par défaut : 'public')
     #   epsg : code EPSG du système de coordonnées du fichier raster à importer (par défaut : '2154')
     #   nodata_value : valeur NoData du fichier raster à importer (par défaut : '0')
-    #   schema_name : nom du schema à utiliser (par défaut : 'public')
     #   tile_size : taille des tuiles générés lors de l'import, au format "LARGEURxHAUTEUR" sans espace (par défaut : 'auto')
-    #   overview_factor : valeurs des miniatures/pyramides générées lors de l'import (par défaut : '2,4,8')
     # Paramètre de retour :
     #   le nom de la table dans laquelle le fichier a été importé (modifié si ne respecte pas le regexp)
     """
@@ -851,8 +850,7 @@ def importRaster(database_name, file_name, band_number, table_name, user_name='p
         table_name = 't' + table_name
 
     # Commande
-    #command = "raster2pgsql -d -C -s %s -t %s -l %s -N %s %s %s.%s" % (epsg, tile_size, overview_factor, nodata_value, file_name, schema_name, table_name)
-    command = "raster2pgsql -R -d -M -I -Y -b %s -s %s -t %s -N %s %s %s.%s" % (str(band_number), str(epsg), tile_size, str(nodata_value), file_name, schema_name, table_name)
+    command = "raster2pgsql -d -s %s -b %s -t %s -N %s -f rast -I -M -Y %s %s.%s" % (str(epsg), str(band_number), tile_size, str(nodata_value), file_name, schema_name, table_name)
     command += " | psql -X -d %s -h %s -p %s -U %s" % (database_name, ip_host, str(num_port), user_name)
     try:
         if debug>=1:
@@ -1066,17 +1064,21 @@ def getAllDatabases(user_name='postgres', password='postgres', ip_host='localhos
     #   la liste des bases de données
     """
 
-    databases_list = None
     connection = psycopg2.connect(dbname='postgres', user=user_name, password=password, host=ip_host, port=num_port)
     cursor = connection.cursor()
     query = "SELECT datname FROM pg_catalog.pg_database;"
     cursor.execute(query)
-    databases_list = cursor.fetchall()
+    databases_raw_list = cursor.fetchall()
     closeConnection(connection)
+
     if print_result:
         print(bold + "Liste des bases de données du serveur '%s' :" % (ip_host) + endC)
-        for row in sorted(databases_list):
+    databases_list = []
+    for row in sorted(databases_raw_list):
+        if print_result:
             print("    %s" % (row))
+        databases_list.append(row[0])
+
     return databases_list
 
 ########################################################################
@@ -1092,15 +1094,19 @@ def getAllSchemas(connection, print_result=True):
     #   la liste des schémas de la base de données
     """
 
-    schemas_list = None
     cursor = connection.cursor()
     query = "SELECT nspname FROM pg_catalog.pg_namespace;"
     cursor.execute(query)
-    schemas_list = cursor.fetchall()
+    schemas_raw_list = cursor.fetchall()
+
     if print_result:
-        print(bold + "Liste des schémas de la base de données de connexion")
-        for row in sorted(schemas_list):
+        print(bold + "Liste des schémas de la base de données de connexion" + endC)
+    schemas_list = []
+    for row in sorted(schemas_raw_list):
+        if print_result:
             print("    %s" % (row))
+        schemas_list.append(row[0])
+
     return schemas_list
 
 ########################################################################
@@ -1117,19 +1123,19 @@ def getAllTables(connection, schema_name, print_result=True):
     #   la liste des tables du schéma
     """
 
-    tables_list = None
     cursor = connection.cursor()
     query = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = '%s';" % (schema_name)
     cursor.execute(query)
     tables_raw_list = cursor.fetchall()
-    tables_list = []
+
     if print_result:
         print(bold + "Liste des tables du schéma '%s' :" % (schema_name) + endC)
-
+    tables_list = []
     for row in sorted(tables_raw_list):
         if print_result:
             print("    %s" % (row))
         tables_list.append(row[0])
+
     return tables_list
 
 ########################################################################
@@ -1146,19 +1152,19 @@ def getAllColumns(connection, table_name, print_result=True):
     #   la liste des colonnes de la table
     """
 
-    columns_list = None
     cursor = connection.cursor()
     query = "SELECT attname FROM pg_attribute WHERE attrelid = '%s'::regclass AND attnum > 0 AND NOT attisdropped ORDER BY attnum;" % (table_name)
     cursor.execute(query)
     columns_raw_list = cursor.fetchall()
-    columns_list = []
+
     if print_result:
         print(bold + "Liste des colonnes de la table '%s' :" % (table_name) + endC)
-
-    for row in columns_raw_list:
+    columns_list = []
+    for row in sorted(columns_raw_list):
         if print_result:
             print("    %s" % (row))
         columns_list.append(row[0])
+
     return columns_list
 
 ########################################################################
@@ -1279,7 +1285,7 @@ def cutPolygonesByLines(connection, input_polygones_table, input_lines_table, ou
 ########################################################################
 # FONCTION cutPolygonesByPolygones()                                   #
 ########################################################################
-def cutPolygonesByPolygones(connection, input_polygones_table, input_polygones_cutting_table, output_polygones_table, geom_field='geom'):
+def cutPolygonesByPolygones(connection, input_polygones_table, input_polygones_cutting_table, output_polygones_table, geom_field='geom', nb_cpus:int=30):
     """
     # Rôle : découpage de (multi)polygones par des (multi)polygones
     # Paramètres en entrée :
@@ -1300,10 +1306,23 @@ def cutPolygonesByPolygones(connection, input_polygones_table, input_polygones_c
 
     try:
         query = "DROP TABLE IF EXISTS %s;\n" % output_polygones_table
+        # création d'index spatiaux par défaut
+        query += "CREATE INDEX ON %s USING GIST (%s);\n" % (input_polygones_table, geom_field)
+        query += "CREATE INDEX ON %s USING GIST (%s);\n" % (input_polygones_cutting_table, geom_field)
+        # définition de paramètres de parallélisation pour encourager le planner a l'envisager
+        query += "SET max_parallel_workers_per_gather = %s;" % nb_cpus
+        query += "SET parallel_setup_cost = 0;"
+        query += "SET parallel_tuple_cost = 0;"
+        # requete utilisant au maximum les index spatiaux
         query += "CREATE TABLE %s AS\n" % output_polygones_table
-        query += "    SELECT %s, ST_Intersection(p.%s, p2.%s) AS %s\n" % (fields_txt, geom_field, geom_field, geom_field)
-        query += "    FROM %s AS p, %s AS p2\n" % (input_polygones_table, input_polygones_cutting_table)
-        query += "    WHERE ST_Intersects(p.%s, p2.%s);\n" % (geom_field, geom_field)
+        query += "  WITH candidates AS ("
+        query += "      SELECT %s, p.%s AS geom1, p2.%s AS geom2" % (fields_txt, geom_field, geom_field)
+        query += "      FROM %s p" % input_polygones_table
+        query += "      JOIN %s p2" % input_polygones_cutting_table
+        query += "      ON p.%s && p2.%s" % (geom_field, geom_field)
+        query += "      AND ST_Intersects(p.%s, p2.%s))" % (geom_field, geom_field)
+        query += "  SELECT *, ST_Intersection(c.geom1, c.geom2) AS %s" % geom_field
+        query += "  FROM candidates c;"
         print(query)
         executeQuery(connection, query)
 

@@ -227,9 +227,7 @@ def getAreaPolygon(vector_input, col, value, format_vector='ESRI Shapefile'):
     nb_fields = defn_layer_input.GetFieldCount()
 
     # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Si le polygone correspond au polygone rechercher
          field_label = feature_input.GetFieldAsString(col)
@@ -384,9 +382,8 @@ def getGeomPolygons(vector_input, col=None, value=None, format_vector='ESRI Shap
     nb_fields = defn_layer_input.GetFieldCount()
 
     # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
+
          if feature_input is not None :
              # Si le polygone correspond au polygone rechercher
              if (not col == None) or (not value == None) :
@@ -529,9 +526,7 @@ def getAttributeValues(vector_input, attribute_name_id, id_element, attribute_na
         attr_type = attribute_name_dico[attr_name]
 
         value_list = []
-        for i in range(0, layer_input.GetFeatureCount()):
-             # Get the input Feature
-             feature_input = layer_input.GetFeature(i)
+        for feature_input in layer_input:
 
              # Si l'élement correspond à élement rechercher
              if (attribute_name_id == None and id_element == None) or (str(feature_input.GetFieldAsString(attribute_name_id)) == str(id_element)) :
@@ -616,9 +611,7 @@ def setAttributeValues(vector_input, attribute_name_id, id_element, attribute_na
     layer_input = data_source_input.GetLayer(0)
 
     # Pour chaque élement
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Si l'élement correspond à élement rechercher
          field_id = feature_input.GetFieldAsString(attribute_name_id)
@@ -674,9 +667,8 @@ def setAttributeIndexValuesList(vector_input, attribute_name_id, field_new_value
     # Pour chaque élement
     # Creation d'un dico d'index id sur les features
     features_index_dico = {}
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
+
          field_id = feature_input.GetFieldAsString(attribute_name_id)
          features_index_dico[field_id] = feature_input
 
@@ -732,10 +724,7 @@ def setAttributeValuesList(vector_input, field_new_values_list, format_vector='E
     layer_input = data_source_input.GetLayer(0)
 
     # Pour chaque élement
-    for i in range(0, layer_input.GetFeatureCount()):
-
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Pour tous les champs à mettre à jour
          for attr_name in field_new_values_list[i] :
@@ -834,11 +823,9 @@ def updateFieldVector(vector_input, field_name="id", value=0, format_vector='ESR
     layer_input = data_source_input.GetLayer(0)
 
     # Pour chaque polygone
-    features_nb = layer_input.GetFeatureCount()
-    for i in range(0, features_nb):
+    for feature_input in layer_input:
 
         # Mise à jour du champ pour le feature sélectionné
-        feature_input = layer_input.GetFeature(i)
         feature_input.SetField(field_name, value)
         layer_input.SetFeature(feature_input)
         feature_input.Destroy()
@@ -906,9 +893,7 @@ def addNewFieldVector(vector_input, field_name, field_type, field_value=None, fi
     layer_input.CreateField(field)
 
     # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Ajouter la valeur au nouveau champ
          feature_input.SetField(field_name, field_value)
@@ -1081,16 +1066,16 @@ def deleteFieldsVector(vector_input, vector_output, fields_name_list, format_vec
 
     # Copier les entités en excluant les champs supprimés
     feature_id = 0
-    for feature in layer_input:
+    for feature_input in layer_input:
         feature_output = ogr.Feature(layer_output.GetLayerDefn())
-        feature_output.SetGeometry(feature.GetGeometryRef())
+        feature_output.SetGeometry(feature_input.GetGeometryRef())
         feature_output.SetFID(feature_id)
 
         k = 0
         for j in range(layer_definition.GetFieldCount()):
             field_defn = layer_definition.GetFieldDefn(j)
             if field_defn.GetName() not in fields_to_remove:
-                feature_output.SetField(k, feature.GetField(j))
+                feature_output.SetField(k, feature_input.GetField(j))
                 k += 1
 
         layer_output.CreateFeature(feature_output)
@@ -1149,11 +1134,8 @@ def getPositionsPoints(vector_input, field_name, format_vector='ESRI Shapefile')
         sys.exit(1) #exit with an error code
 
     # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
+    for feature_input in layer_input:
         position_point_list = [[],[]]
-        # Get the input Feature
-        feature_input = layer_input.GetFeature(i)
-
         field_value = feature_input.GetFieldAsString(id_field)
         geometry = feature_input.GetGeometryRef()
         if geometry != None :
@@ -1203,9 +1185,7 @@ def readVectorFilePoints(vector_input, names_column_point_list=[], format_vector
 
     # Pour chaque points du fichier
     index_point = 0
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Si le feature est de type geometrie point
          geometry = feature_input.GetGeometryRef()
@@ -1260,9 +1240,7 @@ def readVectorFileLinesExtractTeminalsPoints(vector_input, names_column_start_po
 
     # Pour chaque lignes du fichier
     index_line = 0
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Si le feature est de type geometrie point
          geometry = feature_input.GetGeometryRef()
@@ -1340,9 +1318,7 @@ def getAverageAreaClass(vector_input, col, class_id, format_vector='ESRI Shapefi
     nb_fields = defn_layer_input.GetFieldCount()
 
     # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Si le polygone correspond au polygone rechercher
          field_label = feature_input.GetFieldAsString(col)
@@ -1518,7 +1494,7 @@ def simplifyVector(vector_input ,vector_output, tolerance, format_vector='ESRI S
     data_source_input = driver.Open(vector_input, 0)
 
     if data_source_input is None:
-        print(cyan + "simplifyVector() : " + endC + "Could not open file : " + str(vector_input))
+        print(cyan + "simplifyVector() : " + bold + read + "Could not open file : " + str(vector_input))
         sys.exit(1)
 
     # Récupération des cractéristiques du fichier en entrée (type de géométrie, projection...)
@@ -1875,9 +1851,8 @@ def cleanMiniAreaPolygons(vector_input, vector_output, min_size_area, col='id', 
 
     # Pour chaque polygone
     # Add features to the ouput Layer
-    for i in range(0, layer_input.GetFeatureCount()):
+    for feature_input in layer_input:
 
-         feature_input = layer_input.GetFeature(i)  # Get the input Feature
          if feature_input is not None :
              geometry = feature_input.GetGeometryRef() # Calculating the actual area
 
@@ -2123,8 +2098,7 @@ def geometries2multigeometries(vector_input, vector_output, column ="", format_v
 
     # Si le nom de la colonne n'est pas vide
     if column != "":
-        for i in range(0, layer_input.GetFeatureCount()) :
-            feature_input = layer_input.GetFeature(i)
+        for feature_input in layer_input:
             statefp = feature_input.GetField(column)
             elements_list.append(statefp)
         # Suppression des valeurs à None
@@ -2264,8 +2238,7 @@ def fusionNeighbourGeometryBySameValue(vector_input, vector_output, column, form
 
     # Créer une liste d'identificateur de valeur unique pour être en mesure de boucler à travers eux plus tard
     elements_list = []
-    for i in range(0, layer_input.GetFeatureCount()) :
-        feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
         statefp = feature_input.GetField(column)
         elements_list.append(statefp)
     elements_list = set(elements_list)
@@ -2691,7 +2664,6 @@ def dissolveVector(vector_input, vector_output, column, format_vector='ESRI Shap
 
     # ogr2ogr ATTENTION cette version ne marche pas correctement
     command = "ogr2ogr -f \"%s\" -overwrite %s %s -dialect SQLITE -sql \"SELECT ST_Union(geometry), '%s' FROM %s GROUP BY '%s'\"" %(format_vector, tmp_file, vector_input, column, filename, column)
-    #command = "ogr2ogr -f \"%s\" -overwrite %s %s -dialect SQLITE -sql \"SELECT ST_UnaryUnion(geometry), '%s' FROM %s GROUP BY '%s'\"" %(format_vector, tmp_file, vector_input, column, filename, column)
     if debug >=2:
         print(command)
     exit_code = os.system(command)
@@ -2933,38 +2905,7 @@ def intersectDeletePolygons(vector_input1, vector_input2, format_vector='ESRI Sh
         feature1.Destroy()
         feature1 = layer1.GetNextFeature()
 
-    """
-    # Parcours des éléments du fichier 2
-    layer1 = data_source_input1.GetLayer()
-    layer2 = data_source_input2.GetLayer()
-    layer2.ResetReading()
-    feature2 = layer2.GetFeature(0)
-
-    while feature2:
-
-        layer1.ResetReading()
-        feature1 = layer1.GetFeature(0)
-        # Récupération de la géométrie de l'élément du fichier 2
-        geometry2 = feature2.GetGeometryRef()
-
-        # Parcours des éléments du fichier 2
-        while feature1:
-            # Récupération de la géométrie de l'élément du fichier 1
-            geometry1 = feature1.GetGeometryRef()
-
-            # Si les géométries des éléments des fichiers 1 et 2 se croisent (=1)
-            if geometry2.Intersects(geometry1) == 1: #Variante possible avec Overlaps
-                geometry2_list.append(feature2.GetFID())
-
-            feature1.Destroy()
-            feature1 = layer1.GetNextFeature()
-
-        feature2.Destroy()
-        feature2 = layer2.GetNextFeature()
-    """
-
     ## Nettoyage des geometries
-
     # Parcours des éléments du fichier 1
     layer1 = data_source_input1.GetLayer()
     layer1.ResetReading()
@@ -3197,23 +3138,17 @@ def deleteClassVector(supp_class_list, vector_input, field, format_vector='ESRI 
 
     # Pour chaque polygones
     # Add features to the ouput Layer
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         try:
-             feature_input = layer_input.GetFeature(i)
-         except RuntimeError:
-             print(cyan + "deleteClassVector() : " + bold + yellow + "Le fichier shape est corrompu " + endC)
-         else:
-             # Recuper la valeur du champ de classification
-             label_classif = feature_input.GetField(field)
+    for feature_input in layer_input:
+         # Recuper la valeur du champ de classification
+         label_classif = feature_input.GetField(field)
 
-             # Si l'identifiant de classification n'appartient pas a la liste supp_class_list, on copie le polygone
-             if not label_classif in supp_class_list:
-                 if debug >= 4:
-                     print("identifant a %s" %(str(label_classif)))
+         # Si l'identifiant de classification n'appartient pas a la liste supp_class_list, on copie le polygone
+         if not label_classif in supp_class_list:
+             if debug >= 4:
+                 print("identifant a %s" %(str(label_classif)))
 
-                 # Add new feature to output Layer
-                 layer_output.CreateFeature(feature_input)
+             # Add new feature to output Layer
+             layer_output.CreateFeature(feature_input)
 
     # Comptage du nombre de polygones destinations
     num_features = layer_output.GetFeatureCount()
@@ -3263,9 +3198,7 @@ def reallocateClassVector(reaff_class_list, macro_reaff_class_list, vector_input
     layer_input = data_source_input.GetLayer(0)
 
     # Pour chaque polygones
-    for i in range(0, layer_input.GetFeatureCount()):
-         # Get the input Feature
-         feature_input = layer_input.GetFeature(i)
+    for feature_input in layer_input:
 
          # Recuper la valeur du champ de classification
          label_classif = feature_input.GetField(field)
@@ -3359,8 +3292,7 @@ def cleanLabelPolygons(vector_input, vector_output, col='label', wrongval_list=[
 
     nb_poly_modif=0
     # Correction des polygone de label wrongval_list
-    for i in range(0,layer_temp_simplepoly.GetFeatureCount()):
-        feature_temp_simplepoly = layer_temp_simplepoly.GetFeature(i)
+    for feature_temp_simplepoly in layer_temp_simplepoly:
         geometry = feature_temp_simplepoly.GetGeometryRef()
         label_classif = feature_temp_simplepoly.GetField(col)
         list_label_classif = []
@@ -3675,8 +3607,8 @@ def mergeAndNewLabel(vectors_input_list, vector_output, col, label, projection=2
     # Creation du nouveau champs
     fd = ogr.FieldDefn(col, ogr.OFTInteger)
     layer_output.CreateField(fd)
-
-    print("Fusion des vecteurs et assignation du nouveau label...")
+    if debug >=2 :
+        print(cyan + "mergeAndNewLabel() : " + endC + "Fusion des vecteurs et assignation du nouveau label...")
 
     # Lecture de chaque fichiers et ecriture d'un nouveau champ dans le fichier (merge) de sortie
     for vector in vectors_input_list:

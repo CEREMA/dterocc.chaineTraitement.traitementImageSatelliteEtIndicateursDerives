@@ -29,12 +29,16 @@ from Lib_file import renameVectorFile, removeVectorFile, removeFile
 # debug = 3 : affichage maximum de commentaires lors de l'execution du script. Intermédiaire : affichage intermédiaire
 debug = 2
 
+###########################################################################################################################################
+# FONCTIONS INTERNES                                                                                                                      #
+###########################################################################################################################################
+
 ########################################################################
 # FONCTION reduce_line()                                               #
 ########################################################################
 def reduce_line(line, length):
     """
-    Réduire l'extrémité d'une ligne.
+    # ROLE: Réduire l'extrémité d'une ligne.
     """
     if not isinstance(line, LineString):
         raise TypeError(cyan + "reduce_line() : " + bold + red +"Expected a LineString geometry" + endC)
@@ -88,6 +92,9 @@ def reduce_line(line, length):
 # FONCTION reduce_multiline()                                          #
 ########################################################################
 def reduce_multiline(multiline, length):
+    """
+    # ROLE: Réduire l'extrémité de toutes les multilignes.
+    """
     if not isinstance(multiline, MultiLineString):
         return multiline  # Retourner tel quel si ce n'est pas un MultiLineString
     reduced_lines = [reduce_line(line, length) for line in multiline.geoms]
@@ -97,6 +104,9 @@ def reduce_multiline(multiline, length):
 # FONCTION process_reduction_lines()                                   #
 ########################################################################
 def process_reduction_lines(geom, reduction_length):
+    """
+    # ROLE: Réduire l'extrémité de toutes les géomtries lignes ou multilignes.
+    """
     if isinstance(geom, LineString):
         return reduce_line(geom, reduction_length)
     elif isinstance(geom, MultiLineString):
@@ -108,7 +118,7 @@ def process_reduction_lines(geom, reduction_length):
 ########################################################################
 def extend_line(line, length):
     """
-    Étend une ligne de type LineString en ajoutant un segment à ses extrémités.
+    # ROLE: Étend une ligne de type LineString en ajoutant un segment à ses extrémités.
     """
     if not isinstance(line, LineString):
         raise TypeError(cyan + "extend_line() : " + bold + red + "Expected a LineString geometry" + endC)
@@ -151,7 +161,7 @@ def extend_line(line, length):
 ########################################################################
 def extract_extension_part(extended_line, original_line, buffer_size=1e-9):
     """
-    Renvoie uniquement les parties nouvellement ajoutées de la ligne étendue.
+    # ROLE: Renvoie uniquement les parties nouvellement ajoutées de la ligne étendue.
     """
     if not isinstance(original_line, LineString) or not isinstance(extended_line, LineString):
         return None
@@ -183,7 +193,7 @@ def extract_extension_part(extended_line, original_line, buffer_size=1e-9):
 ########################################################################
 def check_intersection_with_reference(extension_part, reference_lines, reference_index):
     """
-    Vérifiez si la partie d'extension croise l'une des lignes de références.
+    # ROLE: Vérifiez si la partie d'extension croise l'une des lignes de références.
     """
     if extension_part is None:
         return False
@@ -204,7 +214,7 @@ def check_intersection_with_reference(extension_part, reference_lines, reference
 ########################################################################
 def process_extension(extension, segment_line, is_cut_extension, reference_lines, reference_index):
     """
-    Traite une extension en la coupant avec les lignes de référence et en gardant le segment le plus proche.
+    # ROLE: Traite une extension en la coupant avec les lignes de référence et en gardant le segment le plus proche.
     """
     if extension is None or not check_intersection_with_reference(extension, reference_lines, reference_index):
         return []
@@ -237,7 +247,7 @@ def process_extension(extension, segment_line, is_cut_extension, reference_lines
 ########################################################################
 def process_extend_segment(segment_line, length, is_cut_extension, reference_lines, reference_index):
     """
-    Étend un segment et traite ses extensions.
+    # ROLE: Étend un segment et traite ses extensions.
     """
     extended_line = extend_line(segment_line, length)
     extension_part = extract_extension_part(extended_line, segment_line)
@@ -258,7 +268,7 @@ def process_extend_segment(segment_line, length, is_cut_extension, reference_lin
 ########################################################################
 def apply_extend_line_and_check_intersection(segment_line, length, is_cut_extension, reference_lines, reference_index):
     """
-    Applique l'extension aux segments, gère les intersections et retourne les nouvelles géométries.
+    # ROLE: Applique l'extension aux segments, gère les intersections et retourne les nouvelles géométries.
     """
     if isinstance(segment_line, LineString):
         result_segments = process_extend_segment(segment_line, length, is_cut_extension, reference_lines, reference_index)
@@ -275,6 +285,124 @@ def apply_extend_line_and_check_intersection(segment_line, length, is_cut_extens
             return segment_line
 
     return segment_line  # Si ce n'est ni LineString ni MultiLineString, on retour
+
+###########################################################################################################################################
+# FONCTIONS EXTERNES                                                                                                                      #
+###########################################################################################################################################
+
+########################################################################
+# FONCTION isVectorFileEmpty()                                         #
+########################################################################
+def isVectorFileEmpty(filepath, layer=None):
+    """
+    # ROLE:
+    #   Teste si un fichier vecteur est vide.
+    #
+    # PARAMETERS:
+    #     filepath (str): fichier vecteur à tester.
+    #     layer (str): nom de la couche.
+    # RETURNS:
+    #     None
+    """
+    try:
+        gdf = gpd.read_file(filepath, layer=layer) if layer else gpd.read_file(filepath)
+
+        # Vérifie s'il y a au moins une ligne ET que la géométrie n'est pas nulle
+        print()
+        return gdf.empty or gdf['geometry'].isna().all()
+    except Exception as e:
+        print(cyan + "isVectorFileEmpty() : " + bold + yellow + f"Erreur lors de la lecture du fichier : {e}" + endC)
+        return True  # On considère qu’il est vide si on ne peut pas le lire
+
+########################################################################
+# FUNCTION explodeMultiGdf()                                           #
+########################################################################
+def explodeMultiGdf(gdf, field_fid):
+    """
+    # ROLE:
+    #     Transforme des géométries multiple en géométries simple.
+    #
+    # PARAMETERS:
+    #     gdf : descripteur sur les multi géométries à transormer.
+    #     field_fid :  nom du champs contenat l'id.
+    # RETURNS:
+    #     une GeoDataFrame sur les géométries transormés
+    """
+
+    new_geometries = []
+    new_data = []  # List to store data from input DataFrame
+
+    index = 0
+    for _, row in gdf.iterrows():
+        geometry = row['geometry']
+          # Dictionary to store data from the input row
+
+        if geometry.geom_type == 'Polygon' or geometry.geom_type == 'LineString':
+            new_geometries.append(geometry)
+            row[field_fid] = index
+            data = {}
+            data.update(row.drop('geometry'))  # Add non-geometry fields to data
+            new_data.append(data)
+            index += 1
+        elif geometry.geom_type == 'MultiPolygon' or geometry.geom_type == 'MultiLineString':
+            for poly in geometry.geoms:
+                new_geometries.append(poly)
+                new_row = row.copy()
+                new_row[field_fid] = index
+                data = {}
+                data.update(new_row.drop('geometry'))  # Add non-geometry fields to data
+                new_data.append(data)
+                index += 1
+
+    # Create a GeoDataFrame from new_data and new_geometries
+    return gpd.GeoDataFrame(new_data, geometry=new_geometries, crs=gdf.crs)
+
+########################################################################
+# FONCTION getContainmentIndex()                                       #
+########################################################################
+def getContainmentIndex(gdf):
+    """
+    # ROLE:
+    #     Définie les polygones intérieurs.
+    #
+    # PARAMETERS:
+    #     gdf : descripteur sur les géométries à modifiées.
+    # RETURNS:
+    #     une GeoDataFrame sur les géométries transormés
+    """
+
+    gdf = gdf.copy()
+    gdf['contain_idx'] = gdf.index  # Par défaut, chaque polygone s'appartient à lui-même
+
+    spatial_index = gdf.sindex
+
+    for idx_inner, inner_row in gdf.iterrows():
+        inner_geom = inner_row.geometry
+        buffered_inner_geom = inner_geom.buffer(0.001)
+
+        # Récupération robuste de tous les sommets extérieurs du polygone ou multipolygone
+        inner_coords = []
+        if isinstance(inner_geom, Polygon):
+            inner_coords.extend(list(inner_geom.exterior.coords))
+        elif isinstance(inner_geom, MultiPolygon):
+            for part in inner_geom.geoms:
+                inner_coords.extend(list(part.exterior.coords))
+        else:
+            continue  # On ignore les géométries non prises en charge
+
+        # Recherche des polygones potentiellement contenant
+        possible_matches_index = list(spatial_index.intersection(buffered_inner_geom.bounds))
+
+        for idx in possible_matches_index:
+            if idx != idx_inner:
+                polygon = gdf.loc[idx, 'geometry']
+
+                # Vérification : tous les points du polygone sont-ils couverts ?
+                if all(polygon.covers(Point(x, y)) for x, y in inner_coords):
+                    gdf.at[idx_inner, 'contain_idx'] = idx
+                    break
+
+    return gdf
 
 ########################################################################
 # FONCTION extendLines()                                               #
@@ -333,7 +461,9 @@ def extendLines(vector_input, vector_output, vector_ref_input="", extension_leng
         for geom in gdf_lines['geometry'])
 
     # Sauvegarder le résultat
-    gdf_lines.to_file(vector_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_lines.to_file(vector_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_lines = gdf_lines.set_crs(epsg=epsg, inplace=False)
+    gdf_lines.to_file(vector_output, driver=format_vector)
 
     if debug >=2:
         print(cyan + "extendLines() : " + bold + green + "Fin du traitement d'extension des lignes, résultat : " + endC + vector_output )
@@ -341,43 +471,39 @@ def extendLines(vector_input, vector_output, vector_ref_input="", extension_leng
         timeLine("", ending_event)
     return
 
-########################################################################
-# FONCTION cutShapefileByExtent()                                      #
-########################################################################
-def cutShapefileByExtent(emprise_vector, vector_input, vector_output, epsg=2154, format_vector='ESRI Shapefile'):
+###########################################################################################################################################
+# FUNCTION removeRing()                                                                                                                   #
+###########################################################################################################################################
+def removeRing(geometry, area_threshold=500):
     """
     # ROLE:
-    #     Cut a shapefile by the extent of another shapefile and save the result.
+    #     Fonction pour supprimer les anneaux (rings) d'une géométrie.
+    #     Supprime les anneaux internes d'une géométrie si leur surface est inférieure à area_threshold.
     #
     # PARAMETERS:
-    #     emprise_vector (str): the vector file used for cutting.
-    #     vector_input (str): the input vector file  to be cut.
-    #     vector_output (str): the output vector file  containing the clipped features.
-    #     epsg (int): EPSG code of the desired projection (default is 2154).
-    #     format_vector (str): Format for the output vector file (default is 'ESRI Shapefile').
-    #
+    #     geometry : géometry polygone d'entrée.
+    #     area_threshold (float): La surface maximale sous laquelle un anneau est supprimé.
     # RETURNS:
-    #     None
-    #
-    # EXAMPLE:
-    #     cut_shapefile_by_extent('input.shp', 'extent.shp', 'output.shp', 2154)
-    #
+    #     La géométrie nettoyée sans ring (anneaux)
     """
+    if geometry.geom_type == 'Polygon':
+        # Filtrer les anneaux internes (interiors) selon la surface
+        new_interiors = [
+            ring for ring in geometry.interiors
+            if Polygon(ring).area >= area_threshold
+        ]
+        return Polygon(geometry.exterior, new_interiors)
 
-    crs = "EPSG:" + str(epsg)
-    input_gdf = gpd.read_file(vector_input)
-    extent_gdf = gpd.read_file(emprise_vector).to_crs(crs)
-    extent_gdf = extent_gdf.drop(columns=extent_gdf.columns.difference(['geometry']))
+    elif geometry.geom_type == 'MultiPolygon':
+        cleaned_polygons = [
+            removeRing(poly, area_threshold) for poly in geometry.geoms
+        ]
+        return MultiPolygon(cleaned_polygons)
 
-    # Corriger les géométries invalides
-    input_gdf['geometry'] = input_gdf['geometry'].apply(lambda geom: geom.buffer(0) if not geom.is_valid else geom)
+    else:
+        # Ne rien faire si la géométrie n'est pas un polygone
+        return geometry
 
-    # Clip the input shapefile by the extent shapefile
-    clipped_gdf = gpd.overlay(input_gdf, extent_gdf, how='intersection', keep_geom_type=True)
-
-    # Save the clipped shapefile to the output file
-    clipped_gdf.to_file(vector_output, crs=crs, driver=format_vector)
-    return
 
 ########################################################################
 # FUNCTION removeOverlaps()                                            #
@@ -442,10 +568,151 @@ def removeOverlaps(vector_input, vector_output, area_column='area', epsg=2154, f
     gdf_cleaned = gpd.GeoDataFrame(geometry=new_geometries, crs=input_gdf.crs)
 
     # Sauvegarde en fichier vecteur
-    gdf_cleaned.to_file(vector_output, crs=crs, driver=format_vector)
+    #gdf_cleaned.to_file(vector_output, crs=crs, driver=format_vector)
+    gdf_cleaned = gdf_cleaned.set_crs(epsg=epsg, inplace=False)
+    gdf_cleaned.to_file(vector_output, driver=format_vector)
 
     if debug >= 2:
         print(cyan + "removeOverlaps() : " + endC + "Fin des traitements suppression des superpositions des polygones nouveau fichier : " + vector_output)
+    return
+
+########################################################################
+# FONCTION removeInteriorPolygons()                                    #
+########################################################################
+def removeInteriorPolygons(vector_input, vector_output, epsg=2154, format_vector='ESRI Shapefile'):
+
+    """
+    # ROLE:
+    #   Suppression des polygonnes entierement contenus dans un autres polygones.
+    #
+    # PARAMETERS:
+    #     vector_input (str): fichier vecteur d'entrée contenant des polygones qui se superpossent.
+    #     vector_output (str): fichier vecteur de sortie nettoyés des polygones interieurs.
+    #     epsg : EPSG code de projection
+    #     format_vector (str): Format for the output vector file (default is 'ESRI Shapefile').
+    # RETURNS:
+    #     None
+    """
+    def merge_by_containment_index(gdf):
+        """
+        Fusionne les polygones contenus
+        """
+        return gdf.dissolve(by='contain_idx', as_index=False)
+
+    if debug >=2:
+        print(cyan + "removeInteriorPolygons() : " + bold + green + "Supression des polyones interieurs du fichier vecteur : " + endC + vector_input)
+        starting_event = "removeInteriorPolygons() : starting : "
+        timeLine("", starting_event)
+
+    # Chargement
+    gdf = gpd.read_file(vector_input)
+
+    # Étape 1 : marquage des inclusions
+    gdf_marked = getContainmentIndex(gdf)
+
+    # Étape 2 : fusion par index
+    gdf_merged = merge_by_containment_index(gdf_marked)
+
+    # Export final
+    del gdf_merged['contain_idx']
+    #gdf_merged.to_file(vector_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_merged = gdf_merged.set_crs(epsg=epsg, inplace=False)
+    gdf_merged.to_file(vector_output, driver=format_vector)
+
+    if debug >=2:
+        print(cyan + "removeInteriorPolygons() : " + bold + green + "Fin du traitement supression des polyones interieurs, résultat : " + endC + vector_output )
+        ending_event = "removeInteriorPolygons() : Ending : "
+        timeLine("", ending_event)
+
+    return
+
+########################################################################
+# FUNCTION bufferPolylinesToPolygons()                                 #
+########################################################################
+def bufferPolylinesToPolygons(gdf, buffer_distance, field_buff, factor_buff, resolution=1, cap_style=2):
+    """
+    # ROLE:
+    #     Convertie des polylignes en polygones avec une valeur de buffer contenu dans un champs ou avec une valeur fixe.
+    #
+    # PARAMETERS:
+    #     gdf : descripteur vers les polylignes.
+    #     buffer_distance : la valeur du buffer fixe None si field_buff != ""
+    #     field_buff : le nom du champs contenant la valeur du buffer pour chaque troncon.
+    #     factor_buff : le facteur à appliquer à la valeur de buffer
+    #     resolution :
+    #     cap_style :
+    # RETURNS:
+    #     descripteur vers les polygones
+    """
+    # 1. Calcul du buffer distance
+    if buffer_distance is None and field_buff != "" :
+        buffer_distance = gdf[field_buff] * factor_buff
+    elif buffer_distance != 0  :
+        buffer_distance = buffer_distance * factor_buff
+    else :
+        return gdf
+
+    # 2. Ajouter une colonne temporaire pour la distance
+    gdf = gdf.copy()
+    gdf["__buffer__"] = buffer_distance
+
+    # 3. Fusionner toutes les lignes en un seul MultiLineString propre
+    merged_lines = linemerge(unary_union(gdf.geometry))
+
+    # 4. Calculer un buffer avec la distance moyenne ou max
+    if isinstance(buffer_distance, pd.Series):
+        buffer_distance_global = buffer_distance.mean()  # ou .max()
+    else:
+        buffer_distance_global = buffer_distance
+
+    # 5. Créer le buffer propre
+    buffered_geom = merged_lines.buffer(buffer_distance_global, resolution, cap_style)
+
+    # 6. Retourner un GeoDataFrame unique
+    gdf_polygons = gpd.GeoDataFrame(geometry=[buffered_geom], crs=gdf.crs)
+
+    return gdf_polygons
+
+
+########################################################################
+# FONCTION cutShapefileByExtent()                                      #
+########################################################################
+def cutShapefileByExtent(emprise_vector, vector_input, vector_output, epsg=2154, format_vector='ESRI Shapefile'):
+    """
+    # ROLE:
+    #     Cut a shapefile by the extent of another shapefile and save the result.
+    #
+    # PARAMETERS:
+    #     emprise_vector (str): the vector file used for cutting.
+    #     vector_input (str): the input vector file  to be cut.
+    #     vector_output (str): the output vector file  containing the clipped features.
+    #     epsg (int): EPSG code of the desired projection (default is 2154).
+    #     format_vector (str): Format for the output vector file (default is 'ESRI Shapefile').
+    #
+    # RETURNS:
+    #     None
+    #
+    # EXAMPLE:
+    #     cut_shapefile_by_extent('input.shp', 'extent.shp', 'output.shp', 2154)
+    #
+    """
+
+    crs = "EPSG:" + str(epsg)
+    input_gdf = gpd.read_file(vector_input)
+    extent_gdf = gpd.read_file(emprise_vector).to_crs(crs)
+    extent_gdf = extent_gdf.drop(columns=extent_gdf.columns.difference(['geometry']))
+
+    # Corriger les géométries invalides
+    input_gdf['geometry'] = input_gdf['geometry'].apply(lambda geom: geom.buffer(0) if not geom.is_valid else geom)
+
+    # Clip the input shapefile by the extent shapefile
+    clipped_gdf = gpd.overlay(input_gdf, extent_gdf, how='intersection', keep_geom_type=True)
+
+    # Save the clipped shapefile to the output file
+    #clipped_gdf.to_file(vector_output, crs=crs, driver=format_vector)
+    clipped_gdf = clipped_gdf.set_crs(epsg=epsg, inplace=False)
+    clipped_gdf.to_file(vector_output, driver=format_vector)
+
     return
 
 ########################################################################
@@ -516,7 +783,10 @@ def cutPolygonesByLines(vector_lines_input, vector_poly_input, vector_poly_outpu
 
     # Sauvegarde vecteur polygones découpé
     vector_seg_diff_explode_tmp = os.path.splitext(vector_poly_output)[0] + SUFFIX_DIFF + os.path.splitext(vector_poly_output)[1]
-    gdf_seg_diff_explode_clean.to_file(vector_seg_diff_explode_tmp, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_seg_diff_explode_clean.to_file(vector_seg_diff_explode_tmp, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_diff_explode_clean = gdf_seg_diff_explode_clean.set_crs(epsg=epsg, inplace=False)
+    gdf_seg_diff_explode_clean.to_file(vector_seg_diff_explode_tmp, driver=format_vector)
+
     deleteFieldsVector(vector_seg_diff_explode_tmp, vector_poly_output, ['level_0', 'level_1'], format_vector)
     if os.path.isfile(vector_seg_diff_explode_tmp):
         removeVectorFile(vector_seg_diff_explode_tmp, format_vector)
@@ -528,236 +798,3 @@ def cutPolygonesByLines(vector_lines_input, vector_poly_input, vector_poly_outpu
     timeLine(path_time_log,ending_event)
 
     return
-
-########################################################################
-# FONCTION removeInteriorPolygons()                                    #
-########################################################################
-def getContainmentIndex(gdf):
-    """
-    Définie les polygones intérieurs
-    """
-    gdf = gdf.copy()
-    gdf['contain_idx'] = gdf.index  # Par défaut, chaque polygone s'appartient à lui-même
-
-    spatial_index = gdf.sindex
-
-    for idx_inner, inner_row in gdf.iterrows():
-        inner_geom = inner_row.geometry
-        buffered_inner_geom = inner_geom.buffer(0.001)
-
-        # Récupération robuste de tous les sommets extérieurs du polygone ou multipolygone
-        inner_coords = []
-        if isinstance(inner_geom, Polygon):
-            inner_coords.extend(list(inner_geom.exterior.coords))
-        elif isinstance(inner_geom, MultiPolygon):
-            for part in inner_geom.geoms:
-                inner_coords.extend(list(part.exterior.coords))
-        else:
-            continue  # On ignore les géométries non prises en charge
-
-        # Recherche des polygones potentiellement contenant
-        possible_matches_index = list(spatial_index.intersection(buffered_inner_geom.bounds))
-
-        for idx in possible_matches_index:
-            if idx != idx_inner:
-                polygon = gdf.loc[idx, 'geometry']
-
-                # Vérification : tous les points du polygone sont-ils couverts ?
-                if all(polygon.covers(Point(x, y)) for x, y in inner_coords):
-                    gdf.at[idx_inner, 'contain_idx'] = idx
-                    break
-
-    return gdf
-
-def removeInteriorPolygons(vector_input, vector_output, epsg=2154, format_vector='ESRI Shapefile'):
-
-    """
-    # ROLE:
-    #   Suppression des polygonnes entierement contenus dans un autres polygones.
-    #
-    # PARAMETERS:
-    #     vector_input (str): fichier vecteur d'entrée contenant des polygones qui se superpossent.
-    #     vector_output (str): fichier vecteur de sortie nettoyés des polygones interieurs.
-    #     epsg : EPSG code de projection
-    #     format_vector (str): Format for the output vector file (default is 'ESRI Shapefile').
-    # RETURNS:
-    #     None
-    """
-    def merge_by_containment_index(gdf):
-        """
-        Fusionne les polygones contenus
-        """
-        return gdf.dissolve(by='contain_idx', as_index=False)
-
-    if debug >=2:
-        print(cyan + "removeInteriorPolygons() : " + bold + green + "Supression des polyones interieurs du fichier vecteur : " + endC + vector_input)
-        starting_event = "removeInteriorPolygons() : starting : "
-        timeLine("", starting_event)
-
-    # Chargement
-    gdf = gpd.read_file(vector_input)
-
-    # Étape 1 : marquage des inclusions
-    gdf_marked = getContainmentIndex(gdf)
-
-    # Étape 2 : fusion par index
-    gdf_merged = merge_by_containment_index(gdf_marked)
-
-    # Export final
-    del gdf_merged['contain_idx']
-    gdf_merged.to_file(vector_output, driver=format_vector, crs="EPSG:" + str(epsg))
-
-    if debug >=2:
-        print(cyan + "removeInteriorPolygons() : " + bold + green + "Fin du traitement supression des polyones interieurs, résultat : " + endC + vector_output )
-        ending_event = "removeInteriorPolygons() : Ending : "
-        timeLine("", ending_event)
-
-    return
-
-########################################################################
-# FONCTION is_vector_file_empty()                                      #
-########################################################################
-def is_vector_file_empty(filepath, layer=None):
-    """
-    # ROLE:
-    #   Teste si un fichier vecteur est vide.
-    #
-    # PARAMETERS:
-    #     filepath (str): fichier vecteur à tester.
-    #     layer (str): nom de la couche.
-    # RETURNS:
-    #     None
-    """
-    try:
-        gdf = gpd.read_file(filepath, layer=layer) if layer else gpd.read_file(filepath)
-
-        # Vérifie s'il y a au moins une ligne ET que la géométrie n'est pas nulle
-        print()
-        return gdf.empty or gdf['geometry'].isna().all()
-    except Exception as e:
-        print(cyan + "is_vector_file_empty() : " + bold + yellow + f"Erreur lors de la lecture du fichier : {e}" + endC)
-        return True  # On considère qu’il est vide si on ne peut pas le lire
-
-
-########################################################################
-# FUNCTION bufferPolylinesToPolygons()                                 #
-########################################################################
-def bufferPolylinesToPolygons(gdf, buffer_distance, field_buff, factor_buff, resolution=1, cap_style=2):
-    """
-    # ROLE:
-    #     Convertie des polylignes en polygones avec une valeur de buffer contenu dans un champs ou avec une valeur fixe.
-    #
-    # PARAMETERS:
-    #     gdf : descripteur vers les polylignes.
-    #     buffer_distance : la valeur du buffer fixe None si field_buff != ""
-    #     field_buff : le nom du champs contenant la valeur du buffer pour chaque troncon.
-    #     factor_buff : le facteur à appliquer à la valeur de buffer
-    #     resolution :
-    #     cap_style :
-    # RETURNS:
-    #     descripteur vers les polygones
-    """
-    # 1. Calcul du buffer distance
-    if buffer_distance is None and field_buff != "" :
-        buffer_distance = gdf[field_buff] * factor_buff
-    elif buffer_distance != 0  :
-        buffer_distance = buffer_distance * factor_buff
-    else :
-        return gdf
-
-    # 2. Ajouter une colonne temporaire pour la distance
-    gdf = gdf.copy()
-    gdf["__buffer__"] = buffer_distance
-
-    # 3. Fusionner toutes les lignes en un seul MultiLineString propre
-    merged_lines = linemerge(unary_union(gdf.geometry))
-
-    # 4. Calculer un buffer avec la distance moyenne ou max
-    if isinstance(buffer_distance, pd.Series):
-        buffer_distance_global = buffer_distance.mean()  # ou .max()
-    else:
-        buffer_distance_global = buffer_distance
-
-    # 5. Créer le buffer propre
-    buffered_geom = merged_lines.buffer(buffer_distance_global, resolution, cap_style)
-
-    # 6. Retourner un GeoDataFrame unique
-    gdf_polygons = gpd.GeoDataFrame(geometry=[buffered_geom], crs=gdf.crs)
-
-    return gdf_polygons
-
-########################################################################
-# FUNCTION explodeMultiGdf()                                           #
-########################################################################
-def explodeMultiGdf(gdf, field_fid):
-    """
-    # ROLE:
-    #     Transforme des géométries multiple en géométries simple.
-    #
-    # PARAMETERS:
-    #     gdf : descripteur sur les multi géométries à transormer.
-    #     field_fid :  nom du champs contenat l'id.
-    # RETURNS:
-    #     une GeoDataFrame sur les géométries transormés
-    """
-
-    new_geometries = []
-    new_data = []  # List to store data from input DataFrame
-
-    index = 0
-    for _, row in gdf.iterrows():
-        geometry = row['geometry']
-          # Dictionary to store data from the input row
-
-        if geometry.geom_type == 'Polygon' or geometry.geom_type == 'LineString':
-            new_geometries.append(geometry)
-            row[field_fid] = index
-            data = {}
-            data.update(row.drop('geometry'))  # Add non-geometry fields to data
-            new_data.append(data)
-            index += 1
-        elif geometry.geom_type == 'MultiPolygon' or geometry.geom_type == 'MultiLineString':
-            for poly in geometry.geoms:
-                new_geometries.append(poly)
-                new_row = row.copy()
-                new_row[field_fid] = index
-                data = {}
-                data.update(new_row.drop('geometry'))  # Add non-geometry fields to data
-                new_data.append(data)
-                index += 1
-
-    # Create a GeoDataFrame from new_data and new_geometries
-    return gpd.GeoDataFrame(new_data, geometry=new_geometries, crs=gdf.crs)
-
-###########################################################################################################################################
-# FUNCTION removeRing()                                                                                                                   #
-###########################################################################################################################################
-def removeRing(geometry, area_threshold=500):
-    """
-    # ROLE:
-    #     Fonction pour supprimer les anneaux (rings) d'une géométrie.
-    #     Supprime les anneaux internes d'une géométrie si leur surface est inférieure à area_threshold.
-    #
-    # PARAMETERS:
-    #     geometry : géometry polygone d'entrée.
-    #     area_threshold (float): La surface maximale sous laquelle un anneau est supprimé.
-    # RETURNS:
-    #     La géométrie nettoyée sans ring (anneaux)
-    """
-    if geometry.geom_type == 'Polygon':
-        # Filtrer les anneaux internes (interiors) selon la surface
-        new_interiors = [
-            ring for ring in geometry.interiors
-            if Polygon(ring).area >= area_threshold
-        ]
-        return Polygon(geometry.exterior, new_interiors)
-
-    elif geometry.geom_type == 'MultiPolygon':
-        cleaned_polygons = [
-            removeRing(poly, area_threshold) for poly in geometry.geoms
-        ]
-        return MultiPolygon(cleaned_polygons)
-
-    else:
-        # Ne rien faire si la géométrie n'est pas un polygone
-        return geometry

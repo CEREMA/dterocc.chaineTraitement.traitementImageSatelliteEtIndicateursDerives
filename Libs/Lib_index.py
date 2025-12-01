@@ -1408,7 +1408,7 @@ def createSCoWI(image_input, image_SCoWI_output, channel_order, codage="float"):
     #   paramètres :
     #       image_input : fichier image d'entrée multi bandes
     #       image_SCoWI_output : fichier SCoWI de sortie (une bande)
-    #       channel_order : liste d'ordre des bandes de l'image (exemple ["Green","Blue","MIR","SWIR1","SWIR2"])
+    #       channel_order : liste d'ordre des bandes de l'image (exemple ["Green","Blue","NIR","SWIR1","SWIR2"])
     #       codage : type de codage du fichier de sortie
     #   Source : 30_Stages_Encours/2025/2025_Teledec_Hugo/03_TRAIT_DE_COTE/Intership_report-2023-CNES-MEUNIERLaurine.pdf
     """
@@ -1427,17 +1427,17 @@ def createSCoWI(image_input, image_SCoWI_output, channel_order, codage="float"):
     if "Blue" in channel_order:
         num_channel = channel_order.index("Blue")+1
         Blue = "im1b"+str(num_channel)
-    if "MIR" in channel_order:
-        num_channel = channel_order.index("MIR")+1
-        MIR = "im1b"+str(num_channel)
+    if "NIR" in channel_order:
+        num_channel = channel_order.index("NIR")+1
+        NIR = "im1b"+str(num_channel)
     if "SWIR1" in channel_order:
         num_channel = channel_order.index("SWIR1")+1
         SWIR1 = "im1b"+str(num_channel)
     if "SWIR2" in channel_order:
         num_channel = channel_order.index("SWIR2")+1
         SWIR2 = "im1b"+str(num_channel)
-    if (Green == "" or Blue == "" or MIR == ""):
-        raise NameError(cyan + "createSCoWI() : " + bold + red + "SCoWI needs Green, Blue and MIR and (SWIR1 and SWIR2 from Sentinel2) channels to be computed"+ endC)
+    if (Green == "" or Blue == "" or NIR == ""):
+        raise NameError(cyan + "createSCoWI() : " + bold + red + "SCoWI needs Green, Blue and NIR and (SWIR1 and SWIR2 from Sentinel2) channels to be computed"+ endC)
 
     # Creer l'expression
     if (SWIR1 == "" or SWIR2 == ""):
