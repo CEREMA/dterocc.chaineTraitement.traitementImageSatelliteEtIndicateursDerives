@@ -12,7 +12,7 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displ
 from Lib_vector import getEmpriseVector
 from Lib_postgis import executeQuery, openConnection, closeConnection, createDatabase, dropDatabase, importVectorByOgr2ogr, exportVectorByOgr2ogr
 from Lib_file import removeVectorFile
-from Lib_grass import initializeGrass, connectionGrass, cleanGrass, splitGrass
+from Lib_grass import initializeGrass, cleanGrass, splitGrass
 
 # debug = 1 : affichage requêtes SQL principales + avancement boucles
 # debug = 2 : affichage 1 + requêtes SQL de tables temp dans les boucles

@@ -87,6 +87,8 @@ def classificationLczSql(input_division, input_hre, input_ocs, output_lcz, id_fi
         print(cyan + "    classificationLczSql() : " + endC + "overwrite : " + str(overwrite) + endC + '\n')
 
     # Définition des constantes
+    LCZ_BUILT_LIMIT = 10
+    LOW_OCS_LIMIT = 50
     SUFFIX_TEMP = '_temp'
 
     # Mise à jour du log
@@ -139,9 +141,9 @@ def classificationLczSql(input_division, input_hre, input_ocs, output_lcz, id_fi
 
     query += "ALTER TABLE %s ADD COLUMN %s VARCHAR(8);\n" % (lcz_table, lcz_field)
     query += "ALTER TABLE %s ADD COLUMN %s SMALLINT;\n" % (lcz_table, lcz_int_field)
-    query += "UPDATE %s SET %s = 'urban' WHERE bur > 10;\n" % (lcz_table, lcz_field)
-    query += "UPDATE %s SET %s = 'natural' WHERE bur <= 10;\n" % (lcz_table, lcz_field)
-    query += "UPDATE %s SET %s = 'low_ocs' WHERE %s = 'natural' AND (bur + ror + bsr + war + ver) <= 60;\n" % (lcz_table, lcz_field, lcz_field)
+    query += "UPDATE %s SET %s = 'urban' WHERE bur > %s;\n" % (lcz_table, lcz_field, LCZ_BUILT_LIMIT)
+    query += "UPDATE %s SET %s = 'natural' WHERE bur <= %s;\n" % (lcz_table, lcz_field, LCZ_BUILT_LIMIT)
+    query += "UPDATE %s SET %s = 'low_ocs' WHERE %s = 'natural' AND (bur + ror + bsr + war + ver) <= %s;\n" % (lcz_table, lcz_field, lcz_field, LOW_OCS_LIMIT)
 
     query += "UPDATE %s SET %s = '7', %s = 7 WHERE %s = 'urban' AND (bur > 60) AND (bsr > (ror + war + ver));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
     query += "UPDATE %s SET %s = '8', %s = 8 WHERE %s = 'urban' AND (hre <= 21) AND ((bur + ror) > 40) AND (are > 700);\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
@@ -161,7 +163,6 @@ def classificationLczSql(input_division, input_hre, input_ocs, output_lcz, id_fi
     query += "UPDATE %s SET %s = 'F', %s = 16 WHERE %s = 'natural' AND ((bsr >= ror) AND (bsr >= war) AND (bsr >= ver));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
     query += "UPDATE %s SET %s = 'G', %s = 17 WHERE %s = 'natural' AND ((war >= ror) AND (war >= bsr) AND (war >= ver));\n" % (lcz_table, lcz_field, lcz_int_field, lcz_field)
 
-    #query += "ALTER TABLE %s ALTER COLUMN %s TYPE INTEGER;\n" % (lcz_table, id_field)
     query += "ALTER TABLE %s ALTER COLUMN hre TYPE NUMERIC(12,2);\n" % lcz_table
     query += "ALTER TABLE %s ALTER COLUMN are TYPE NUMERIC(12,2);\n" % lcz_table
     query += "ALTER TABLE %s ALTER COLUMN bur TYPE NUMERIC(6,2);\n" % lcz_table
