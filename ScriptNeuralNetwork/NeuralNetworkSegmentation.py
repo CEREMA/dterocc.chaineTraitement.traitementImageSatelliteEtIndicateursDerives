@@ -13,12 +13,9 @@
 
 """
 Nom de l'objet : NeuralNetworkSegmentation.py
-Description :
-Objectif : exécute une segmentation via réseaux de neurones sur des images découpées d'une seule image satellite en se basant sur un réseau Encodeur/Decodeur type Unet
-
-Date de creation : 07/04/2025
+Objectif : exécute une segmentation via réseaux de neurones sur des images découpées d'une seule image satellite en se basant sur un réseau Encodeur/Decodeur type ResU-net
 ----------
-Histoire :
+Date de creation : 07/04/2025
 ----------
 Origine : le script originel provient du regroupement de fichier du script NeuralNetworkClassification
 -----------------------------------------------------------------------------------------------------
@@ -27,30 +24,22 @@ Modifications
 ------------------------------------------------------
 """
 
-##### Import propre à l'evaluation de performance #####
-from __future__ import print_function
+##### Import pour le prétraitement #####
 import os
 import numpy as np
 import random
 import math
-import tensorflow as tf
-import keras
+
+import sys
+from datetime import date
+import time
+import copy
+import shutil
 
 import geopandas as gpd
 import concurrent.futures
 import pandas as pd
 import fiona
-
-##### Import propre à Unet et ResUnet #####
-from keras import ops
-from keras.models import *
-from keras.layers import *
-from keras.optimizers import *
-from keras.losses import SparseCategoricalCrossentropy, CategoricalFocalCrossentropy, CategoricalCrossentropy, Dice
-from keras import backend as k_backend #WARNING
-from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger, TensorBoard
-from keras.saving import register_keras_serializable
-from keras.layers import Dropout
 
 import glob,string,shutil,time,argparse, threading
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displayIHM
@@ -61,12 +50,23 @@ from QualityIndicatorComputation import computeConfusionMatrix
 from Lib_raster import createVectorMask, getNodataValueImage, getGeometryImage, getProjectionImage, updateReferenceProjection, cutImageByVector, getPixelWidthXYImage, countPixelsOfValue, cutImageByGrid
 from Lib_text import appendTextFileCR
 
-#### Import propre au finetunning ####
+##### Import pour le modèle #####
+import tensorflow as tf
+import keras
+from keras import ops
+from keras.models import *
+from keras.layers import *
+from keras.optimizers import *
+from keras.losses import *
+from keras import backend as k_backend #WARNING
+from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger, TensorBoard
+from keras.saving import register_keras_serializable
+
+#### Import pour la recherche paramétrique ####
 import optuna
 
 ##### Import propre à Data Generator #####
-
-from skimage import img_as_float
+from skimage import img_as_float32
 from tifffile import imread
 import cv2
 import tempfile
@@ -77,22 +77,15 @@ from osgeo.gdalconst import *
 from skimage import img_as_ubyte
 from tqdm import tqdm
 
-##### Import propre au Main #####
-import sys
-from datetime import date
-import time
-import copy
-import shutil
-
 # Fixe des seed pour la reproductibilite
 seed = 42
 os.environ['PYTHONHASHSEED']=str(seed)
 os.environ['KERAS_BACKEND'] = 'tensorflow'
-os.environ['TF_CCP_MIN_LOG_LEVEL'] = '2'
 keras.utils.set_random_seed(seed)
 np.random.seed(seed)
 random.seed(seed)
-
+# os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # Gestion de la memoire gpu
 from keras import mixed_precision
 mixed_precision.set_global_policy('mixed_float16')
@@ -102,15 +95,14 @@ mixed_precision.set_global_policy('mixed_float16')
 # debug = 2 : affichage supérieur de commentaires lors de l'execution du script etc...
 debug = 3
 
-
 ###########################################################################################################################################
 # STRUCTURE StructNnParameter                                                                                                             #
 ###########################################################################################################################################
 
 class StructNnParameter:
     """
-    #   Structure contenant les hyperparmètres du réseau
-    #   A noter que es = earlystopping et rl = reduce_lr
+    Structure contenant les paramètres du réseau.
+    es = earlystopping et rl = reduce_lr
     """
     def __init__(self):
         self.batch = 0
@@ -127,7 +119,6 @@ class StructNnParameter:
         self.rl_min_lr = 0
         self.rl_verbose = 0
         self.dp_rate = 0
-        self.l2_reg = 0
         self.alpha_loss = 0.5
 
 ###########################################################################################################################################
@@ -137,8 +128,18 @@ class StructNnParameter:
 ###########################################################################################################################################
 
 class DataGenerator(keras.utils.Sequence):
-    """
-    # Génération des données pour les mettre en entrée du réseau de neurones.
+    """ Génération des batches de données pour les mettre en entrée du réseau de neurones.
+    Args:
+        batch_size (int): Taille des batches de données.
+        tiles_paths (List[str]): Chemins vers les imagettes.
+        mask_paths (List[str]): Chemins vers les fichiers de masques correspondants.
+        augmentation (bool): Si True, applique l'augmentation aux données d'entrainement.
+        aug_factor (int) : Nombre d'imagettes modifiées générées par imagettes + l'originale.
+        n_classes (int): Nombre de classes.
+        data_type (str): Type de données ('train', 'valid', 'test').
+        shuffle (bool, optional): Si True, mélange les données à chaque époque.
+            Defaults to False.
+        **kwargs: Arguments supplémentaires passés à la classe parent.
     """
     def __init__(self, batch_size, tiles_paths, mask_paths, augmentation, n_classes, data_type, shuffle = False, **kwargs):
         super().__init__(**kwargs)
@@ -152,37 +153,33 @@ class DataGenerator(keras.utils.Sequence):
         self.data_type = data_type
         self.shuffle = shuffle
 
+        # Initialisation des indices et mélange si nécessaire
         self.indices = np.arange(len(tiles_paths))
         if self.shuffle :
             np.random.shuffle(self.indices)
 
-        # Pour les données de validation, on ne shuffle qu'une seule fois au début pour décorreller spatialement les imagettes
+        # Pour les données de validation, on ne mélange qu'une seule fois au début
             if self.data_type == "valid" :
                 self.shuffle = False
+        return
 
     ###########################################################################################################################################
     # FONCTION on_epoch_end()                                                                                                                 #
     ###########################################################################################################################################
     def on_epoch_end(self):
         """
-        # FOnction appellée a la fin de chaque epoch
+        Fonction appellée à la fin de chaque epoch pour remélanger les batchs des données d'entrainement
         """
         if self.shuffle:
             np.random.shuffle(self.indices)
+        return
 
     ###########################################################################################################################################
     # FONCTION __len__()                                                                                                                      #
     ###########################################################################################################################################
     def __len__(self):
         """
-        # ROLE:
-        #    Redefinition de la fonction __len__ la taille du DataGenerator
-        #
-        # ENTREES DE LA FONCTION :
-        #
-        # SORTIES DE LA FONCTION :
-        #    taille de la liste générée par DataGenerator (ie nb de batch)
-        #
+        Redéfinition de la fonction __len__ . Retourne le nombre de batch par epoch
         """
         if self.augmentation :
             return (len(self.tiles_paths) * self.aug_factor) // self.batch_size + 1
@@ -192,18 +189,14 @@ class DataGenerator(keras.utils.Sequence):
     ###########################################################################################################################################
     # FONCTION __getitem__()                                                                                                                  #
     ###########################################################################################################################################
-    def __getitem__(self, index, shuffle = False):
-        """
-        # ROLE:
-        #    Redefinition de la fonction __getitem__ pour recupérer un lot d'images et de masques stockés à l'indice index
-        #
-        # ENTREES DE LA FONCTION :
-        #    index (int) : indice pour récuperer le lot à l'indice souhaité
-        #
-        # SORTIES DE LA FONCTION :
-        #    images en float32
-        #    masques en uint8
-        #
+    def __getitem__(self, index):
+        """Redéfinition de la fonction __getitem__ pour recupérer un lot d'images et de masques stockés à l'indice index
+        Args:
+            index (int): Taille des batches de données.
+        Returns:
+            Tuple[np.ndarray, Dict[str, np.ndarray]]:
+                - `x` : Tableau contenant le batch d'images
+                - `{'segmentation': y_true, 'gradient_map': y_grad}` : Dictionnaire contenant les masques de vérité terrain et les cartes de gradient initialisées à zéro
         """
         start_idx = index * self.batch_size
 
@@ -221,16 +214,17 @@ class DataGenerator(keras.utils.Sequence):
             batch_tiles_paths = [self.tiles_paths[i] for i in batch_indices]
             batch_mask_paths = [self.mask_paths[i] for i in batch_indices] if self.mask_paths else None
 
-        # Pour le DataGen test, on ne renvoie que les images
+        # Pour test, on ne renvoie que les images
         if self.data_type == 'test':
             images = [self.loadTiffImage(path) for path in batch_tiles_paths]
             return np.asarray(images, dtype=np.float32)
 
-        # Pour les DataGen train et validation, on renvoie les masques et les images
+        # Pour train et valid, on renvoie les masques et les images
         images = []
         masks = []
 
         for i, img_path in enumerate(batch_tiles_paths):
+
             img = self.loadTiffImage(img_path)
             mask = self.loadTiffMask(batch_mask_paths[i], nb_classes = self.n_classes)
 
@@ -238,18 +232,9 @@ class DataGenerator(keras.utils.Sequence):
             images.append(img)
             masks.append(mask)
 
-            # # Temporaire : on compte les imagette sans pixel batiment ou route :
-            # px_nobackground = 0
-            # for i in range(mask.shape[0]):
-                # for j in range(mask.shape[1]) :
-                    # if np.argmax(mask[i,j]) != 0 :
-                        # px_nobackground += 1
-            # if px_nobackground < 1 :
-                    # self.imagette_sans_bati += 1
-
-            # Appliquer l'augmentation si demandée et en mode train
+            # Appliquer l'augmentation si nécessaire
             if self.augmentation and self.data_type == 'train':
-                augmented_pairs = self.generateAugmentations(img, mask, self.aug_factor - 1)
+                augmented_pairs = self.generate_augmentations(img, mask, self.aug_factor - 1)
                 for aug_img, aug_mask in augmented_pairs:
                     images.append(aug_img)
                     masks.append(aug_mask)
@@ -261,115 +246,137 @@ class DataGenerator(keras.utils.Sequence):
 
         x = np.asarray(images, dtype=np.float32)
         y_true = np.asarray(masks, dtype=np.uint8)
-        y_grad = np.zeros_like(y_true, dtype = np.uint8)
+        y_grad = np.zeros((len(masks),256,256,1), dtype=np.float32)
 
         return x, {'segmentation': y_true, 'gradient_map': y_grad}
+
     ###########################################################################################################################################
-    # FONCTION generateAugmentations()                                                                                                        #
+    # FONCTION generate_augmentations()                                                                                                        #
     ###########################################################################################################################################
-    def generateAugmentations_oldMONOCLASSES(self, image, mask, num_variants=2):
+    def generate_augmentations(self, image, mask, num_variants=2):
         """
-        Génère plusieurs versions augmentées d'une même image
+        Génère plusieurs versions augmentées d'une même image.
 
         Args:
-            image: Image d'entrée
-            mask: Masque correspondant
-            num_variants: Nombre de variantes à générer
+            image: Image d'entrée.
+            mask: Masque correspondant.
+            num_variants: Nombre de variantes à générer.
+                Defaults to 2
 
         Returns:
-            Liste de tuples (image_augmentée, masque_augmenté)
+            Liste de tuples (image_augmentée, masque_augmenté).
         """
         augmented_pairs = []
 
-        # Génération des variantes
-        for _ in range(num_variants):
-            img_copy = image.copy()
-            mask_copy = mask.copy()
+        # Cas monoclasse
+        if mask.shape[2] <= 1 :
+            last_transform = None
 
-            transform = random.choices(['flipv', 'fliph', 'rotation', 'channel'], weights = [0.2, 0.2, 0.2, 0.3] , k=1)[0]
+            # Génération des variantes.
+            for _ in range(num_variants):
+                img_copy = image.copy()
+                mask_copy = mask.copy()
+                transforms = ['flipv', 'fliph', 'rotation', 'channel', 'None']
+                weights = [0.2, 0.2, 0.2, 0.3, 0.1]
+                if last_transform is not None: # impossible d'appliquer deux fois de suite la même transformation.
+                    idx = transforms.index(last_transform)
+                    available_transforms = transforms[:idx] + transforms[idx+1:]
+                    available_weights = weights[:idx] + weights[idx+1:]
+                    sum_weights = sum(available_weights)
+                    available_weights = [w / sum_weights for w in available_weights]
+                else :
+                    available_transforms = transforms
+                    available_weights = weights
 
-            if transform == "flipv" :
-                img_copy = np.flipud(img_copy)
-                mask_copy = np.flipud(mask_copy)
+                transform = random.choices(available_transforms, weights = available_weights , k=1)[0]
+                last_transform = transform
 
-            elif transform == "fliph" :
-                img_copy = np.fliplr(img_copy)
-                mask_copy = np.fliplr(mask_copy)
+                if transform == "flipv" :
+                    img_copy = np.flipud(img_copy)
+                    mask_copy = np.flipud(mask_copy)
 
-            elif transform == "rotation" :
-                rotation = random.randint(0, 3)
-                img_copy = np.rot90(img_copy, rotation)
-                mask_copy = np.rot90(mask_copy, rotation)
+                elif transform == "fliph" :
+                    img_copy = np.fliplr(img_copy)
+                    mask_copy = np.fliplr(mask_copy)
 
-            elif transform == "channel":
-                if len(img_copy.shape) > 2 and img_copy.shape[2] > 1:
-                    channel_idx = random.choice([0,1,2]) # On ne modifie que les canaux RGB
-                    factor = random.uniform(0.8, 1.2)
-                    img_copy[:, :, channel_idx] = np.clip(img_copy[:, :, channel_idx] * factor, 0, 1)
+                elif transform == "rotation" :
+                    rotation = random.randint(0, 3)
+                    img_copy = np.rot90(img_copy, rotation)
+                    mask_copy = np.rot90(mask_copy, rotation)
 
-            augmented_pairs.append((img_copy, mask_copy))
-        return augmented_pairs
+                elif transform == "channel":
+                    if len(img_copy.shape) > 2 and img_copy.shape[2] > 1:
+                        channel_idx = random.choice([0,1,2]) # On ne modifie que les canaux RGB
+                        factor = random.uniform(0.8, 1.2)
+                        img_copy[:, :, channel_idx] = np.clip(img_copy[:, :, channel_idx] * factor, 0, 1)
+                elif transform == "None":
+                    pass
+                augmented_pairs.append((img_copy, mask_copy))
 
-    def generateAugmentations(self, image, mask, num_variants=2):
-        """
-        Génère plusieurs versions augmentées d'une même image
 
-        Args:
-            image: Image d'entrée
-            mask: Masque correspondant
-            num_variants: Nombre de variantes à générer
+        # Cas multiclasse, les masques sont oneHot encodés:
+        else :
+            last_transform = None
 
-        Returns:
-            Liste de tuples (image_augmentée, masque_augmenté)
-        """
-        augmented_pairs = []
+            for _ in range(num_variants):
+                img_copy = tf.identity(image).numpy()
+                mask_copy = tf.identity(mask).numpy()
 
-        # Génération des variantes
-        for _ in range(num_variants):
-            img_copy = tf.identity(image).numpy()
-            mask_copy = tf.identity(mask).numpy()
+                transforms = ['flipv', 'fliph', 'rotation', 'channel', 'None']
+                weights = [0.2, 0.2, 0.2, 0.3, 0.1]
 
-            transform = random.choices(['flipv', 'fliph', 'rotation', 'channel'], weights = [0.2, 0.2, 0.2, 0.3] , k=1)[0]
+                if last_transform is not None:
+                    idx = transforms.index(last_transform)
+                    available_transforms = transforms[:idx] + transforms[idx+1:]
+                    available_weights = weights[:idx] + weights[idx+1:]
+                    sum_weights = sum(available_weights)
+                    available_weights = [w / sum_weights for w in available_weights]
+                else :
+                    available_transforms = transforms
+                    available_weights = weights
 
-            if transform == "flipv" :
-                img_copy = np.flipud(img_copy)
-                mask_copy = np.flipud(mask_copy)
+                transform = random.choices(available_transforms, weights = available_weights , k=1)[0]
+                last_transform = transform
 
-            elif transform == "fliph" :
-                img_copy = np.fliplr(img_copy)
-                mask_copy = np.fliplr(mask_copy)
+                if transform == "flipv" :
+                    img_copy = np.flipud(img_copy)
+                    mask_copy = np.flipud(mask_copy)
 
-            elif transform == "rotation" :
-                rotation = random.randint(0, 3)
-                img_copy = np.rot90(img_copy, rotation)
-                mask_copy = np.rot90(mask_copy, rotation)
+                elif transform == "fliph" :
+                    img_copy = np.fliplr(img_copy)
+                    mask_copy = np.fliplr(mask_copy)
 
-            elif transform == "channel":
-                if len(img_copy.shape) > 2 and img_copy.shape[2] > 1:
-                    channel_idx = random.choice([0,1,2]) # On ne modifie que les canaux RGB
-                    factor = random.uniform(0.8, 1.2)
-                    img_copy[:, :, channel_idx] = np.clip(img_copy[:, :, channel_idx] * factor, 0, 1)
+                elif transform == "rotation" :
+                    rotation = random.randint(0, 3)
+                    img_copy = np.rot90(img_copy, rotation)
+                    mask_copy = np.rot90(mask_copy, rotation)
 
-            augmented_pairs.append((img_copy, mask_copy))
+                elif transform == "channel":
+                    if len(img_copy.shape) > 2 and img_copy.shape[2] > 1:
+                        channel_idx = random.choice([0,1,2]) # On ne modifie que les canaux RGB
+                        factor = random.uniform(0.8, 1.2)
+                        img_copy[:, :, channel_idx] = np.clip(img_copy[:, :, channel_idx] * factor, 0, 1)
+                elif transform == "None" :
+                    pass
+
+                augmented_pairs.append((img_copy, mask_copy))
         return augmented_pairs
 
     ###########################################################################################################################################
     # FONCTION loadTiffImage()                                                                                                                #
     ###########################################################################################################################################
     def loadTiffImage(self, image_name):
-        """
-        #ROLE:
-        #   Chargement de l'image et changement de ses dimensions et de son type pour être utilisé en entrée du reseau de neurones.
-        #
-        # ENTREES DE LA FONCTION :
-        #    image_name (string) : chemin du fichier contenant l'image
-        #
-        # SORTIES DE LA FONCTION :
-        #    image redimensionné et convertit en float32
+        """ Charge une image TIFF et la convertie en tableau compatible avec l'entrée d'un réseau de neurone
+        Args:
+            image_name (str) : chemin vers le fichier TIFF à charger
+
+        Returns :
+            float_image (np.ndarray): Image convertie en tableau `float32`.
+
         """
 
         tiff_image = imread(image_name)
-        float_image = img_as_float(tiff_image).astype(np.float32)
+        float_image = img_as_float32(tiff_image)
 
         return float_image
 
@@ -377,27 +384,28 @@ class DataGenerator(keras.utils.Sequence):
     # FONCTION loadTiffMask()                                                                                                                 #
     ###########################################################################################################################################
     def loadTiffMask(self, mask_name, nb_classes = 2):
-        """
-        # ROLE:
-        #    Chargement du masque et changement de ses dimensions et de son type pour être utilisé en entrée du reseau de neurones.
-        #
-        # ENTREES DE LA FONCTION :
-        #    mask_name (string) : chemin du fichier contenant le masque
-        #
-        # SORTIES DE LA FONCTION :
-        #    masque redimensionné et convertit en uint8
-        #
+        """Charge un masque TIFF et le converti en tableau compatible avec l'entrée d'un réseau de neurone.
+        Si `nb_classes` est égal à 1 (cas monoclasse), le masque est mis au format uint8.
+        Si `nb_classes` est > 1 (cas multiclasse), le masque est converti en encodage one-hot.
+
+        Args:
+            mask_name (str): Chemin du fichier TIFF contenant le masque.
+            nb_classes (int, optional): Nombre de classes de segmentation. Par défaut 2.
+
+        Returns:
+            np.ndarray or tf.Tensor:
+                - Si `nb_classes == 1` : Masque de forme (H, W, 1) et type uint8.
+                - Si `nb_classes > 1` : Tensor one-hot encodé de forme (H, W, nb_classes) et type tf.uint8 par défaut.
         """
         if nb_classes == 1 :
             mask = imread(mask_name)
             mask = mask[..., np.newaxis]
             return mask.astype(np.uint8)
 
-        else : # cas multiclasse donc il nous faut des mask one hot
+        else :
             mask = imread(mask_name)
             mask_onehot = tf.one_hot(mask, depth = nb_classes)
             return mask_onehot
-
 
 ###########################################################################################################################################
 #                                                                                                                                         #
@@ -413,66 +421,38 @@ class DataGenerator(keras.utils.Sequence):
 ###########################################################################################################################################
 # FONCTION gradient_map()                                                                                                                    #
 ###########################################################################################################################################
-def gradient_map_full_tf(x):
-    """
-    Utilisation du filtre de Canny pour détecter les contours sur une imagette
-    cf méthodologie sur wikipedia
-
-    ENTREES :
-        x(tensor) : image en entrée du réseau
-
-    """
-    # Etape 1 : Convertir en niveau de gris
-    if x.shape[-1] > 1: # dans les fait on sait que l'image est RGB...
-        # Conversion RGB vers niveau de gris
-        gray = 0.2126 * x[..., 0:1] + 0.7152 * x[..., 1:2] + 0.0722* x[..., 2:3]
-    else:
-        gray = x
-
-    # Filtres de Sobel pour détecter les gradients
-    sobel_x = tf.constant([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=tf.float32) # detecte les bords verticaux
-    sobel_y = tf.constant([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=tf.float32) # detecte les bords horizontaux
-
-    # Reshape pour convolution
-    sobel_x = tf.reshape(sobel_x, [3, 3, 1, 1])
-    sobel_y = tf.reshape(sobel_y, [3, 3, 1, 1])
-
-    # Application des filtres de Sobel
-    grad_x = tf.nn.conv2d(gray, sobel_x, strides=[1, 1, 1, 1], padding='SAME')
-    grad_y = tf.nn.conv2d(gray, sobel_y, strides=[1, 1, 1, 1], padding='SAME')
-
-    # Calcul de la magnitude du gradient
-    gradient_magnitude = tf.sqrt(tf.square(grad_x) + tf.square(grad_y))
-
-    # Normalisation entre 0 et 1
-    gradient_map = tf.nn.sigmoid(gradient_magnitude)
-
-    return gradient_map
 def sqrt_activation(x):
+    """Fonction d'activation personnalisée.
+    Args:
+        x (tf.Tensor): Tenseur en entrée.
+
+    Returns:
+        tf.Tensor: racine carrée avec un facteur 1e-8 pour éviter les racines nulles
+    """
     return tf.sqrt(x + 1e-8)
 
-def gradient_map_block(x):
-    """
-    Version avec couches Keras natives - pas besoin de Lambda !
-    Utilisation du filtre de Canny pour détecter les contours
-    """
-    # Etape 1 : Convertir en niveau de gris avec une couche Conv2D
-    if x.shape[-1] > 1:  # RGB vers niveau de gris
-        # Extraire seulement les 3 premières bandes (R, G, B)
-        rgb_only = x[:, :, :, :3]  # Prendre seulement R, G, B
 
-        # Créer un kernel de conversion RGB -> Grayscale
+def gradient_map_block(x):
+    """Extrait la carte des gradient de l'image d'entrée via un filtre de sobel.
+    Args:
+        x (tf.Tensor): Tenseur d'entrée de forme (batch_size, H, W, C).
+    Returns:
+        tf.Tensor: Carte de gradient normalisée, de forme (batch_size, H, W, 1) et valeurs dans [0, 1].
+    """
+    # Conversion en niveau de gris.
+    if x.shape[-1] > 1:
+        rgb_only = x[:, :, :, :3]
         rgb_to_gray = Conv2D(1, (1, 1), use_bias=False, trainable=False, name='rgb_to_gray')
         rgb_to_gray.build(rgb_only.shape)
-        # Coefficients de luminance standard pour RGB
-        weights = np.array([0.2126, 0.7152, 0.0722]).reshape((1, 1, 3, 1))
+        weights = np.array([0.2125, 0.7154, 0.0721]).reshape((1, 1, 3, 1))
         rgb_to_gray.set_weights([weights])
+
         gray = rgb_to_gray(rgb_only)
     else:
         gray = x
 
-    # Etape 2 : Filtres de Sobel avec Conv2D
-    # Sobel X (détection des bords verticaux)
+    # Filtres de Sobel.
+    # Gradients horizontaux.
     sobel_x_kernel = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
     sobel_x_kernel = sobel_x_kernel.reshape(3, 3, 1, 1)
 
@@ -481,55 +461,93 @@ def gradient_map_block(x):
     sobel_x_layer.set_weights([sobel_x_kernel])
     grad_x = sobel_x_layer(gray)
 
-    # Sobel Y (détection des bords horizontaux)
+    # Gradients verticaux.
     sobel_y_kernel = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32)
     sobel_y_kernel = sobel_y_kernel.reshape(3, 3, 1, 1)
-
     sobel_y_layer = Conv2D(1, (3, 3), padding='same', use_bias=False, trainable=False, name='sobel_y')
     sobel_y_layer.build(gray.shape)
     sobel_y_layer.set_weights([sobel_y_kernel])
     grad_y = sobel_y_layer(gray)
 
-    # Etape 3 : Calcul de la magnitude avec des couches Keras
-    # Carré des gradients
+    # Norme du gradient.
     grad_x_squared = Multiply(name='grad_x_squared')([grad_x, grad_x])
     grad_y_squared = Multiply(name='grad_y_squared')([grad_y, grad_y])
 
-    # Addition des carrés
     grad_sum = Add(name='grad_sum')([grad_x_squared, grad_y_squared])
 
-    # Racine carrée (approximation avec activation ou Lambda si nécessaire)
-    # Option 1 : Utiliser une activation personnalisée
-    gradient_magnitude = Lambda(sqrt_activation, name='sqrt_activation')(grad_sum)
+    gradient_norm = Lambda(sqrt_activation, name='gradient_norm')(grad_sum)
 
-    # Etape 4 : Normalisation avec activation sigmoid
-    gradient_map = Activation('sigmoid', name='gradient_sigmoid')(gradient_magnitude)
+    # Normalisation.
+    gradient_map = Activation('sigmoid', name='gradient_sigmoid')(gradient_norm)
 
     return gradient_map
 
 ###########################################################################################################################################
+# FONCTION cbam_block()                                                                                                                   #
+###########################################################################################################################################
+def cbam_block(x, reduction_ratio=16):
+    """Crée un block d'attention CBAM (Convolutional Block Attention Module).
+    Args:
+        x (tf.Tensor) : tensor d'entrée.
+        reduction_ratio (int) : ratio de réduction pour l'attention par canal.
+
+    Returns:
+        tf.Tensor : tenseur de sortie qui est le tenseur d'entrée multiplié aux cartes d'attention
+    """
+
+    # Attention par canaux (Channel attention)
+    channel_axis = -1
+    channels = x.shape[channel_axis]
+
+    avg_pool = GlobalAveragePooling2D()(x)
+    avg_pool = Reshape((1, 1, channels))(avg_pool)
+    max_pool = GlobalMaxPooling2D()(x)
+    max_pool = Reshape((1, 1, channels))(max_pool)
+
+    dense1 = Dense(channels // reduction_ratio, activation='relu')
+    dense2 = Dense(channels, activation='sigmoid')
+
+    avg_out = dense2(dense1(avg_pool))
+    max_out = dense2(dense1(max_pool))
+
+    channel_attention = Add()([avg_out, max_out])
+    x = Multiply()([x, channel_attention])
+
+    # Attention spatiale (Spatial Attention)
+    avg_pool_spatial = keras.ops.mean(x, axis=-1, keepdims=True)
+    max_pool_spatial = keras.ops.max(x, axis=-1, keepdims=True)
+
+    spatial_input = Concatenate(axis=-1)([avg_pool_spatial, max_pool_spatial])
+
+    spatial_input = keras.ops.pad(spatial_input, [[0, 0], [3, 3], [3, 3], [0, 0]], mode='REFLECT')
+    spatial_attention = Conv2D(1, kernel_size=7, padding='valid', activation='sigmoid')(spatial_input)
+
+    x = Multiply()([x, spatial_attention])
+
+    return x
+
+###########################################################################################################################################
 # FONCTION convBlock()                                                                                                                    #
 ###########################################################################################################################################
-def convBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1, use_regularization = False, l2_reg = 1e-4, use_cbam = False):
-    """
-    # ROLE:
-    #    Création d'un bloc de convolutions comprenant une BatchNormalization, une activation ReLu et une couche de neurones convolutif.
-    #
-    # ENTREES DE LA FONCTION :
-    #    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
-    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-    #    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
-    #    padding (string) : rajoute des 0 au filtre de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
-    #    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
-    #
-    # SORTIES DE LA FONCTION :
-    #    Cela renvoie x transformée après le passage dans les couches du bloc convolutif
-    #
+def convBlock(x, n_filters, kernel_size = 3, strides = 1, use_cbam = False):
+    """ Crée un bloc convolutionnel composé d'une normalisation par batch, d'une activation ReLu, d'un padding miroir et parfois un block d'attention CBAM.
+    Args:
+        x (tf.Tensor): Tenseur d'entrée.
+        n_filters (int): Nombre de filtres (canaux).
+        kernel_size (int): Taille du noyau de convolution.
+            Defaults to 3
+        strides (int): Pas de déplacement du filtre convolutionnel.
+            Défaults to 1
+        use_cbam (bool): Si True, applique un bloc d'attention CBAM après la convolution.
+            Defaults to False.
+
+    Returns:
+        tf.Tensor: Tenseur transformé.
     """
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
-    # Application du padding miroir
+    # Application du padding miroir.
     pad_size = kernel_size // 2
     if kernel_size % 2 == 0:
         pad_size -= 1
@@ -537,8 +555,7 @@ def convBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1, use
         x = keras.ops.pad(x, [[0, 0], [pad_size, pad_size], [pad_size, pad_size], [0, 0]], mode='REFLECT')
 
 
-    regularizer = keras.regularizers.l2(l2_reg) if use_regularization else None
-    x = Conv2D(n_filters, kernel_size, padding='valid', strides=strides, kernel_initializer="he_normal", kernel_regularizer = regularizer)(x)
+    x = Conv2D(n_filters, kernel_size, strides=strides, kernel_initializer="he_normal")(x)
 
     if use_cbam :
         x = cbam_block(x)
@@ -548,21 +565,18 @@ def convBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1, use
 ###########################################################################################################################################
 # FONCTION inputBlock()                                                                                                                   #
 ###########################################################################################################################################
-def inputBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1):
-    """
-    # ROLE:
-    #    Création du premier bloc de convolution en entrée du réseau.
-    #
-    # ENTREES DE LA FONCTION :
-    #    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
-    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-    #    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
-    #    padding (int) : rajoute des 0 à l'image de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
-    #    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
-    #
-    # SORTIES DE LA FONCTION :
-    #    Cela renvoie add qui est un modèle représentant le block d'entrée de l'encodeur.
-    #
+def inputBlock(x, n_filters, kernel_size = 3, strides = 1):
+    """ Crée le premier bloc de convolution en entrée du réseau.
+    Args :
+        x (tf.Tensor) : Soit l'image en entrée du réseau de neurones.
+        n_filters (int) : Nombre de filtres présents pour chaque couche convolutive.
+        kernel_size (int) : Taille des filtres.
+            Defaults to 3.
+        strides (int) : Pas de déplacement du filtre convolutionnel.
+            Defaults to 1.
+
+    Returns:
+        tf.Tensor: Tenseur transformé après passage par les couches du bloc d'entrée.
     """
     # Application du padding miroir
     pad_size = kernel_size // 2
@@ -572,11 +586,11 @@ def inputBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1):
         x = keras.ops.pad(x, [[0, 0], [pad_size, pad_size], [pad_size, pad_size], [0, 0]], mode='REFLECT')
 
 
-    conv = Conv2D(n_filters, kernel_size, padding = 'valid', strides = strides, kernel_initializer="he_normal")(x)
-    conv = convBlock(conv, n_filters, kernel_size, padding, strides, use_regularization = False)
+    conv = Conv2D(n_filters, kernel_size, strides = strides, kernel_initializer="he_normal")(x)
+    conv = convBlock(conv, n_filters, kernel_size,strides)
 
 
-    x_skip = Conv2D(n_filters, kernel_size = 3, padding = 'valid', strides = strides, kernel_initializer="he_normal")(x)
+    x_skip = Conv2D(n_filters, kernel_size = 3, strides = strides, kernel_initializer="he_normal")(x)
     x_skip = BatchNormalization()(x_skip)
 
     add = Add()([conv, x_skip])
@@ -586,26 +600,22 @@ def inputBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1):
 ###########################################################################################################################################
 # FONCTION residualBlock()                                                                                                                #
 ###########################################################################################################################################
-def residualBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1, l2_reg = 1e-4):
-    """
-    # ROLE:
-    #    Création d'un bloc basique dans les réseaux de neurones type ResNet.
-    #
-    # ENTREES DE LA FONCTION :
-    #    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
-    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-    #    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
-    #    padding (int) : rajoute des 0 à l'image de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
-    #    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
-    #
-    # SORTIES DE LA FONCTION :
-    #    Cela renvoie add qui est un modèle représentant un block basique dans les réseaux de neurones type ResNet.
-    #
-    """
-    use_reg = n_filters >= 64
+def residualBlockDown(x, n_filters, kernel_size = 3, strides = 1, ):
+    """ Crée un block résiduel de l'encodeur.
+    Args:
+        x (tf.Tensor): Tenseur d'entrée.
+        n_filters (int): Nombre de filtres pour chaque convolution.
+        kernel_size (int): Taille du noyau convolutionnel.
+            Defaults to 3.
+        strides (int): Pas de déplacement du filtre, utilisé ici pour réduire la taille.
+            Defaults to 1.
 
-    res = convBlock(x, n_filters, kernel_size, padding, strides, use_regularization = use_reg)
-    res = convBlock(res, n_filters, kernel_size, padding, 1, use_regularization = use_reg)
+    Returns:
+        tf.Tensor: Tenseur transformé après addition de la branche principale et de la branche résiduelle.
+    """
+
+    res = convBlock(x, n_filters, kernel_size, strides)
+    res = convBlock(res, n_filters, kernel_size, 1)
 
     # Application du padding miroir
     pad_size = kernel_size // 2
@@ -615,7 +625,7 @@ def residualBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1,
         x = keras.ops.pad(x, [[0, 0], [pad_size, pad_size], [pad_size, pad_size], [0, 0]], mode='REFLECT')
 
 
-    x_skip = Conv2D(n_filters, kernel_size, padding = 'valid', strides = strides, kernel_initializer="he_normal", kernel_regularizer=keras.regularizers.l2(l2_reg))(x)
+    x_skip = Conv2D(n_filters, kernel_size, strides = strides, kernel_initializer="he_normal")(x)
     x_skip = BatchNormalization()(x_skip)
     add = Add()([x_skip, res])
 
@@ -624,43 +634,38 @@ def residualBlock(x, n_filters, kernel_size = 3, padding = 'valid', strides = 1,
 ###########################################################################################################################################
 # FONCTION residualBlockUp()                                                                                                              #
 ###########################################################################################################################################
-def residualBlockUp(x, n_filters,  dropout_rate = 0.5, l2_reg = 1e-4, kernel_size = 3, padding = 'valid', strides = 1):
-    """
-    # ROLE:
-    #    Création d'un bloc basique dans les réseaux de neurones type ResNet avec du dropout.
-    #
-    # ENTREES DE LA FONCTION :
-    #    x (tensor) : soit l'image modifiée en entrée du réseau de neurones soit l'activation de la couche précédente
-    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-    #    kernel_size (int) : taille du filtre, par défaut 3 donc de dimension 3x3
-    #    padding (int) : rajoute des 0 à l'image de telle sorte qu'en sortie de la convolution, l'image conserve sa dimension
-    #    strides (int) : permet de determiner de combien se déplace le filtre après chaque opération
-    #    dropout_rate (float) : taux de dropout
-    #
-    # SORTIES DE LA FONCTION :
-    #    Cela renvoie add qui est un modèle représentant un block basique dans les réseaux de neurones type ResNet.
-    #
-    """
-    use_reg = n_filters >=64
-    res = convBlock(x, n_filters, kernel_size, padding, strides)
+def residualBlockUp(x, n_filters,  dropout_rate = 0.5, kernel_size = 3, strides = 1):
+    """ Crée un block résiduel du decodeur.
+    Args:
+        x (tf.Tensor): Tenseur d'entrée.
+        n_filters (int): Nombre de filtres pour chaque convolution.
+        dropout_rate (float) : Taux de dropout
+            Defaults to 0.5.
+        kernel_size (int): Taille du noyau convolutionnel.
+            Defaults to 3.
+        strides (int): Pas de déplacement du filtre.
+            Defaults to 1.
 
-    # convBlock2 avec dropout
+    Returns:
+        tf.Tensor: Tenseur transformé après addition de la branche principale et de la branche résiduelle.
+    """
+
+    res = convBlock(x, n_filters, kernel_size, strides)
+
+    # Ajout du SpatialDropout dans le deuxième block de convolution.
     res = BatchNormalization()(res)
     res = SpatialDropout2D(dropout_rate)(res)
     res = Activation('relu')(res)
 
-    # Application du padding miroir
     pad_size = kernel_size // 2
     if kernel_size % 2 == 0:
         pad_size -= 1
     if pad_size > 0:
         res = keras.ops.pad(res, [[0, 0], [pad_size, pad_size], [pad_size, pad_size], [0, 0]], mode='REFLECT')
         x = keras.ops.pad(x, [[0, 0], [pad_size, pad_size], [pad_size, pad_size], [0, 0]], mode='REFLECT')
+    res = Conv2D(n_filters, kernel_size, strides=strides, kernel_initializer="he_normal")(res)
 
-    regularizer = keras.regularizers.l2(l2_reg) if use_reg else None
-    res = Conv2D(n_filters, kernel_size, padding='valid', strides=strides, kernel_initializer="he_normal", kernel_regularizer = regularizer)(res)
-
-    x_skip = Conv2D(n_filters, kernel_size, padding = 'valid', strides = strides, kernel_initializer="he_normal", kernel_regularizer= keras.regularizers.l2(l2_reg))(x)
+    x_skip = Conv2D(n_filters, kernel_size, strides = strides, kernel_initializer="he_normal")(x)
     x_skip = BatchNormalization()(x_skip)
 
     add = Add()([x_skip, res])
@@ -668,151 +673,89 @@ def residualBlockUp(x, n_filters,  dropout_rate = 0.5, l2_reg = 1e-4, kernel_siz
     return add
 
 ###########################################################################################################################################
-# FONCTION cbam_block()                                                                                                                   #
-###########################################################################################################################################
-def cbam_block(x, reduction_ratio=16):
-    """
-    # ROLE:
-    #    Implémentation du module CBAM (Convolutional Block Attention Module)
-    #    Combine l'attention par canal et l'attention spatiale
-    VERSION CLAUDE
-    #
-    # ENTREES DE LA FONCTION :
-    #    x (tensor) : tensor d'entrée
-    #    reduction_ratio (int) : ratio de réduction pour l'attention par canal
-    #
-    # SORTIES DE LA FONCTION :
-    #    Tensor avec attention CBAM appliquée
-    #
-    """
-
-    # Channel attention
-    channel_axis = -1
-    channels = x.shape[channel_axis]
-    print(f"CBAM() : nombre de canaux {channels}")
-
-
-    # Global Average Pooling et Global Max Pooling
-    avg_pool = GlobalAveragePooling2D()(x)
-    max_pool = GlobalMaxPooling2D()(x)
-
-    # Reshape pour les couches denses
-    avg_pool = Reshape((1, 1, channels))(avg_pool)
-    max_pool = Reshape((1, 1, channels))(max_pool)
-
-    # MLP partagé pour les deux poolings
-    dense1 = Dense(channels // reduction_ratio, activation='relu')
-    dense2 = Dense(channels, activation='sigmoid')
-
-    avg_out = dense2(dense1(avg_pool))
-    max_out = dense2(dense1(max_pool))
-
-    # Addition et application de l'attention par canal
-    channel_attention = Add()([avg_out, max_out])
-    x = Multiply()([x, channel_attention])
-
-    # Attention spatiale (Spatial Attention)
-    # Average et Max pooling sur la dimension des canaux
-    avg_pool_spatial = keras.ops.mean(x, axis=-1, keepdims=True)
-    max_pool_spatial = keras.ops.max(x, axis=-1, keepdims=True)
-
-    # Concaténation des deux maps
-    spatial_input = Concatenate(axis=-1)([avg_pool_spatial, max_pool_spatial])
-
-    # Convolution 7x7 pour l'attention spatiale avec padding miroir
-    # Application du padding miroir pour kernel 7x7
-    spatial_input = keras.ops.pad(spatial_input, [[0, 0], [3, 3], [3, 3], [0, 0]], mode='REFLECT')
-    spatial_attention = Conv2D(1, kernel_size=7, padding='valid', activation='sigmoid')(spatial_input)
-
-    # Application de l'attention spatiale
-    x = Multiply()([x, spatial_attention])
-
-    return x
-
-###########################################################################################################################################
 # FONCTION resunet()                                                                                                                      #
 ###########################################################################################################################################
-def resunet(input_size, n_filters, dropout_rate, l2_reg, alpha_loss , n_classes, kernel_size, mode, use_cbam = False,use_gradient_map = True):
+def resunet(input_size, n_filters, dropout_rate, alpha_loss, n_classes, kernel_size, mode, use_cbam = True,use_gradient_map = True):
     """
-    # ROLE:
-    #    Création du réseau de neurone type ResUNet basé sur les articles https://arxiv.org/pdf/1711.10684.pdf et https://www.kaggle.com/ekhtiar/lung-segmentation-cropping-resunet-tf-# keras.
-    #
-    # ENTREES DE LA FONCTION :
-    #    input_size (int) : dimension de l'image passée en entrée du réseau
-    #    n_filters (int) : nombre de filtres présents pour chaque couche convolutive
-    #    n_classes (int) : nombre de classes. Utile pour la dernière couche du réseau afin de classer
-    #    mode (string) : "mono" ou "multi" en fonction du nombre de classe que l'on utilise.
-    #    dropout_rate (float) : taux de dropout
-    #
-    # SORTIES DE LA FONCTION :
-    #    Modèle ResUNet
-    #
+    Construit une architecture de type ResU-net avec possibilité d'attention (CBAM) et intégration de cartes de gradients.
+
+    Cette version est inspirée de :
+    - [1] Diakogiannis et al., 2019 (https://arxiv.org/pdf/1904.00592.pdf)
+    - [2] Kaggle kernel ResUNet (https://www.kaggle.com/ekhtiar/lung-segmentation-cropping-resunet-tf)
+
+    Elle est adaptée pour la segmentation binaire ("mono") ou multi-classe ("multi").
+
+    Args:
+        input_size (int or tuple): Dimensions de l'image d'entrée
+        n_filters (int): Nombre de filtres de base (multiplié à chaque bloc de profondeur).
+        dropout_rate (float): Taux de dropout.
+        alpha_loss (float): Paramètre alpha pour pondérer les classes dans la focal Loss.
+        n_classes (int): Nombre de classes.
+        kernel_size (int): Taille des noyaux de convolution.
+        mode (str): "mono" pour segmentation monoclasses ou "multi" pour segmentation multi-classe.
+        use_cbam (bool, optional): Si True, ajoute un bloc CBAM (attention) dans les blocs de convolution.
+            Defaults to True.
+        use_gradient_map (bool, optional): Si True, génère une carte de gradient pour guider le centre du réseau.
+            Defaults to True.
+
+    Returns:
+        keras.Model: Modèle Keras compilé.
     """
 
     inputs = Input(input_size)
     gradient_map= None
+
     # Generation des cartes de contour
     if use_gradient_map:
         gradient_map = gradient_map_block(inputs)
+
     # Encodeur
     block_down = inputBlock(inputs, n_filters, kernel_size)
 
-    res_down1 = residualBlock(block_down, n_filters * 2, kernel_size = kernel_size, strides = 2, l2_reg = l2_reg)
-    res_down2 = residualBlock(res_down1, n_filters * 4, kernel_size = kernel_size, strides = 2, l2_reg = l2_reg)
+    res_down1 = residualBlockDown(block_down, n_filters * 2, kernel_size = kernel_size, strides = 2)
+    res_down2 = residualBlockDown(res_down1, n_filters * 4, kernel_size = kernel_size, strides = 2)
 
-    # Centre
-    middle_block1 = convBlock(res_down2, n_filters * 8, kernel_size = kernel_size, strides = 2, use_regularization = True,l2_reg = l2_reg, use_cbam = use_cbam)
-    middle_block2 = convBlock(middle_block1, n_filters * 8, kernel_size = kernel_size, use_regularization = True, l2_reg = l2_reg, use_cbam = use_cbam)
+    # Espace Latent
+    middle_block1 = convBlock(res_down2, n_filters * 8, kernel_size = kernel_size, strides = 2,  use_cbam = use_cbam)
+    middle_block2 = convBlock(middle_block1, n_filters * 8, kernel_size = kernel_size,  use_cbam = use_cbam)
 
-    # Multiplication de l'espace latent avec la carte des gradients redimensionnée
+    # Attention grace aux cartes de gradient
     if use_gradient_map:
-        # Redimensionner la carte des gradients pour correspondre à l'espace latent
-        # L'espace latent est 8 fois plus petit que l'image d'entrée
-        gradient_map_resized = AveragePooling2D(pool_size=(8, 8), name='gradient_map_resized')(gradient_map)
-
-        # Adapter le nombre de canaux de la carte des gradients à l'espace latent
-        gradient_map_expanded = Conv2D(n_filters * 8, kernel_size=1, activation='sigmoid', name='gradient_map_expanded')(gradient_map_resized)
-
-        # Multiplier l'espace latent par la carte des gradients
-        middle_block2 = Multiply(name='latent_gradient_multiply')([middle_block2, gradient_map_expanded])
-
+        x_resized = AveragePooling2D(pool_size=(2, 2), name='attention_pool_1')(gradient_map)
+        x_resized = AveragePooling2D(pool_size=(2, 2), name='attention_pool_2')(x_resized)
+        gradient_map_resized = AveragePooling2D(pool_size=(2, 2), name='attention_pool_3')(x_resized)
+        middle_block3 = Multiply(name='latent_gradient_multiply')([middle_block2, gradient_map_resized])
 
     # Decodeur
-    up1 = UpSampling2D(size = (2, 2))(middle_block2)
+    up1 = UpSampling2D(size = (2, 2))(middle_block3)
     concat1 = Concatenate()([res_down2, up1])
-    res_up1 = residualBlockUp(concat1, n_filters * 4, dropout_rate, l2_reg, kernel_size)
-
+    res_up1 = residualBlockUp(concat1, n_filters * 4, dropout_rate, kernel_size)
     up2 = UpSampling2D(size = (2, 2))(res_up1)
     concat2 = Concatenate()([res_down1, up2])
-    res_up2 = residualBlockUp(concat2, n_filters * 2, dropout_rate, l2_reg,  kernel_size)
-
+    res_up2 = residualBlockUp(concat2, n_filters * 2, dropout_rate,  kernel_size)
     up3 = UpSampling2D(size = (2, 2))(res_up2)
     concat3 = Concatenate()([block_down, up3])
-    res_up3 = residualBlockUp(concat3, n_filters, dropout_rate, l2_reg,  kernel_size)
+    res_up3 = residualBlockUp(concat3, n_filters, dropout_rate,  kernel_size)
 
-    # Possibilité de mettre d'autres metrics en ajoutant le nom de la fonction dans la liste
+
     metrics = ['accuracy']
 
     # Couche de sortie/de classification
     if mode == "mono":
-        outputs = Conv2D(n_classes, kernel_size = 1, activation='sigmoid', dtype='float32')(res_up3)
-        model = Model(inputs = inputs, outputs = outputs)
-        loss = keras.losses.BinaryFocalCrossentropy(apply_class_balancing=True, alpha=0.75, gamma=2) # alpha = proportion class minoriaire
-        model.compile(optimizer = Adam(learning_rate = 1e-3, clipnorm=1.0), loss = loss, metrics = metrics) # on clip car explosion de gradient
-    else:
-        outputs = Conv2D(n_classes, kernel_size = 1, activation = 'softmax', dtype='float32', name='segmentation')(res_up3)
-        gradient_map = Activation("linear",  name="gradient_map")(gradient_map)
+        outputs = Conv2D(n_classes, kernel_size = 1, activation='sigmoid', dtype='float32', name ='segmentation')(res_up3)
+        gradient_map = Activation("linear",  name='gradient_map')(gradient_map)
         model = Model(inputs = inputs, outputs = [outputs, gradient_map])
+        loss = {'segmentation' : CombinedLoss(n_classes = n_classes, alpha =0.75 ), 'gradient_map': None}
+        model.compile(optimizer = AdamW(learning_rate = 1e-3, clipnorm=1.0), loss = loss, metrics = {'segmentation': metrics})
 
-        # loss = CategoricalCrossentropy()
-        # loss = DiceLossMulti()
-        # loss = CategoricalFocalCrossentropy(alpha = alpha_loss, gamma = 2.0, from_logits = False)
+    else:
+        output = Conv2D(n_classes, kernel_size = 1, activation = 'softmax', dtype='float32', name='segmentation')(res_up3)
+        gradient_map = Activation("linear",  name='gradient_map')(gradient_map)
+
+        model = Model(inputs = inputs, outputs = [output, gradient_map])
         loss = {'segmentation' : CombinedLoss(alpha = alpha_loss), 'gradient_map': None}
-
-        model.compile(optimizer = Adam(learning_rate = 1e-3,clipnorm=1.0), loss = loss, loss_weights = {'segmentation' : 1.0, 'gradient_map': 0.0}, metrics = {'segmentation': metrics})
-
+        model.compile(optimizer = AdamW(learning_rate = 1e-3,clipnorm=1.0), loss = loss, metrics = {'segmentation': metrics})
     return model
-
 
 ###########################################################################################################################################
 # CLASSE DiceLossMulti()   & CombinedLoss()                                                                                               #
@@ -822,7 +765,6 @@ class DiceLossMulti(keras.losses.Loss):
     def __init__(self, smooth=1e-6, reduction='sum_over_batch_size', name='dice_loss', **kwargs):
         super().__init__(reduction = reduction, name = name)
         self.smooth = smooth
-
 
     def call(self, y_true, y_pred):
 
@@ -837,7 +779,6 @@ class DiceLossMulti(keras.losses.Loss):
         # Calcul du coefficient de Dice pour chaque classe
         dice_coeff = (2. * intersection + self.smooth) / (union + self.smooth)
 
-        # Dice Loss = 1 - Dice Coefficient
         dice_loss = 1. - dice_coeff
 
         log_cosh_loss=tf.math.log(tf.math.cosh(dice_loss))
@@ -847,12 +788,15 @@ class DiceLossMulti(keras.losses.Loss):
 
 @register_keras_serializable()
 class CombinedLoss(keras.losses.Loss):
-    def __init__(self, smooth=1e-6, dice_weight = 0.5, focal_weight= 0.5, alpha = 0.5, gamma = 2.0, reduction='sum_over_batch_size', name='combined_loss', **kwargs):
-        super().__init__(reduction = reduction, name = name)
+    def __init__(self, n_classes = 2, smooth=1e-6, dice_weight = 0.5, focal_weight= 0.5, alpha = 0.75, gamma = 2.0, reduction='sum_over_batch_size', name='combined_loss', **kwargs):
+        super().__init__(reduction = reduction, name = name, **kwargs)
         self.dice_weight = dice_weight
         self.focal_weight = focal_weight
         self.dice_loss = DiceLossMulti(smooth=smooth)
-        self.focal_loss = CategoricalFocalCrossentropy(alpha=alpha, gamma=gamma, from_logits=False)
+        if n_classes == 1 :
+            self.focal_loss = BinaryFocalCrossentropy(apply_class_balancing=True, alpha=alpha, gamma=gamma)
+        else :
+            self.focal_loss = CategoricalFocalCrossentropy(alpha=alpha, gamma=gamma)
 
     def call(self, y_true, y_pred):
         dice = self.dice_loss(y_true, y_pred)
@@ -868,23 +812,23 @@ class CombinedLoss(keras.losses.Loss):
 ###########################################################################################################################################
 # FONCTION changeNodataInPrediction()                                                                                                     #
 ###########################################################################################################################################
-def changeNodataInPrediction(mask, size_grid):
+def changeNodataInPrediction(mask, complete_background, size_grid):
     """
-    # ROLE:
-    Cas d'une classification multi-classe : j'ai pas de no_data..
+    # Cas d'une classification multi-classe avec complete_background = True:
     #    Changement du masque prédit en enlevant la classe no_data. Les pixels ayant la classe no_data attribué ont maintenant la deuxième classe la plus probable
     #
-    # ENTREES DE LA FONCTION :
+    # Args:
     #    mask (array) : un masque résultant d'un keras.predict()
     #    size_grid (int) : définis la dimension des imagettes
     #
-    # SORTIES DE LA FONCTION :
-    #    Le même masque auquel on a retiré la classe no_data
+    # Returns:
+    #    Le masque et la carte de confiance
     #
     """
 
     new_mask = np.zeros((mask.shape[0], mask.shape[1], 1), dtype = np.uint8)
     confidence_map = np.zeros((mask.shape[0], mask.shape[1], 1), dtype = np.float32)
+    nb_px_change_classif = 0
 
     for i in range(size_grid):
         for j in range(size_grid):
@@ -892,28 +836,35 @@ def changeNodataInPrediction(mask, size_grid):
             new_mask[i,j] = np.argmax(temp)
             confidence_map[i,j] = np.amax(temp)
 
+            # Dans le cas d'un OCS complete, l'option complete_background doit être activée et les pixels prédits comme background deviendront la 2ème classe la plus probable.
+            if np.argmax(temp) == 0 and complete_background:
+                temp = np.delete(temp,0)
+                new_mask[i,j] = np.argmax(temp) + 1
+                nb_px_change_classif += 1
+
+    if debug >= 5 and nb_px_change_classif != 0:
+        print(cyan + "changeNodataInPrediction() : " + endC + "nombre de pixels dont on a pris la deuxieme classe la plus probable : "+str(nb_px_change_classif))
+
     return new_mask, confidence_map
 
 ###########################################################################################################################################
 # FONCTION savePredictedMaskAsRasterGenerator()                                                                                           #
 ###########################################################################################################################################
-def savePredictedMaskAsRasterGenerator_old(predicted_mask, filenames, prediction_dir, confidence_dir, pixel_size, size_grid, format_raster, save_confidence):
+def savePredictedMaskAsRasterGenerator(predicted_mask, gradient_maps, filenames, prediction_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence, complete_background):
     """
-    # ROLE:
-    #    Création des fichiers pour y stocker les masques obtenus après la prédiction du réseau de neurones. Production de nom_masque.tif
+    #  Création des fichiers pour y stocker les masques obtenus après la prédiction du réseau de neurones.
     #
-    # ENTREES DE LA FONCTION :
+    # Args:
     #    predicted_mask (list) : la liste des masques obtenus après le keras.predict()
     #    filenames (list) : la liste des noms des fichiers (chemins)
     #    prediction_dir (string) : le chemin pour sauvegarder les masques
     #    pixel_size (int) : taille d'un pixel
     #    size_grid (int) : définis la dimension des imagettes
     #
-    # SORTIES DE LA FONCTION :
+    # Returns:
     #    Aucune sortie
     #
     """
-
     no_of_bands = predicted_mask[0].shape[2]
     height = predicted_mask[0].shape[1]
     width = predicted_mask[0].shape[0]
@@ -925,93 +876,11 @@ def savePredictedMaskAsRasterGenerator_old(predicted_mask, filenames, prediction
             mask_name = filename.split(os.sep)[-1]
             output_name = prediction_dir + mask_name
             if no_of_bands != 1:
-                mask, confidence_map = changeNodataInPrediction(mask, size_grid)
+
+                mask, confidence_map = changeNodataInPrediction(mask, complete_background, size_grid)
 
                 if save_confidence :
                     output_name_confidence = confidence_dir + mask_name
-            else:
-                confidence_map = mask.copy()
-                mask[mask >= 0.5] = 1
-                mask[mask < 0.5] = 0
-
-                if save_confidence:
-                    output_name_confidence = confidence_dir + mask_name
-
-
-            source_ds = gdal.Open(filename, GA_ReadOnly)
-            source_projection = source_ds.GetProjection()
-            ulx = source_ds.GetGeoTransform()[0]
-            uly = source_ds.GetGeoTransform()[3]
-            geotransform = [0, 0, 0, 0, 0, 0]
-            geotransform[0] = ulx
-            geotransform[1] = pixel_size
-            geotransform[2] = 0
-            geotransform[3] = uly
-            geotransform[4] = 0
-            geotransform[5] = - pixel_size
-
-            driver = gdal.GetDriverByName(format_raster)
-            target_ds = driver.Create(output_name, width, height, 1, GDT_Byte)
-            target_ds.SetGeoTransform(geotransform)
-            target_ds.SetProjection(source_projection)
-            mask = mask.squeeze()
-            band = target_ds.GetRasterBand(1)
-            band.WriteArray(mask)
-
-            if save_confidence:
-                target_ds_confidence = driver.Create(output_name_confidence, width, height, 1, GDT_Float32)
-                target_ds_confidence.SetGeoTransform(geotransform)
-                target_ds_confidence.SetProjection(source_projection)
-
-                confidence_squeezed = confidence_map.squeeze()
-                band_confidence = target_ds_confidence.GetRasterBand(1)
-                band_confidence.WriteArray(confidence_squeezed)
-
-                # Fermeture du dataset de confiance
-                target_ds_confidence = None
-                band_confidence = None
-
-            source_ds = None
-            target_ds = None
-            band = None
-            j = j+1
-            pbar.update(1)
-
-    return
-
-def savePredictedMaskAsRasterGenerator(predicted_mask, gradient_maps, filenames, prediction_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence):
-    """
-    # ROLE:
-    #    Création des fichiers pour y stocker les masques obtenus après la prédiction du réseau de neurones. Production de nom_masque.tif
-    #
-    # ENTREES DE LA FONCTION :
-    #    predicted_mask (list) : la liste des masques obtenus après le keras.predict()
-    #    filenames (list) : la liste des noms des fichiers (chemins)
-    #    prediction_dir (string) : le chemin pour sauvegarder les masques
-    #    pixel_size (int) : taille d'un pixel
-    #    size_grid (int) : définis la dimension des imagettes
-    #
-    # SORTIES DE LA FONCTION :
-    #    Aucune sortie
-    #
-    """
-
-    no_of_bands = predicted_mask[0].shape[2]
-    height = predicted_mask[0].shape[1]
-    width = predicted_mask[0].shape[0]
-    j=0
-    with tqdm(total = len(filenames)) as pbar:
-        for filename in filenames:
-
-            mask = predicted_mask[j]
-            mask_name = filename.split(os.sep)[-1]
-            output_name = prediction_dir + mask_name
-            if no_of_bands != 1:
-                mask, confidence_map = changeNodataInPrediction(mask, size_grid)
-
-                if save_confidence :
-                    output_name_confidence = confidence_dir + mask_name
-
                 if gradient_maps is not None:
                     gradient_map = gradient_maps[j]
                     output_name_gradient = gradient_dir + mask_name
@@ -1023,6 +892,9 @@ def savePredictedMaskAsRasterGenerator(predicted_mask, gradient_maps, filenames,
                 if save_confidence:
                     output_name_confidence = confidence_dir + mask_name
 
+                if gradient_maps is not None:
+                    gradient_map = gradient_maps[j]
+                    output_name_gradient = gradient_dir + mask_name
 
             source_ds = gdal.Open(filename, GA_ReadOnly)
             source_projection = source_ds.GetProjection()
@@ -1081,12 +953,11 @@ def savePredictedMaskAsRasterGenerator(predicted_mask, gradient_maps, filenames,
 ###########################################################################################################################################
 # FONCTION predictionTestGenerator()                                                                                                      #
 ###########################################################################################################################################
-def predictionTestGenerator_old(model, test_gen, filenames, prediction_dir, confidence_dir, pixel_size, size_grid, format_raster, save_confidence = False):
+def predictionTestGenerator(model, test_gen, filenames, prediction_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence, complete_background):
     """
-    # ROLE:
-    #    Prédiction sur les données d'évaluations puis modification pour les pixels no_data et stockage dans des fichiers .tiff.
+    #    Prédiction sur les données d'évaluation et stockage dans des fichiers .tiff.
     #
-    # ENTREES DE LA FONCTION :
+    # Args :
     #    model (string) : le modèle (réseau de neurones) entrainé
     #    test_gen (array list) : les données à tester (issues de DataGenerator)
     #    filenames (list) : la liste des noms des fichiers (chemins)
@@ -1095,37 +966,15 @@ def predictionTestGenerator_old(model, test_gen, filenames, prediction_dir, conf
     #    size_grid (int) : définis la dimension des imagettes
     #    format_raster (string) : format des imagettes
     #
-    # SORTIES DE LA FONCTION :
-    #    Aucune sortie
-    #
-    """
-    pred_test = model.predict(test_gen)
-    savePredictedMaskAsRasterGenerator(pred_test, filenames, prediction_dir, confidence_dir, pixel_size, size_grid, format_raster, save_confidence)
-
-    return
-
-def predictionTestGenerator(model, test_gen, filenames, prediction_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence = False):
-    """
-    # ROLE:
-    #    Prédiction sur les données d'évaluations puis modification pour les pixels no_data et stockage dans des fichiers .tiff.
-    #
-    # ENTREES DE LA FONCTION :
-    #    model (string) : le modèle (réseau de neurones) entrainé
-    #    test_gen (array list) : les données à tester (issues de DataGenerator)
-    #    filenames (list) : la liste des noms des fichiers (chemins)
-    #    prediction_dir (string) : le chemin pour sauvegarder les prédictions
-    #    pixel_size (int) : taille d'un pixel
-    #    size_grid (int) : définis la dimension des imagettes
-    #    format_raster (string) : format des imagettes
-    #
-    # SORTIES DE LA FONCTION :
+    # Returns :
     #    Aucune sortie
     #
     """
     pred_test, gradient_maps = model.predict(test_gen)
-    savePredictedMaskAsRasterGenerator(pred_test,gradient_maps, filenames, prediction_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence)
+    savePredictedMaskAsRasterGenerator(pred_test,gradient_maps, filenames, prediction_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence, complete_background)
 
     return
+
 ###########################################################################################################################################
 #                                                                                                                                         #
 # PARTIE FONCTION SECONDAIRES                                                                                                             #
@@ -1137,17 +986,16 @@ def predictionTestGenerator(model, test_gen, filenames, prediction_dir, confiden
 #########################################################################
 def createFileOutputImagette(file_grid_temp, file_imagette, classification_resized_dir, extension_raster):
     """
-    # ROLE:
-    #    Cette fonction crée le chemin du fichier de sortie correspondant à une imagette redimensionnée
+    # Crée le chemin du fichier de sortie correspondant à une imagette redimensionnée
     #
-    # ENTREES DE LA FONCTION :
+    # Args:
     #    file_grid_temp (string) : fichier de découpe de l'imagette
     #    file_imagette (string) : fichier de l'imagette classifiée
     #    classification_resized_dir (string) : dossier où stocker les imagettes classifiées redimensionnées
     #    extension_raster (string) :  extension d'un fichier raster
     #
-    # SORTIES DE LA FONCTION :
-    #    Renvoie les fichiers d'entrée file_grid_temp, file_imagette ainsi que le chemin du fichier de sortie créé
+    # Returns :
+    #    Renvoie les fichiers d'entree file_grid_temp, file_imagette ainsi que le chemin du fichier de sortie créé
     #
     """
 
@@ -1168,10 +1016,9 @@ def createFileOutputImagette(file_grid_temp, file_imagette, classification_resiz
 ###########################################################################################################################################
 def assemblyImages(prediction_dir, classification_resized_dir, input_img_paths, output_assembly, vector_simple_mask, split_tile_vector_list, input_raster_path, debord, no_data_value=-1, epsg=2154, extension_raster=".tif", format_vector='ESRI Shapefile', format_raster='GTiff'):
     """
-    # ROLE:
-    #    Reconstruction de l'image satellite entière. Utilisé pour assembler les différentes imagettes résultats de la prédiction
+    # Reconstruction de l'image satellite entière. Utilisé pour assembler les différentes imagettes résultats de la prédiction
     #
-    # ENTREES DE LA FONCTION :
+    # Args:
     #    prediction_dir (string) : chemin du dossier Predict
     #    classification_resized_dir (string) : chemin du dossier des imagettes classifiées redimmensionnées
     #    input_img_paths (list) : liste contenant les chemins vers toutes les imagettes
@@ -1186,7 +1033,7 @@ def assemblyImages(prediction_dir, classification_resized_dir, input_img_paths, 
     #    format_vector (string) : format des vecteurs
     #    format_raster (string) : format des imagettes
     #
-    # SORTIES DE LA FONCTION :
+    # Returns:
     #    Renvoie l'image satellite assemblée
     #
     """
@@ -1267,7 +1114,6 @@ def assemblyImages(prediction_dir, classification_resized_dir, input_img_paths, 
 ###########################################################################################################################################
 def cutInThreads(tile_vector_paths, output_dir, file_prefix, extension_raster, output_tile_paths, input_raster_path, tile_size, debord, pixel_size, no_data_value, epsg=2154, format_raster='GTiff', format_vector='ESRI Shapefile', overwrite=True):
     """
-    # ROLE:
     #    Découpe une grande image en imagettes de taille prédéfinies en utilisant le multithreading
     #
     # Args :
@@ -1279,16 +1125,16 @@ def cutInThreads(tile_vector_paths, output_dir, file_prefix, extension_raster, o
     #    input_raster_path (str) : Chemin de l'image à découper
     #    tile_size (int) : Taille d'une imagette (supposée carrée)
     #    debord (int) : débord à ajouter pour éviter les effets de bord
+    #    no_data_value (int/float) : Valeur de NoData pour les pixels vides
     #    pixel_size (float) : Taille des pixels de l'image
     #           -- optional args --
-    #    no_data_value (int/float) : Valeur de NoData pour les pixels vides
     #    epsg (int) : Code EPSG pour la projection de l'image
     #    raster_format (str) : Format du raster
     #    vector_format (str) : Format du vecteur
     #    overwrite (bool) : Si True, écrasera les fichiers existants, sinon, évitera l'écrasement
     #
     #
-    # SORTIES DE LA FONCTION :
+    # Returns :
     #    None
     #
     """
@@ -1340,20 +1186,20 @@ def cutInThreads(tile_vector_paths, output_dir, file_prefix, extension_raster, o
     else:
         if debug >= 1:
             print(f"{cyan}cutInThreads() : {endC}No tiles to process.")
+    return
 
 ###########################################################################################################################################
 # FONCTION selectInThreadsTiles()                                                                                                         #
 ###########################################################################################################################################
 def selectTilesInThreads(vector_tiles, vector_emprise, vector_output, vector_output_excluded = None, epsg=2154, format_vector='ESRI Shapefile'):
     """
-    # ROLE:
     #   Filtrer les tuiles dont le centroide est contenu dans une emprise avec parallélisation simple
     #
-    # ENTREES DE LA FONCTION :
+    # Args :
     #   vector_tiles (str) : Fichier vecteur contenant les tuiles à filter
     #   vector_emprise (str) : fichier vecteur de l'emprise de référence
     #   vector_output (str) : Fichier de sortie pour les tuiles filtrée
-    # RETURNS:
+    # Returns:
     #   None
     """
     # Lecture de l'emprise
@@ -1433,7 +1279,6 @@ def selectTilesInThreads(vector_tiles, vector_emprise, vector_output, vector_out
 ###########################################################################################################################################
 def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vector_paths, dirname_tile, tile_prefix, dirname_mask, mask_prefix, dirname_vect, vect_prefix, percent_no_data, image_size, debord, pixel_size, no_data_value, n_bands, overwrite,extension_raster=".tif", extension_vector=".shp"):
     """
-    # ROLE:
     #    Supprime les imagettes et masques associés contenant un pourcentage de no_data supérieur au seuil défini,
     #    en utilisant le multithreading pour accélérer le traitement
     #
@@ -1460,11 +1305,9 @@ def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vecto
     flag_dir = os.path.join(os.path.dirname(output_tile_paths[0]), "flag")
     flag_file = os.path.join(flag_dir, ".nodata_checked")
 
-    # Créer le répertoire flag s'il n'existe pas
     if not os.path.exists(flag_dir):
         os.makedirs(flag_dir)
 
-    # Si le fichier de flag existe et qu'on ne force pas le retraitement
     if os.path.exists(flag_file) and not overwrite:
         to_delete_paths = []
         try:
@@ -1480,9 +1323,9 @@ def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vecto
                     if os.path.exists(mask_path):
                         os.remove(mask_path)
                     if debug >= 2:
-                        print(f"{cyan}deleteNoDataInThreads() : {bold}Suppression directe : {img_path} + {mask_path}{endC}")
+                        print(f"{cyan}deleteNoDataInThreads() : {bold}Deleting immediatly : {img_path} + {mask_path}{endC}")
                 except Exception as e:
-                    print(f"{red}Erreur suppression fichier listé : {img_path} et son masque {mask_path} {str(e)}{endC}", file=sys.stderr)
+                    print(f"{cyan} deleteNoDataInThreads() : {red}Error during deletion of : {img_path}  {str(e)}{endC}", file=sys.stderr)
 
             # Filtrer les listes pour conserver uniquement ce qui reste
             output_tile_paths = [p for p in output_tile_paths if p not in to_delete_paths]
@@ -1492,34 +1335,28 @@ def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vecto
             return output_tile_paths, output_mask_paths, split_tile_vector_paths
 
         except Exception as e:
-            print(f"{red}Erreur lors de la lecture du fichier flag : {str(e)}{endC}", file=sys.stderr)
+            print(f"{red}{cyan} deleteNoDataInThreads() : Error when reading the file: {str(e)}{endC}", file=sys.stderr)
             # Si erreur, on continue avec le traitement normal
 
-    # Calcul du nombre de pixels correspondant au pourcentage de no_data
     threshold_pixels = int(((image_size * image_size) * percent_no_data) / 100)
     tiles_to_process = output_tile_paths.copy()
     masks_to_process = output_mask_paths.copy()
     vects_to_process = split_tile_vector_paths.copy()
-    # Variables pour le suivi des résultats
     cpt_delete = 0
     lock = threading.Lock()
     to_delete_files = []
 
-    # Dictionnaire pour stocker les résultats du traitement
     results = {}
 
-    # Fonction de traitement pour une tuile
     def process_nodata_tile(args):
         idx, tile_path, mask_path, band = args
-
         try:
             if not os.path.exists(tile_path) or not os.path.exists(mask_path):
                 return idx, False
-
             cpt_nodata = countPixelsOfValue(tile_path, no_data_value, band)
             if cpt_nodata >= threshold_pixels:
                 if debug >= 2:
-                    print(f"{cyan}deleteNoDataInThreads() : {bold}{yellow}Suppression de l'image {tile_path} car elle possède plus de {percent_no_data}% de no data sur la bande {band}, on supprime son masque {mask_path}{endC}")
+                    print(f"{cyan}deleteNoDataInThreads() : {bold}Deleting image: {tile_path} who has more than {percent_no_data}% of NoData on band {band}. We also delete the mask {mask_path}{endC} \n")
 
                 try:
                     os.remove(tile_path)
@@ -1529,23 +1366,22 @@ def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vecto
                         cpt_delete += 1
                         to_delete_files.append(tile_path)
                 except Exception as e:
-                    print(f"{cyan}deleteNoDataInThreads() : {bold}{red}Erreur lors de la suppression: {str(e)}{endC}", file=sys.stderr)
+                    print(f"{cyan}deleteNoDataInThreads() : {bold}{red}Error during the deletion of file {str(e)}{endC}", file=sys.stderr)
 
                 return idx, False
 
             return idx, True
 
         except Exception as e:
-            print(f"{cyan}deleteNoDataInThreads() : {bold}{red}Erreur de traitement pour {tile_path}: {str(e)}{endC}", file=sys.stderr)
+            print(f"{cyan}deleteNoDataInThreads() : {bold}{red}Erreur for {tile_path}: {str(e)}{endC}", file=sys.stderr)
             return idx, True
 
-    # Nombre de CPUs à utiliser
     number_CPU = max(1, int(os.cpu_count() / 2))
 
     # Traitement pour chaque bande
     for band in range(1, n_bands + 1):
         if debug >= 1:
-            print(f"{cyan}deleteNoDataInThreads() : {endC}Traitement de la bande {band}/{n_bands}...")
+            print(f"{cyan}deleteNoDataInThreads() : {endC}Treating band {band}/{n_bands}...")
 
         tasks = [(idx, tile_path, mask_path, band)
                 for idx, (tile_path, mask_path) in enumerate(zip(tiles_to_process, masks_to_process))]
@@ -1557,6 +1393,7 @@ def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vecto
         tiles_to_process = [tiles_to_process[idx] for idx in range(len(tiles_to_process)) if results.get(idx, True)]
         masks_to_process = [masks_to_process[idx] for idx in range(len(masks_to_process)) if results.get(idx, True)]
         vects_to_process = [vects_to_process[idx] for idx in range(len(vects_to_process)) if results.get(idx, True)]
+
         # Réinitialiser les résultats pour la prochaine bande
         results.clear()
 
@@ -1575,7 +1412,7 @@ def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vecto
     split_tile_vector_paths.clear()
     split_tile_vector_paths.extend(vects_to_process)
 
-    print(f"{cyan}deleteNoDataInThreads() : {endC}Nombre total d'images supprimées : {cpt_delete}")
+    print(f"{cyan}deleteNoDataInThreads() : {endC}Number of images deleted : {cpt_delete} \n")
 
     return output_tile_paths, output_mask_paths, split_tile_vector_paths
 
@@ -1590,7 +1427,6 @@ def deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vecto
 ###########################################################################################################################################
 def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_raster_path, neural_network_mode, model_path, size_grid, debord, grid_vector="", overwrite=True, percent_no_data=10, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', epsg=2154, select_excluded = False):
     """
-    # ROLE:
     # Pré-traitement de l'image et de la vérité terrain qui vont être découpées en imagettes pour entrer dans un réseau de neuronnes.
     #
     # Args:
@@ -1668,6 +1504,7 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
             createVectorMask(input_raster_path, roi_vector, no_data_value, format_vector)
         roi_vector_simplified = os.path.join(vector_temp_dir , image_name + SUFFIX_VECTOR_SIMPLIFY + extension_vector)
         simplifyVector(roi_vector, roi_vector_simplified, simplify_vector_param, format_vector)
+
     else :
         roi_vector_simplified = roi_vector
         simplifyVector(roi_vector, roi_vector_simplified, simplify_vector_param, format_vector)
@@ -1677,19 +1514,18 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
     if grid_vector == "" :
         full_grid_temp = os.path.join(vector_temp_dir, image_name + SUFFIX_GRID_TEMP + extension_vector)
         grid_exists = os.path.isfile(full_grid_temp)
-        print(f"full_grid_temp {full_grid_temp} and grid exist {grid_exists}")
         if grid_exists and not overwrite:
             if debug >= 1 :
-                print(f"{cyan}computePreTreatement() : {bold}{yellow}Vector grid {str(full_grid_temp)} already exists \n {endC}")
-        else :
-            tiles_dimension = image_dimension - (debord * pixel_size) * 2
-            createGridVector(roi_vector_simplified, full_grid_temp, tiles_dimension, tiles_dimension, None, overwrite, epsg , format_vector)
+                print(f"{cyan}computePreTreatement() : {bold}{yellow}Vector grid {str(full_grid_temp)} already exists. We delete it\n {endC}")
+                os.remove(full_grid_temp)
+        tiles_dimension = image_dimension - (debord * pixel_size) * 2
+        createGridVector(roi_vector_simplified, full_grid_temp, tiles_dimension, tiles_dimension, None, overwrite, epsg , format_vector)
     else :
         full_grid_temp = grid_vector
 
     dir_basename = os.path.basename(roi_vector_simplified).split(".")[0]
 
-    #Selection de certaines tuiles pour un possible pré entrainement
+    # Selection de certaines tuiles pour un possible pré entrainement
     if select_excluded :
         excluded_basename = "pretrain"
         excluded_grid_vector = os.path.join(vector_temp_dir, dir_basename, image_name + SUFFIX_EXCLUDED_GRID + extension_vector)
@@ -1708,9 +1544,7 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
     else :
         excluded_grid_vector = None
 
-
     # Recadrage de la grille pour le garder que les polygones dont le centre est dans la zone d'intérêt
-
     roi_grid_vector = os.path.join(vector_temp_dir, dir_basename, image_name + SUFFIX_ROI_GRID + extension_vector)
     os.makedirs(os.path.dirname(roi_grid_vector), exist_ok=True)
 
@@ -1722,7 +1556,6 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
     else :
         selectTilesInThreads(full_grid_temp, roi_vector_simplified, roi_grid_vector, excluded_grid_vector)
 
-
     # Création des répertoires temporaires
     data_temp_dir = os.path.join(directory, neural_network_mode + FOLDER_DATA_TEMP + model_file_name, dir_basename)
     data_imagette_temp_dir = os.path.join(data_temp_dir , FOLDER_IMAGETTE + model_file_name)
@@ -1733,14 +1566,12 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
         if not os.path.isdir(d) :
             os.makedirs(d)
 
-
     # Extraire chaque polygone du fichier roi_grid_vector s'ils ne l'ont pas déjà été fait
     if len(os.listdir(data_grid_temp_dir)) == 0 or overwrite:
         split_tile_vector_paths = splitVector(roi_grid_vector, data_grid_temp_dir, "sub_name", epsg, format_vector, extension_vector)
     else :
         if debug >= 1 :
             print(f"{cyan}ComputePreTreatement() : {bold}{yellow} grid already split. You can find the vector here : {data_grid_temp_dir} {endC}")
-        # On trie la liste
         split_tile_vector_paths = [os.path.join(data_grid_temp_dir, f) for f in os.listdir(data_grid_temp_dir) if f.endswith(extension_vector)][::-1]
 
     if select_excluded :
@@ -1750,7 +1581,6 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
             if debug >=1 :
                 print(f"{cyan}ComputePreTreatement() : {bold}{yellow} grid for pretrainning already spli here {data_pretrain_grid_dir}{endC}")
             split_tile_pretrain_paths = [os.path.join(data_pretrain_grid_dir, f) for f in os.listdir(data_pretrain_grid_dir) if f.endswith(extension_vector)][::-1]
-
 
     # Initialisation des listes qui vont contenir les chemins des imagettes et masques
     output_tile_paths = []
@@ -1776,9 +1606,9 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
     output_tile_paths, output_mask_paths, split_tile_vector_paths = deleteNoDataInThreads(output_tile_paths, output_mask_paths, split_tile_vector_paths, FOLDER_IMAGETTE + model_file_name ,tile_prefix, FOLDER_TRAIN + model_file_name ,mask_prefix, FOLDER_GRID + model_file_name, grid_prefix,percent_no_data, size_grid, debord, pixel_size, no_data_value, n_bands, overwrite, extension_raster,extension_vector)
 
     if debug >= 2 :
-        print(f" {cyan}computePreTreatment() : {endC} Il y a {len(output_tile_paths)} imagettes et {len(output_mask_paths)} masques (pour {len(split_tile_vector_paths)} polygones de découpes)")
+        print(f" {cyan}computePreTreatment() : {endC} There are {len(output_tile_paths)} imagettes et {len(output_mask_paths)} masks \n")
 
-    print(f"{cyan} computePreTreatment() : fin du pré-traitement.  {endC}")
+    print(f"{cyan} computePreTreatment() : end of pre-treatment. \n {endC}")
 
     return output_tile_paths, output_mask_paths, roi_vector_simplified, split_tile_vector_paths, vector_temp_dir, data_temp_dir
 
@@ -1788,7 +1618,6 @@ def computePreTreatment(groundtruth_path, input_raster_path, roi_vector, output_
 def computeTrain(groundtruth_path, input_raster_path, train_vector, valid_vector, model_output, output_raster_path, grid_path, NN, neural_network_mode, size_grid, debord, augment_data, number_class, time_log_path, save_data, overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', rand_seed=0, epsg=2154, percent_no_data=10, save_temp_files=False):
 
     """
-    # ROLE:
     #    Entraine un réseau de neurone grâce à un dataset de train et validation
     #
     # Args :
@@ -1832,13 +1661,12 @@ def computeTrain(groundtruth_path, input_raster_path, train_vector, valid_vector
     batch_size = NN.batch
     kernel_size = NN.kernel_size
     dropout_rate = NN.dp_rate
-    l2_reg = NN.l2_reg
     alpha_loss = NN.alpha_loss
     _, _, n_bands = getGeometryImage(input_raster_path)
     n_filters = NN.number_conv_filter
     model_name = neural_network_mode
 
-    # Récupére la date et du repertoire
+    # Récupére la date et le repertoire
     current_date = date.today().strftime("%d_%m_%Y")
     directory = os.path.dirname(output_raster_path)
 
@@ -1880,21 +1708,20 @@ def computeTrain(groundtruth_path, input_raster_path, train_vector, valid_vector
         pre_treatment_event = "Starting of pre-treatment : "
         timeLine(time_log_path, pre_treatment_event)
 
-    # Séparation train | validation
     data_dir = os.path.join(directory, model_name + FOLDER_DATA + model_filename)
     os.makedirs(data_dir, exist_ok=True)
 
-    train_image_output = os.path.join(directory, "train_" + model_filename) # /mnt/RAM_disk/train_classified_img
+    train_image_output = os.path.join(directory, "train_" + model_filename)
     valid_image_output = os.path.join(directory, "valid_" +model_filename)
 
-        # Pretraitement pour les dataset d'entrainement et de validation
+    # Pretraitement pour les dataset d'entrainement et de validation
     train_tile_paths, train_mask_paths, train_vector_simplified, split_tile_vector_paths, vector_temp_dir, data_temp_dir = computePreTreatment(groundtruth_path, input_raster_path, train_vector, train_image_output, neural_network_mode, model_path, size_grid, debord, grid_path, overwrite, percent_no_data, extension_raster, extension_vector, format_raster, format_vector, epsg, select_excluded = False)
     valid_tile_paths, valid_mask_paths, valid_vector_simplified, split_tile_vector_paths, vector_temp_dir, data_temp_dir = computePreTreatment(groundtruth_path, input_raster_path, valid_vector, valid_image_output, neural_network_mode, model_path, size_grid, debord, grid_path, overwrite, percent_no_data,extension_raster, extension_vector, format_raster, format_vector, epsg)
 
     if len(train_tile_paths) != len(train_mask_paths) :
-        print(f"{cyan}computeTrain() : {bold}{red} Il n'y a une différence de {len(train_tile_paths) - len(train_mask_paths)} entre les tuiles et les masques pour le dataset d'entrainement {endC}")
+        print(f"{cyan}computeTrain() : {bold}{red} Il n'y a une différence de {len(train_tile_paths) - len(train_mask_paths)} entre les tuiles et les masques pour le dataset d'entrainement {endC}\n")
     if len(valid_tile_paths) != len(valid_mask_paths) :
-        print(f"{cyan}computeTrain() : {bold}{red} Il n'y a une différence de {len(valid_tile_paths) - len(valid_mask_paths)} entre les tuiles et les masques pour le dataset d'entrainement {endC}")
+        print(f"{cyan}computeTrain() : {bold}{red} Il n'y a une différence de {len(valid_tile_paths) - len(valid_mask_paths)} entre les tuiles et les masques pour le dataset d'entrainement {endC}\n")
 
     if debug >=2 :
         print(f"{cyan}computeTrain() : Il y a {len(train_tile_paths)} données d'entrainement et {len(valid_tile_paths)} données de validation{endC}")
@@ -1911,9 +1738,10 @@ def computeTrain(groundtruth_path, input_raster_path, train_vector, valid_vector
     # Chargement du modèle
     if model_name.lower() == "resunet":
         if n_classes == 1:
-            model = resunet((img_size, img_size, n_bands), n_filters, dropout_rate, l2_reg, alpha_loss, n_classes, kernel_size, "mono")
+            model = resunet((img_size, img_size, n_bands), n_filters, dropout_rate, alpha_loss, n_classes, kernel_size, "mono")
         else:
-            model = resunet((img_size, img_size, n_bands), n_filters, dropout_rate, l2_reg, alpha_loss, n_classes, kernel_size, "multi")
+            model = resunet((img_size, img_size, n_bands), n_filters, dropout_rate, alpha_loss, n_classes, kernel_size, "multi")
+
 
     if debug >= 1:
         model.summary()
@@ -1965,9 +1793,8 @@ def computeTrain(groundtruth_path, input_raster_path, train_vector, valid_vector
 ###########################################################################################################################################
 # FONCTION computeClassification()                                                                                                        #
 ###########################################################################################################################################
-def computeClassification(groundtruth_path, input_raster_path, vector_test, output_raster_path, evaluation_path, split_tile_vector_paths, vector_temp_dir, data_temp_dir, model_input, NN, neural_network_mode,size_grid, debord, number_class, log_path, grid_vector = "", overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', epsg=2154, no_data_value=-1, percent_no_data = 10, save_temp_files=False):
+def computeClassification(groundtruth_path, input_raster_path, vector_test, output_raster_path, evaluation_path, split_tile_vector_paths, vector_temp_dir, data_temp_dir, model_input, NN, neural_network_mode,size_grid, debord, number_class, complete_background, log_path, grid_vector = "", overwrite=True, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', epsg=2154, no_data_value=-1, percent_no_data = 10, save_temp_files=False):
     """
-    # ROLE:
     #    Prediction des différents résultats en imagettes et assemblage en une seule image
     #
     # Args:
@@ -1984,6 +1811,7 @@ def computeClassification(groundtruth_path, input_raster_path, vector_test, outp
     #    size_grid (int) : dimension d'une cellule de la grille de découpe de l'image satellite initiale
     #    debord (int) : utilisé pour éviter les effets de bord. Agrandit artificiellement les imagettes
     #    number_class (int) : nombre de classes
+    #    complete_background (bool) : booléen pour savoir si on remplace le background par la seconde classe la plus probable
     #    log_path (string) : chemin du fichier de log
     #       -- Optionnal Args --
     #    grid_vector (string) : chemin d'une grille de découpe prédéfinie
@@ -2062,7 +1890,6 @@ def computeClassification(groundtruth_path, input_raster_path, vector_test, outp
     if debug >= 1:
         print(f"{cyan}computeClassification() : {endC}Chargement du modele entraine")
     model = keras.models.load_model(model_input,custom_objects={"DiceLossMulti": DiceLossMulti, "CombinedLoss": CombinedLoss, "sqrt_activation": sqrt_activation})
-    print(f" LOSS {model.loss}")
     if debug >= 1:
         print(f"{cyan}computeClassification() : {endC}Fin du chargement du modèle")
 
@@ -2075,19 +1902,19 @@ def computeClassification(groundtruth_path, input_raster_path, vector_test, outp
     if debug >= 1:
         print(f"{cyan}computeClassification() : {endC}Debut de prediction")
 
-    #Prediction en batches
+    # Prediction en batches
     nb_mask = len(test_gen[0])
     if (len(tile_paths))%nb_mask != 0 :
         for i in range (len(test_gen)):
             if debug >= 1:
                 print(f"{cyan}computeClassification() : {endC}Test{(i+1)}/{len(test_gen)}")
-            predictionTestGenerator(model, test_gen[i], tile_paths[i*nb_mask:i*nb_mask+nb_mask], classification_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence = True)
+            predictionTestGenerator(model, test_gen[i], tile_paths[i*nb_mask:i*nb_mask+nb_mask], classification_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence = True, complete_background = complete_background)
     else:
         nb_lots_utile = int(len(tile_paths)/nb_mask)
         for i in range (nb_lots_utile):
             if debug >= 1:
                 print(f"{cyan}computeClassification() : {endC}Test {(i+1)}/{nb_lots_utile}")
-            predictionTestGenerator(model, test_gen[i], tile_paths[i*nb_mask:i*nb_mask+nb_mask], classification_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence = True)
+            predictionTestGenerator(model, test_gen[i], tile_paths[i*nb_mask:i*nb_mask+nb_mask], classification_dir, confidence_dir, gradient_dir, pixel_size, size_grid, format_raster, save_confidence = True, complete_background = complete_background)
 
     # Mise à jour du Log
     if log_exists :
@@ -2128,10 +1955,6 @@ def computeClassification(groundtruth_path, input_raster_path, vector_test, outp
     # Mise à jour du Log
     if log_exists :
         ending_assembly_event = "Ending to assembly : "
-        # timeLine(log_path, ending_assembly_event)
-
-    # if debug >= 1:
-        # print(f"{cyan}computeClassification() : {endC}Image complete stockee a : {output_assembly_path} et map de confiance {output_confidence_assembly_path}")
 
     # Suppression des dossiers temporaires
     if not save_temp_files :
@@ -2156,10 +1979,8 @@ def computeClassification(groundtruth_path, input_raster_path, vector_test, outp
             pass
 
     # Mesures de performance et évaluation
-    # output_assembly_path = "/mnt/RAM_disk/classified_img.tif"
     evaluation_exists = os.path.exists(evaluation_path)
     _, ext = os.path.splitext(evaluation_path)
-    print(f" les fichiers : {vector_test} { groundtruth_path} et {evaluation_path}")
     if evaluation_exists and not overwrite :
         print(f"{cyan}computeClassification(): vérité terrain déjà découpée {evaluation_exists}{endC}")
     else :
@@ -2169,10 +1990,8 @@ def computeClassification(groundtruth_path, input_raster_path, vector_test, outp
     no_data_value = -1
 
     if ext == ".tif" :
-        print(f"je suis la {evaluation_path}")
         computeConfusionMatrix(output_assembly_path, None, evaluation_path, "", matrix_file, no_data_value, overwrite )
     elif ext == ".shp":
-        print(f"ou bien la  {evaluation_path}")
         computeConfusionMatrix(output_assembly_path, evaluation_path, None, "ValRef", matrix_file, no_data_value, overwrite )
 
     if debug >=1 :
@@ -2183,12 +2002,11 @@ def computeClassification(groundtruth_path, input_raster_path, vector_test, outp
 ###########################################################################################################################################
 # FONCTION computeNeuralNetwork()                                                                                                         #
 ###########################################################################################################################################
-def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluation_path, vector_train, vector_valid, vector_test, output_raster_path, model_input, model_output, NN, use_graphic_card, id_graphic_card, neural_network_mode, augment_training, size_grid, debord, number_class, path_time_log, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', rand_seed=0, epsg=2154, percent_no_data=10, no_data_value=0, save_results_intermediate=False, overwrite=True):
+def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluation_path, vector_train, vector_valid, vector_test, output_raster_path, model_input, model_output, NN, use_graphic_card, id_graphic_card, neural_network_mode, augment_training, complete_background, size_grid, debord, number_class, path_time_log, extension_raster=".tif", extension_vector=".shp", format_raster='GTiff', format_vector='ESRI Shapefile', rand_seed=0, epsg=2154, percent_no_data=10, no_data_value=0, save_results_intermediate=False, overwrite=True):
     """
-    # ROLE:
     #    Choix entre une simple classification ou entrainement, ou bien un enchainement des deux
     #
-    # ENTREES DE LA FONCTION :
+    # Args:
     #    input_raster_path (string) : Chemin de l'image satellite d'entrée
     #    groundtruth_path (string) : GroundTruth
     #    grid_path (string) : grille de découpe si elle existe déjà
@@ -2216,8 +2034,8 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
     #    save_results_intermediate (bool) : booléen qui determine si on sauvegarde ou non les fichiers temporaires
     #    overwrite (bool) : booléen pour écrire ou non par dessus un fichier existant
     #
-    # SORTIES DE LA FONCTION :
-    #    Aucune sortie
+    # Returns :
+    #    ANone
     #
     """
     # Nettoyer l'environnement si overwrite est à True
@@ -2244,7 +2062,7 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
         prediction_dir = os.path.join(directory, neural_network_mode + FOLDER_PREDICTION + folder_end_name)
         history_dir = os.path.join(directory, neural_network_mode + FOLDER_HISTORY + folder_end_name)
 
-        #Suppression des dossiers si Overwrite = True et qu'ils existent :
+        # Suppression des dossiers si Overwrite = True et qu'ils existent :
         folders_to_clean = [ (vect_dir, "Vect") , (data_dir, "Data"), (prediction_dir, "Predict"), (history_dir, "History")]
         for folder_path, label in folders_to_clean :
             if os.path.isdir(folder_path):
@@ -2252,9 +2070,9 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
                 try :
                     shutil.rmtree(folder_path)
                 except Exception :
-                    pass #Si le dossier ne peut pas être supprimé, on suppor qu'il n'existe pas
+                    pass
 
-        #Suppression du fichier log
+        # Suppression du fichier log
         if os.path.isfile(path_time_log):
             print(f"{cyan}computeNeuralNetwork() : {bold}{yellow}Delete of path_time_log file already existing{endC}")
             try:
@@ -2274,7 +2092,7 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
     # Configuration de l'environnement CUDA
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     if use_graphic_card :
-        #activation GPU spécifique
+        # Activation GPU spécifique
         os.environ["CUDA_VISIBLE_DEVICES"] = str(id_graphic_card)
         physical_devices = tf.config.list_physical_devices('GPU')
         if physical_devices :
@@ -2288,9 +2106,9 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
 
     if debug >=1:
         if use_graphic_card:
-            print(f"GPU activé : GPU {id_graphic_card}")
+            print(f"GPU activated : GPU {id_graphic_card}")
         else:
-            print("GPU désactivé, usage du CPU forcé")
+            print("GPU desactivated, using CPU")
 
 
     # Gestion du taux d'information affiché pour l'early stopping et le reduce learning rate en fonction de debug
@@ -2314,11 +2132,10 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
     # Choix entre entrainement,classification ou les deux
 
     # Cas d'une simple classification
-    if output_raster_path != "" and model_input != "" and vector_test !="" :  # and groundtruth_path =="":
+    if output_raster_path != "" and model_input != "" and vector_test !="" and groundtruth_path =="":
 
          if debug >=1:
             print(cyan + "computeNeuralNetwork() : " + endC + "Début de la phase de classification")
-         #est_params = computeOptimizeHyperparameters(n_trials = 50)
          # Initialisation
          input_table = []
          split_tile_vector_list = []
@@ -2331,7 +2148,7 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
             timeLine(path_time_log, starting_event)
 
          # Classification
-         computeClassification(groundtruth_path, input_raster_path, vector_test, output_raster_path, evaluation_path, split_tile_vector_list, vect_temp_dir, data_temp_dir, model_input, NN, neural_network_mode, size_grid, debord, number_class, path_time_log, grid_path, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, percent_no_data, save_results_intermediate)
+         computeClassification(groundtruth_path, input_raster_path, vector_test, output_raster_path, evaluation_path, split_tile_vector_list, vect_temp_dir, data_temp_dir, model_input, NN, neural_network_mode, size_grid, debord, number_class, complete_background, path_time_log, grid_path, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, percent_no_data, save_results_intermediate)
 
          # Mise à jour du Log
          if check_log :
@@ -2368,7 +2185,7 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
             timeLine(path_time_log, ending_training_starting_classification_event)
 
          # Classification
-         computeClassification(groundtruth_path, input_raster_path, vector_test, output_raster_path, evaluation_path, split_tile_vector_list, vect_temp_dir, data_temp_dir, model_path_temp, NN, neural_network_mode, size_grid, debord, number_class, path_time_log, grid_path, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, percent_no_data, save_results_intermediate)
+         computeClassification(groundtruth_path, input_raster_path, vector_test, output_raster_path, evaluation_path, split_tile_vector_list, vect_temp_dir, data_temp_dir, model_path_temp, NN, neural_network_mode, size_grid, debord, number_class, complete_background, path_time_log, grid_path, overwrite, extension_raster, extension_vector, format_raster, format_vector, epsg, no_data_value, percent_no_data, save_results_intermediate)
 
          # Mise à jour du Log
          if check_log :
@@ -2380,7 +2197,7 @@ def computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluat
             try:
                 os.remove(model_path_temp)
             except Exception:
-                pass # Si le dossier ne peut pas être supprimé, on suppose qu'il n'existe pas et on passe à la suite
+                pass
 
          if debug >=1:
             print(cyan + "computeNeuralNetwork() : " + endC + "Fin de la classification avec reseau de neurones")
@@ -2531,7 +2348,7 @@ def objective(trial, train_tile_paths, train_mask_paths, valid_tile_paths, valid
     except Exception as e:
         print(f"Erreur pendant l'essai {trial.number}: {str(e)}")
         # En cas d'erreur, on retourne une valeur très élevée
-        # pour que cet essai soit ignoré
+        # Pour que cet essai soit ignoré
         return float('inf')
 
 ###########################################################################################################################################
@@ -2625,6 +2442,7 @@ def main(gui=False):
     # Input image parameters
     parser.add_argument('-sg','--size_grid',default=256,help="Size of study grid in pixels. Not used, if vector_grid_input is inquired", type=int, required=False)
     parser.add_argument('-at','--augment_training',action='store_true',default=False,help="Modify image and mask to artificially increase the dataset", required=False)
+    parser.add_argument('-cb','--complete_background',action='store_true',default=False,help="Attribute the second most likely class to the pixel predicted as background", required=False)
     parser.add_argument('-deb','--debord',default=0,help="Reduce size of grid cells in pixels. Useful to avoid side effect",type=int, required=False)
     parser.add_argument('-ugc','--use_graphic_card',action='store_true',default=False,help="Use CPU for training phase", required=False)
     parser.add_argument('-igpu','--id_graphic_card',default=0,help="Id of graphic card used to classify", type=int, required=False)
@@ -2638,7 +2456,6 @@ def main(gui=False):
     parser.add_argument('-nn.ncf','--number_conv_filter',default=8,help="Number of convolutional filters in one layer of Neural Network", type=int, required=False)
     parser.add_argument('-nn.ks','--kernel_size',default=3,help="Size of kernel in Neural Network", type=int, required=False)
     parser.add_argument('-nn.dp','--dp_rate',default=3,help="Rate for the SpatialDropout", type=float, required=False)
-    parser.add_argument('-nn.l2','--l2_reg',default=3,help="Kernel regularizer L2", type=float, required=False)
     parser.add_argument('-nn.al','--alpha_loss',default=[0.5],help="Ponderation coefficient of the focal loss", type=float, nargs='+',required=False)
 
     parser.add_argument('-nn.ne','--number_epoch',default=200,help="Number of epoch to train the Neural Network", type=int, required=False)
@@ -2740,6 +2557,12 @@ def main(gui=False):
         if type(augment_training) != bool:
             raise NameError (cyan + "NeuralNetworkSegmentation : " + bold + red  + "augment_training takes False or True in input!" + endC)
 
+    # Récupération d'un int utilisé comme un booléen pour savoir si on complète le background avec la deuxième classe la plus probable
+    if args.complete_background != None :
+        complete_background = args.complete_background
+        if type(complete_background) != bool:
+            raise NameError (cyan + "NeuralNetworkSegmentation : " + bold + red  + "complete_background takes False or True in input!" + endC)
+
     # Récupération du nombre d'échantillons qui passe dans le réseau avant une mise à jour des poids
     if args.debord != None :
         debord = args.debord
@@ -2806,17 +2629,15 @@ def main(gui=False):
         if NN.dp_rate <= 0 :
             raise NameError (cyan + "NeuralNetworkSegmentation : " + bold + red  + "0 and negative numbers not allowed!" + endC)
 
-    # Récupération du taux de regularisation
-    if args.l2_reg != None :
-        NN.l2_reg = args.l2_reg
-        if NN.l2_reg <= 0 :
-            raise NameError (cyan + "NeuralNetworkSegmentation : " + bold + red  + "0 and negative numbers not allowed!" + endC)
-
     # Récupération de la pondération de la focal loss
     if args.alpha_loss != None :
-        NN.alpha_loss = args.alpha_loss
-        if len(NN.alpha_loss) != number_class :
-            raise NameError (cyan + "NeuralNetworkSegmentation : " + bold + red  + "le nombre de classes et le nombres de coefficients de pondération de la loss ne concordent pas" + endC)
+        if len(args.alpha_loss) != number_class:
+            NN.alpha_loss = (args.alpha_loss * number_class)[:number_class]
+        else :
+            NN.alpha_loss = args.alpha_loss
+    total = sum(NN.alpha_loss)
+    NN.alpha_loss = [x/total for x in NN.alpha_loss]
+
 
     # Récupération du nombre d'époques pour entrainer le réseau
     if args.number_epoch != None :
@@ -2928,6 +2749,7 @@ def main(gui=False):
 
 
         print(cyan + "NeuralNetworkSegmentation : " + endC + "augment_training : " + str(augment_training) + endC)
+        print(cyan + "NeuralNetworkSegmentation : " + endC + "complete_background : " + str(complete_background) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "size_grid : " + str(size_grid) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "debord : " + str(debord) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "number_class : " + str(number_class) + endC)
@@ -2941,7 +2763,6 @@ def main(gui=False):
         print(cyan + "NeuralNetworkSegmentation : " + endC + "number_conv_filter : " + str(NN.number_conv_filter) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "kernel_size : " + str(NN.kernel_size) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "dropout_rate : " + str(NN.dp_rate) + endC)
-        print(cyan + "NeuralNetworkSegmentation : " + endC + "l2_regularizer : " + str(NN.l2_reg) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "alpha_loss : " + str(NN.alpha_loss) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "number_epoch : " + str(NN.number_epoch) + endC)
         print(cyan + "NeuralNetworkSegmentation : " + endC + "es_monitor : " + NN.es_monitor + endC)
@@ -2967,9 +2788,7 @@ def main(gui=False):
         print(cyan + "NeuralNetworkSegmentation : " + endC + "debug : " + str(debug) + endC)
 
         # Appel de la fonction principale
-        #computeSanityCheck(groundtruth_path, input_raster_path, grid_path, vector_train, vector_test, NN,  neural_network_mode,size_grid,debord,number_class, path_time_log,NN.number_epoch)
-        computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluation_path, vector_train, vector_valid, vector_test, output_raster_path, model_input, model_output, NN, use_graphic_card, id_graphic_card, neural_network_mode, augment_training, size_grid, debord, number_class, path_time_log, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, no_data_value, save_results_intermediate, overwrite)
-        #computeOptimizeHyperparameters(n_trials = 50)
+        computeNeuralNetwork(input_raster_path, groundtruth_path, grid_path, evaluation_path, vector_train, vector_valid, vector_test, output_raster_path, model_input, model_output, NN, use_graphic_card, id_graphic_card, neural_network_mode, augment_training, complete_background, size_grid, debord, number_class, path_time_log, extension_raster, extension_vector, format_raster, format_vector, rand_seed, epsg, percent_no_data, no_data_value, save_results_intermediate, overwrite)
 # ================================================
 
 if __name__ == '__main__':

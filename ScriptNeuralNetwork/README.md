@@ -26,7 +26,7 @@ Le prétraitement des données s'appuie sur plusieurs fonctions issues de la Cha
 ### Généralité
 
 Les arguments du script se répartissent en deux catégories :
-- Les arguments à valeur explicite, pour lesquels une valeur doit être fournie manuellement :
+- Les arguments à valeur explicite, pour lesquels une valeur doit être fournie explicitement :
 - Les arguments booléens, qui activen (ou désactivent) une option lorsqu'ils sont présents.
 
 <details>
@@ -88,6 +88,8 @@ Les arguments du script se répartissent en deux catégories :
 `-now`  # Si présent, empêche l'écrasement des fichiers existants (overwrite désactivé)
 `-ugc`  # Si présent, active l'utilisation du GPU
 `-sav`  # Si présent, conserve les fichiers temporaires intermédiaires
+`-cb`  # Si présent, complète l'arrière plan en associant aux pixels de la classe 0 la 2ème classe la plus probable
+
 ```
 </details>
 
@@ -117,15 +119,20 @@ Et il faut nécessairement `groundtruth_path=""`
 ### Lancer un ré entrainement et une classification
 
 Dernier cas, pour ré entrainer un modèle déjà entrainé et générer une classification alors les arguments obligatoires sont:
-- **input_raster_path**
-- **output_raster_path**
-- **model_input**
-- **groundtruth_path**
-- **vector_train**
-- **vector_valid**
-- **vector_test**
+- `input_raster_path`
+- `output_raster_path`
+- `model_input`
+- `groundtruth_path`
+- `vector_train`
+- `vector_valid`
+- `vector_test`
 
 ---
 
 ## Script NeuralNetwork.py
 `NeuralNetworkSegmentation.py` : ce fichier contient toutes les fonctions définissant le réseau, permettant le prétraitement ainsi que l'entrainement et l'inférence.
+
+### Généralité
+
+
+ps : ce qui est codé en dur: le facteur d'augmentation
