@@ -129,6 +129,7 @@ def deleteColumn(vector_file, col_to_delete_list, format_vector='ESRI Shapefile'
     else:
         print(cyan + "deleteColumn() : " + bold + yellow + "AUCUNE SUPPRESSION DE COLONNE DEMANDEE" + endC)
     return
+
 ###########################################################################################################################################
 # FONCTION statisticsVectorRaster_sql()                                                                                                   #
 ###########################################################################################################################################
@@ -199,20 +200,23 @@ def statisticsVectorRaster_sql(image_input, vector_input, vector_output, band_nu
         print(cyan + "statisticsVectorRaster_sql() : " + endC + "save_results_intermediate : " + str(save_results_intermediate) + endC)
         print(cyan + "statisticsVectorRaster_sql() : " + endC + "overwrite : " + str(overwrite) + endC)
 
-    # Création de la base de données
-    table_vector_input = os.path.splitext(os.path.basename(vector_input))[0].lower()
-    table_raster_input = os.path.splitext(os.path.basename(image_input))[0].lower()
-    table_raster_pg = table_raster_input + "_pg"
-    table_stats_output = os.path.splitext(os.path.basename(vector_output))[0].lower()
-    table_stats_tmp = os.path.splitext(os.path.basename(vector_output))[0].lower() + "_tmp"
+    GEOMETRY_TYPE = "GEOMETRY"
+    GEOMETRY_NAME = "geom"
+    FID_NAME = "fid"
+    TILE_SIZE = "auto"
 
+    table_vector_input = "i_vector" #os.path.splitext(os.path.basename(vector_input))[0].lower()
+    table_raster_input = "i_raster" #os.path.splitext(os.path.basename(image_input))[0].lower()
+    table_raster_pg = "t_raster" #table_raster_input + "_pg"
+    table_stats_tmp = "t_stats" #os.path.splitext(os.path.basename(vector_output))[0].lower() + "_tmp"
+    table_stats_output = "o_stats" #os.path.splitext(os.path.basename(vector_output))[0].lower()
+
+    # Création de la base de données
     createDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis)
 
     # Import des fichiers vecteur  et raster dans la base
-    importVectorByOgr2ogr(database_postgis, vector_input, table_vector_input, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding)
-
-    importRaster(database_postgis, image_input, band_number, table_raster_input, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), nodata_value=no_data_value)
-
+    importVectorByOgr2ogr(database_postgis, vector_input, table_vector_input, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), codage=project_encoding, geometry_type=GEOMETRY_TYPE, geometry_name=GEOMETRY_NAME, fid_name=FID_NAME)
+    importRaster(database_postgis, image_input, band_number, table_raster_input, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, epsg=str(epsg), nodata_value=no_data_value, tile_size=TILE_SIZE)
 
     # Connexion à la base SQL postgis
     connection = openConnection(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis)
@@ -221,17 +225,11 @@ def statisticsVectorRaster_sql(image_input, vector_input, vector_output, band_nu
     # Croisement vecteur rasteur avec postgres #
     ############################################
 
-    # Optimisation creation de l'index spatial pour le fichier vecteur d'entrée
-    #query = "CREATE INDEX space_vector_idx ON %s USING GIST (geom);" %(table_vector_input)
-    #executeQuery(connection, query)
-    #query = "CLUSTER %s USING space_vector_idx;" %(table_vector_input)
-    #executeQuery(connection, query)
-
     # Récupérer les colonnes de la table vecteur d'entrée, sauf la clé primaire et la géométrie
     query = f"SELECT column_name\n"
     query += f"FROM information_schema.columns\n"
     query += f"WHERE table_name = '{table_vector_input}'\n"
-    query += f"AND column_name NOT IN ('ogc_fid', 'geom');\n"
+    query += f"    AND column_name NOT IN ('{FID_NAME}', '{GEOMETRY_NAME}');\n"
     cursor = connection.cursor()
     cursor.execute(query)
     vector_input_columns = [row[0] for row in cursor.fetchall()]
@@ -239,40 +237,31 @@ def statisticsVectorRaster_sql(image_input, vector_input, vector_output, band_nu
     vector_columns_str = ", ".join([f"b.{col}" for col in vector_input_columns])
 
     # Creation de la table raster pg
-    query = "drop table if exists %s;" %(table_raster_pg)
-    if debug >= 4:
-        print(query)
-    executeQuery(connection, query)
-
-    query = "create table %s as\n" %(table_raster_pg)
-    query += "select (ST_DumpAsPolygons(rast)).val, (ST_DumpAsPolygons(rast)).geom\n"
-    query += "FROM %s;\n" %(table_raster_input)
+    query = f"DROP TABLE IF EXISTS {table_raster_pg};\n"
+    query += f"CREATE TABLE {table_raster_pg} AS\n"
+    query += f"    SELECT (ST_PixelAsPolygons(rast)).val, (ST_PixelAsPolygons(rast)).geom\n"
+    query += f"    FROM {table_raster_input};\n"
     if debug >= 4:
         print(query)
     executeQuery(connection, query)
 
     # Optimisation creation de l'index spatial
-    query = "CREATE INDEX space_raster_idx ON %s USING GIST (geom);" %(table_raster_pg)
+    query = f"DROP INDEX IF EXISTS space_raster_idx;\n"
+    query += f"CREATE INDEX space_raster_idx ON {table_raster_pg} USING GIST (geom);\n"
+    query += f"CLUSTER {table_raster_pg} USING space_raster_idx;\n"
+    query += f"REINDEX TABLE {table_raster_pg};\n"
     if debug >= 4:
         print(query)
-    executeQuery(connection, query)
-    query = "CLUSTER %s USING space_raster_idx;" %(table_raster_pg)
-    if debug >= 4:
-        print(query)
-    executeQuery(connection, query)
-    if debug >= 4:
-        print(query)
-    query = "REINDEX TABLE %s;" %(table_raster_pg)
     executeQuery(connection, query)
 
     # Suppression des valeur nodata
-    query = "delete from %s where val = %s;" %(table_raster_pg, str(no_data_value))
+    query = f"DELETE FROM {table_raster_pg} WHERE val = {str(no_data_value)};\n"
     if debug >= 4:
         print(query)
     executeQuery(connection, query)
 
     # Supprimer la table si elle existe
-    query = f"DROP TABLE IF EXISTS {table_stats_output};"
+    query = f"DROP TABLE IF EXISTS {table_stats_output};\n"
     if debug >= 4:
         print(query)
     executeQuery(connection, query)
@@ -280,144 +269,93 @@ def statisticsVectorRaster_sql(image_input, vector_input, vector_output, band_nu
     # Start Case enable_stats_columns_real #
     if enable_stats_columns_real :
         query = f"CREATE TABLE {table_stats_output} AS\n"
-        query += f"WITH stats AS (\n"
         query += f"    SELECT \n"
-        query += f"        b.ogc_fid AS fid, \n"
-        query += f"        ST_Area(b.geom) AS total_area, \n"
-        query += f"        b.geom AS input_geom, \n"
+        query += f"        b.{FID_NAME}, \n"
+        query += f"        ST_Area(b.{GEOMETRY_NAME}) AS total_area, \n"
+        query += f"        b.{GEOMETRY_NAME} AS input_geom, \n"
         query += f"        {vector_columns_str},\n"
-        query += f"        MIN(CASE WHEN r.val <> {no_data_value} THEN r.val END)::NUMERIC(20,2) AS min,\n"
-        query += f"        MAX(CASE WHEN r.val <> {no_data_value} THEN r.val END)::NUMERIC(20,2) AS max,\n"
-        query += f"        ROUND(AVG(CASE WHEN r.val <> {no_data_value} THEN r.val END)::NUMERIC, 2)::NUMERIC(20,2) AS mean,\n"
-        query += f"        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CASE WHEN r.val <> {no_data_value} THEN r.val END)::NUMERIC(20,2) AS median,\n"
-        query += f"        SUM(CASE WHEN r.val <> {no_data_value} THEN r.val END)::NUMERIC(20,2) AS sum,\n"
-        query += f"        ROUND(STDDEV(CASE WHEN r.val <> {no_data_value} THEN r.val END)::NUMERIC, 2)::NUMERIC(20,2) AS std,\n"
-        query += f"        COUNT(DISTINCT CASE WHEN r.val <> {no_data_value} THEN r.val END) AS unique,\n"
-        query += f"        (MAX(CASE WHEN r.val <> {no_data_value} THEN r.val END) - MIN(CASE WHEN r.val <> {no_data_value} THEN r.val END))::NUMERIC(20,2) AS range\n"
+        query += f"        MIN(r.val)::NUMERIC(20,2) AS min,\n"
+        query += f"        MAX(r.val)::NUMERIC(20,2) AS max,\n"
+        query += f"        AVG(r.val)::NUMERIC(20,2) AS mean,\n"
+        query += f"        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.val)::NUMERIC(20,2) AS median,\n"
+        query += f"        SUM(r.val)::NUMERIC(20,2) AS sum,\n"
+        query += f"        STDDEV(r.val)::NUMERIC(20,2) AS std,\n"
+        query += f"        COUNT(DISTINCT r.val) AS unique,\n"
+        query += f"        (MAX(r.val) - MIN(r.val))::NUMERIC(20,2) AS range\n"
         query += f"    FROM {table_vector_input} b\n"
-        query += f"    JOIN {table_raster_pg} r\n"
-        query += f"    ON ST_Intersects(b.geom, r.geom)\n"
-        query += f"    GROUP BY b.ogc_fid, b.geom, {vector_columns_str}\n"
-        query += f")\n"
-        vector_columns_str2 =vector_columns_str.replace('b.','s.')
-        query += f"SELECT \n"
-        query += f"    s.fid, \n"
-        query += f"    s.total_area, \n"
-        query += f"    s.input_geom, \n"
-        query += f"    {vector_columns_str2},\n"
-        query += f"    s.min, \n"
-        query += f"    s.max, \n"
-        query += f"    s.mean, \n"
-        query += f"    s.median, \n"
-        query += f"    s.sum, \n"
-        query += f"    s.std, \n"
-        query += f"    s.unique, \n"
-        query += f"    s.range \n"
-        query += f"FROM stats s;\n"
-
+        query += f"    JOIN {table_raster_pg} r ON ST_Intersects(b.{GEOMETRY_NAME}, r.geom)\n"
+        query += f"    GROUP BY b.{FID_NAME}, b.{GEOMETRY_NAME}, {vector_columns_str};\n"
         if debug >= 4:
             print(query)
         executeQuery(connection, query)
+    # End Case enable_stats_columns_real #
 
-        # End Case enable_stats_columns_real #
-
-    else : # Start Case enable_stats_all_count et enable_stats_columns_str #
-
-        # Supprimer la table de statistiques précédente si elle existe
-        query = "drop table if exists %s;" %(table_stats_tmp)
-        if debug >= 4:
-            print(query)
-        executeQuery(connection, query)
+    # Start Case enable_stats_all_count et enable_stats_columns_str #
+    else :
 
         # Calcul des statistiques agrégées avec pourcentage pour chaque classe raster
-        query = f"CREATE TABLE {table_stats_tmp} AS\n"
-        query += f"WITH stats AS (\n"
-        query += f"SELECT b.ogc_fid AS fid, r.val AS raster_val,\n"
-        query += f"SUM(ST_Area(ST_Intersection(b.geom, r.geom))) AS intersect_area, ST_Area(b.geom) AS total_area\n"
-        query += f"FROM {table_vector_input} b\n"
-        query += f"JOIN {table_raster_pg} r\n"
-        query += f"ON ST_Intersects(b.geom, r.geom)\n"
-        query += f"GROUP BY b.ogc_fid, r.val, b.geom)\n"
-        query += f"SELECT fid, total_area, raster_val, intersect_area, (intersect_area / total_area) * 100 AS percent_area\n"
-        query += f"FROM stats;\n"
+        query = f"DROP TABLE IF EXISTS {table_stats_tmp};\n"
+        query += f"CREATE TABLE {table_stats_tmp} AS\n"
+        query += f"    WITH stats AS (\n"
+        query += f"        SELECT b.{FID_NAME}, r.val AS raster_val,\n"
+        query += f"            SUM(ST_Area(ST_Intersection(b.{GEOMETRY_NAME}, r.geom))) AS intersect_area, ST_Area(b.{GEOMETRY_NAME}) AS total_area\n"
+        query += f"        FROM {table_vector_input} b\n"
+        query += f"        JOIN {table_raster_pg} r ON ST_Intersects(b.{GEOMETRY_NAME}, r.geom)\n"
+        query += f"        GROUP BY b.{FID_NAME}, r.val, b.{GEOMETRY_NAME})\n"
+        query += f"    SELECT {FID_NAME}, total_area, raster_val, intersect_area, (intersect_area / total_area) * 100 AS percent_area\n"
+        query += f"    FROM stats;\n"
         if debug >= 4:
             print(query)
         executeQuery(connection, query)
 
         # Création de colonnes dynamiques pour chaque classe raster
-        query = f"ALTER TABLE {table_stats_tmp}\n"
-        query += f"ADD COLUMN input_geom geometry;\n"
-        query += f"UPDATE {table_stats_tmp} s\n"
-        query += f"SET input_geom = b.geom\n"
-        query += f"FROM {table_vector_input} b\n"
-        query += f"WHERE s.fid = b.ogc_fid;\n"
-        if debug >= 4:
-            print(query)
-        executeQuery(connection, query)
-
-        # Récupérer dynamiquement les classes de raster uniques
-        query = f"SELECT DISTINCT raster_val FROM {table_stats_tmp} ORDER BY raster_val;"
+        query = f"ALTER TABLE {table_stats_tmp} ADD COLUMN input_geom geometry;\n"
+        query += f"UPDATE {table_stats_tmp} s SET input_geom = b.{GEOMETRY_NAME} FROM {table_vector_input} b WHERE s.{FID_NAME} = b.{FID_NAME};\n"
         if debug >= 4:
             print(query)
         executeQuery(connection, query)
 
         # Construction des colonnes pour le pourcentage et les surfaces
-        if enable_stats_all_count or enable_stats_columns_str :
-            pivot_columns = ",\n".join([
-                f"ROUND(CAST(MAX(CASE WHEN raster_val = {val} THEN percent_area ELSE 0 END) AS NUMERIC), 2)::NUMERIC(5,2) AS {str(class_label_dico[val])}, "
-                f"ROUND(CAST(SUM(CASE WHEN raster_val = {val} THEN intersect_area ELSE 0 END) AS NUMERIC), 2)::NUMERIC(20,2) AS S_{str(class_label_dico[val])}"
-                for val in class_label_dico.keys()
-            ])
+        pivot_columns = ",\n".join([
+            f"ROUND(CAST(MAX(CASE WHEN raster_val = {val} THEN percent_area ELSE 0 END) AS NUMERIC), 2)::NUMERIC(5,2) AS {str(class_label_dico[val])}, "
+            f"ROUND(CAST(SUM(CASE WHEN raster_val = {val} THEN intersect_area ELSE 0 END) AS NUMERIC), 2)::NUMERIC(20,2) AS S_{str(class_label_dico[val])}"
+            for val in class_label_dico.keys()
+        ])
 
+        # Ajout des colonnes pour chaque classe
         query = f"CREATE TABLE {table_stats_output} AS\n"
         if enable_stats_columns_str:
             query += f"WITH class_stats AS (\n"
-        query += f"SELECT b.ogc_fid AS fid, s.total_area, s.input_geom, {vector_columns_str}"
-
-        # Ajout des colonnes pour chaque classe
-        if enable_stats_all_count or enable_stats_columns_str :
-            query += f",{pivot_columns}\n"
-        else :
-             query += f"\n"
-
-        query += f"FROM {table_stats_tmp} s\n"
-        query += f"JOIN {table_vector_input} b\n"
-        query += f"ON s.fid = b.ogc_fid\n"
-        query += f"GROUP BY  b.ogc_fid, {vector_columns_str}, s.total_area, s.input_geom"
+        query += f"    SELECT b.{FID_NAME}, s.total_area, s.input_geom, {vector_columns_str}, {pivot_columns}\n"
+        query += f"    FROM {table_stats_tmp} s\n"
+        query += f"    JOIN {table_vector_input} b\n"
+        query += f"    ON s.{FID_NAME} = b.{FID_NAME}\n"
+        query += f"    GROUP BY  b.{FID_NAME}, {vector_columns_str}, s.total_area, s.input_geom"
 
         # Ajout des colonnes pour la classe majoritaire et minoritaire
         if enable_stats_columns_str:
-            query += f"\n)\n"
-            query += f"SELECT \n"
-            query += f"    cs.*, \n"
-            query += f"    CASE \n"
-
+            query += f"\n    )\n"
+            query += f"    SELECT\n"
+            query += f"        cs.*,\n"
+            query += f"        CASE\n"
             for val, label in class_label_dico.items():
-                query += f"        WHEN cs.{label} = (SELECT GREATEST({', '.join(f'cs.{l}' for l in class_label_dico.values())})) THEN '{label}'\n"
-            query += f"    END AS majority,\n"
-            query += f"    CASE \n"
+                query += f"            WHEN cs.{label} = (SELECT GREATEST({', '.join(f'cs.{l}' for l in class_label_dico.values())})) THEN '{label}'\n"
+            query += f"        END AS majority,\n"
+            query += f"        CASE\n"
             for val, label in class_label_dico.items():
-                query += f"        WHEN cs.{label} = (SELECT LEAST({', '.join(f'cs.{l}' for l in class_label_dico.values())})) THEN '{label}'\n"
-            query += f"    END AS minority\n"
-            query += f"FROM class_stats cs"
-
+                query += f"            WHEN cs.{label} = (SELECT LEAST({', '.join(f'cs.{l}' for l in class_label_dico.values())})) THEN '{label}'\n"
+            query += f"        END AS minority\n"
+            query += f"    FROM class_stats cs"
         query += f";\n"
-
         if debug >= 4:
             print(query)
         executeQuery(connection, query)
 
-        # Supprimer la table de statistiques tmp
-        query = "drop table if exists %s;" %(table_stats_tmp)
-        if debug >= 4:
-            print(query)
-        executeQuery(connection, query)
-
-        # End Case enable_stats_all_count et enable_stats_columns_str #
+    # End Case enable_stats_all_count et enable_stats_columns_str #
 
     # Nettoyage des géométries non conformes (non-polygones)
-    query = "delete from %s\n" %(table_stats_output)
-    query += "where ST_GeometryType(input_geom) not in ('ST_Polygon', 'ST_MultiPolygon');\n"
+    query = f"DELETE FROM {table_stats_output}\n"
+    query += f"WHERE ST_GeometryType(input_geom) NOT IN ('ST_Polygon', 'ST_MultiPolygon');\n"
     if debug >= 4:
         print(query)
     executeQuery(connection, query)
@@ -426,7 +364,7 @@ def statisticsVectorRaster_sql(image_input, vector_input, vector_output, band_nu
     closeConnection(connection)
 
     # Récupération de la base du fichier vecteur de sortie
-    exportVectorByOgr2ogr(database_postgis, vector_output, table_stats_output, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, format_type=format_vector)
+    exportVectorByOgr2ogr(database_postgis, vector_output, table_stats_output, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number), schema_name=schema_postgis, format_type=format_vector, ogr2ogr_more_parameters="")
 
     # Suppression des colonnes non souhaitées
     if not enable_stats_all_count and enable_stats_columns_str :
@@ -453,7 +391,7 @@ def statisticsVectorRaster_sql(image_input, vector_input, vector_output, band_nu
     return
 
 ###########################################################################################################################################
-# DEFINITION DE LA FONCTION statisticsVectorRaster                                                                                        #
+# FONCTION statisticsVectorRaster                                                                                                         #
 ###########################################################################################################################################
 def statisticsVectorRaster(image_input, vector_input, vector_output, band_number, enable_stats_all_count, enable_stats_columns_str, enable_stats_columns_real, col_to_delete_list, col_to_add_list, class_label_dico, clean_small_polygons=False, no_data_value=0, format_vector='ESRI Shapefile', path_time_log="", save_results_intermediate=False, overwrite=True) :
     """
@@ -619,6 +557,20 @@ def statisticsVectorRaster(image_input, vector_input, vector_output, band_number
     if "range" in col_to_add_list:
         col_to_add_inter01_list.append("range")
 
+    # Cas des colnnes "percentile_??"
+    percentile_items_list = [s for s in col_to_add_list if s.lower().startswith("percentile_")]
+    for items in percentile_items_list :
+        qstr = items.replace("percentile_", "")
+        q = float(qstr)
+        if q > 100.0:
+            col_to_add_list.remove(items)
+            print(cyan + "statisticsVectorRaster() : " + bold + yellow + "Attention !!! " + items + ", percentiles must be <= 100" + endC)
+        elif q < 0.0:
+            col_to_add_list.remove(items)
+            print(cyan + "statisticsVectorRaster() : " + bold + yellow + "Attention !!! " + items + ", percentiles must be >= 0" + endC)
+        else :
+            col_to_add_inter01_list.append(items)
+
     # Copy de col_to_add_inter01_list dans col_to_add_inter02_list
     col_to_add_inter02_list = list(col_to_add_inter01_list)
     col_to_add_inter02_list.append("count")
@@ -652,7 +604,17 @@ def statisticsVectorRaster(image_input, vector_input, vector_output, band_number
     # Creation des colonnes de col_to_add_inter01_list ([majority/DateMaj/SrcMaj, minority, min, max, mean, median, sum, std, unique, range])
     for col in col_to_add_list:
         if layer_definition.GetFieldIndex(col) == -1 :                          # Vérification de l'existence de la colonne col (retour = -1 : elle n'existe pas)
-            if col == 'majority' or col == 'minority' or col == 'DateMaj' or col == 'SrcMaj' :  # Identification de toutes les colonnes remplies en string
+            if col.lower().startswith("percentile_") :
+                qstr = col.replace("percentile_", "")
+                q = int(float(qstr))
+                name_col = "centile_" + str(q)
+                stat_classif_field_defn = ogr.FieldDefn(name_col, ogr.OFTReal)       # Création du champ (real) dans l'objet stat_classif_field_defn
+                # Définition de la largeur du champ
+                stat_classif_field_defn.SetWidth(20)
+                # Définition de la précision du champ valeur flottante
+                stat_classif_field_defn.SetPrecision(2)
+                layer.CreateField(stat_classif_field_defn)
+            elif col == 'majority' or col == 'minority' or col == 'DateMaj' or col == 'SrcMaj' :  # Identification de toutes les colonnes remplies en string
                 stat_classif_field_defn = ogr.FieldDefn(col, ogr.OFTString)     # Création du champ (string) dans l'objet stat_classif_field_defn
                 layer.CreateField(stat_classif_field_defn)
             elif col == 'mean' or col == 'median' or col == 'sum' or col == 'std' or col == 'unique' or col == 'range' or col == 'max' or col == 'min':
@@ -740,7 +702,6 @@ def statisticsVectorRaster(image_input, vector_input, vector_output, band_number
 
         # Extraction de feature
         feature = layer.GetFeature(polygone_stats['__fid__'])
-
         polygone_count = polygone_count + 1
 
         if debug >= 3 and polygone_count%10000 == 0:
@@ -844,8 +805,13 @@ def statisticsVectorRaster(image_input, vector_input, vector_output, band_number
 
         # Remplissage des colonnes statistiques demandées ( col_to_add_inter01_list = [DateMaj, SrcMaj, count, majority, minority, min, max, mean, median, sum, std, unique, range] )
         for stats in col_to_add_inter01_list :
-
-            if (stats == 'DateMaj') or  (stats == 'SrcMaj') :            # Cas particulier de 'DateMaj' et 'SrcMaj' : le nom de la colonne est DateMaj ou SrcMaj, mais la statistique utilisée est identifiée par majority
+            if stats.lower().startswith("percentile_") :
+                qstr = stats.replace("percentile_", "")
+                q = int(float(qstr))
+                value_statis = polygone_stats[stats]
+                name_col = "centile_" + str(q)
+                feature.SetField(name_col, value_statis)
+            elif (stats == 'DateMaj') or  (stats == 'SrcMaj') :          # Cas particulier de 'DateMaj' et 'SrcMaj' : le nom de la colonne est DateMaj ou SrcMaj, mais la statistique utilisée est identifiée par majority
                 name_col = stats                                         # Nom de la colonne. Ex : 'DateMaj'
                 value_statis = polygone_stats['majority']                # Valeur majoritaire. Ex : '203'
                 if value_statis == None:
@@ -888,6 +854,16 @@ def statisticsVectorRaster(image_input, vector_input, vector_output, band_number
 
     # ETAPE 3/3 : SUPRESSION DES COLONNES NON SOUHAITEES
     deleteColumn(vector_output, col_to_delete_list, format_vector)
+
+    # Si format GPKG suppression de la couche d'entree inutile
+    if format_vector == "GPKG" :
+        layer_name = os.path.splitext(os.path.basename(vector_input))[0]
+        command = "ogrinfo %s -sql 'DROP TABLE IF EXISTS %s'" %(vector_output, layer_name)
+        if debug >=2:
+            print(command)
+        exit_code = os.system(command)
+        if exit_code != 0:
+            print(cyan + "statisticsVectorRaster : " + bold + red + "!!! Une erreur c'est produite au cours de la suppression la couche du vecteur : " + vector_output + endC, file=sys.stderr)
 
     # Mise à jour du Log
     ending_event = "statisticsVectorRaster() : Compute statistic crossing ending : "

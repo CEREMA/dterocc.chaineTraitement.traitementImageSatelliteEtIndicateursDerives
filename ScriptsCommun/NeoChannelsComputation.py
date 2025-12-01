@@ -42,7 +42,7 @@ from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC,displ
 from Lib_log import timeLine
 from Lib_file import removeFile
 from Lib_raster import getMinMaxValueBandImage
-from Lib_index import createNDVI, createNDVIMod, createTNDVI, createPNDVI, createNDWI, createNDWI2, createNDWI2Mod, createNDMI, createMNDWI, createISU, createGEMI, createBSI, createNDBI, createNBI, createIR, createCI, createBI, createBI2, createMSAVI2, createSIPI, createISI, createHIS, createVSSI, createBlueI
+from Lib_index import createNDVI, createNDVIMod, createTNDVI, createPNDVI, createNDWI, createNDWI2, createNDWI2Mod, createNDMI, createMNDWI, createISU, createGEMI, createBSI, createNDBI, createNBI, createIR, createCI, createBI, createBI2, createMSAVI2, createSIPI, createISI, createHIS, createVSSI, createBlueI, createSCoWI
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 1 : affichage intermédiaire de commentaires lors de l'execution du script
@@ -212,6 +212,8 @@ def extractTexture(image_input, repertory_neochannels_output, path_time_log, cha
         raise NameError(cyan + "extractTexture() : " + bold + red + "VSSI needs Red and Green and NIR channels to be computed, and at least one is not specify in \"channel_order\""+ endC)
     if "BLUEI" in indices_to_compute_list and (Red == "" or Green == "" or Blue == ""):
         raise NameError(cyan + "extractTexture() : " + bold + red + "BlueI needs Red and Green and Blue channels to be computed, and at least one is not specify in \"channel_order\""+ endC)
+    if "SCoWI" in indices_to_compute_list and (NIR == "" or Green == "" or Blue == ""):
+        raise NameError(cyan + "extractTexture() : " + bold + red + "SCoWI needs NIR and Green and Blue channels to be computed, and at least one is not specify in \"channel_order\""+ endC)
 
     # CALCUL DES TEXTURES - sur image, bande et famille de texture (autres paramètres fixés)
 
@@ -647,6 +649,16 @@ def extractTexture(image_input, repertory_neochannels_output, path_time_log, cha
                 print(cyan + "extractTexture() : " + endC + "File " + output_BLUEI + " already exists and will not be calculated again.")
             else:
                 createBlueI(image_input, output_BLUEI, channel_order, CODAGE)
+
+        # SCoWI (Eau)
+        if indice == "SCoWI" :
+            output_SCoWI = repertory_neochannels_output + image_name + "_SCoWI" + extension_raster
+            check_SCoWI = os.path.isfile(output_SCoWI)
+
+            if check_SCoWI and not overwrite:
+                print(cyan + "extractTexture() : " + endC + "File " + output_SCoWI + " already exists and will not be calculated again.")
+            else:
+                createSCoWI(image_input, output_SCoWI, channel_order, CODAGE)
 
     # Supression des .geom des fichiers d'indices - A GARDER?
     for file_to_remove in glob.glob(repertory_neochannels_output + os.sep + "*.geom"):

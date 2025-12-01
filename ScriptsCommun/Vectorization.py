@@ -525,7 +525,7 @@ def vectorizeGrassClassification(image_input, vector_output, name_column, umc_li
         image_raster = image_input
 
     # INITIALISATION DE GRASS
-    initializeGrass(repository, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, projection=epsg)
+    initializeGrass(repository, xmin, xmax, ymin, ymax, pixel_size_x, pixel_size_y, epsg)
 
     # POUR TOUTES LES UMC DEMANDEES
     for umc in umc_list :
@@ -705,7 +705,7 @@ def topologicalCorrection(vector_output, enable_boundaries, boundaries_vector, e
         print(cyan + "topologicalCorrection() : " + endC + "overwrite : " + str(overwrite) + endC)
 
     # Création de la base de données
-    table_correct_name = os.path.splitext(os.path.basename(vector_output))[0].lower()
+    table_correct_name = os.path.splitext(os.path.basename(vector_output))[0].lower().replace('-','_')
     createDatabase(database_postgis, user_name=user_postgis, password=password_postgis, ip_host=server_postgis, num_port=str(port_number))
 
     # Import du fichier vecteur dans la base

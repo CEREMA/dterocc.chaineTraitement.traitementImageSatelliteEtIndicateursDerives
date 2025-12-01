@@ -665,9 +665,9 @@ def createMnhFromMnsCorrel(vector_emprise_input, image_mnh_output, image_referen
     elif zone == "REU":
         dpts_list, epsg, schema_name, table_name = ["D974"], 2975, "reu_rgr92utm40s", "departement"
     elif zone == "MYT":
-        dpts_list, epsg, schema_name, table_name = ["D975"], 4471, "myt_rgm04utm38s", "departement"
+        dpts_list, epsg, schema_name, table_name = ["D976"], 4471, "myt_rgm04utm38s", "departement"
     elif zone == "SPM":
-        dpts_list, epsg, schema_name, table_name = ["D976"], 4467, "spm_rgspm06u21", "collectivite_territoriale"
+        dpts_list, epsg, schema_name, table_name = ["D975"], 4467, "spm_rgspm06u21", "collectivite_territoriale"
     elif zone == "BLM":
         dpts_list, epsg, schema_name, table_name = ["D977"], 5490, "blm_rgaf09utm20", "collectivite_territoriale"
     elif zone == "MAF":
@@ -1145,14 +1145,13 @@ def createMnhFromLidarHd(vector_emprise_input, image_mnh_output, image_reference
             LHD_file,command = task
             if debug >= 1:
                 print(bold + green + "    Traitement MNT de \"%s\"..." % (LHD_file) + endC)
-            try:
-                thread = SubprocessThread(command)
-                thread.start()
-                thread.join()
-                if debug >= 1:
-                    print(bold + yellow + "        Traitement MNT de \"%s\" fait" % (LHD_file) + endC)
-            except Exception as e:
-                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + f"Erreur d'exécution MNT de {LHD_file} : {str(e)}" + endC)
+            thread = SubprocessThread(command)
+            thread.start()
+            thread.join()
+            if thread.stderr:
+                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + f"Erreur d'exécution MNT de {LHD_file} : {str(thread.stderr)}" + endC)
+            if debug >= 1:
+                print(bold + yellow + "        Traitement MNT de \"%s\" fait" % (LHD_file) + endC)
 
         if tasks:
             with ThreadPoolExecutor(max_workers=nb_cpus) as executor:
@@ -1208,14 +1207,13 @@ def createMnhFromLidarHd(vector_emprise_input, image_mnh_output, image_reference
             LHD_file,command = task
             if debug >= 1:
                 print(bold + green + "    Traitement MNS de \"%s\"..." % (LHD_file) + endC)
-            try:
-                thread = SubprocessThread(command)
-                thread.start()
-                thread.join()
-                if debug >= 1:
-                    print(bold + yellow + "        Traitement MNS de \"%s\" fait" % (LHD_file) + endC)
-            except Exception as e:
-                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + f"Erreur d'exécution MNS de {LHD_file} : {str(e)}" + endC)
+            thread = SubprocessThread(command)
+            thread.start()
+            thread.join()
+            if thread.stderr:
+                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + f"Erreur d'exécution MNS de {LHD_file} : {str(thread.stderr)}" + endC)
+            if debug >= 1:
+                print(bold + yellow + "        Traitement MNS de \"%s\" fait" % (LHD_file) + endC)
 
         if tasks:
             with ThreadPoolExecutor(max_workers=nb_cpus) as executor:
@@ -1254,7 +1252,7 @@ def createMnhFromLidarHd(vector_emprise_input, image_mnh_output, image_reference
             if exitCode != 0:
                print(command)
                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdal_fillnodata command to compute MNH Final" + image_mnh_output + ". See error message above." + endC)
-        command =  "gdalwarp -wo NUM_THREADS=%s -co NUM_THREADS=%s -co BIGTIFF=YES -co TILED=YES -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (nb_cpus, nb_cpus, xmin_ref, ymin_ref, xmax_ref, ymax_ref, pixel_width, pixel_height, vector_emprise_input, dtm_raster_temp, dtm_raster)
+        command =  "gdalwarp -multi -wo NUM_THREADS=%s -co NUM_THREADS=%s -co BIGTIFF=YES -co TILED=YES -wm 4096 --config GDAL_CACHEMAX 4096 --config CPL_DEBUG OFF -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (nb_cpus, nb_cpus, xmin_ref, ymin_ref, xmax_ref, ymax_ref, pixel_width, pixel_height, vector_emprise_input, dtm_raster_temp, dtm_raster)
         exitCode = os.system(command)
         if exitCode != 0:
             print(command)
@@ -1291,7 +1289,7 @@ def createMnhFromLidarHd(vector_emprise_input, image_mnh_output, image_reference
                print(command)
                raise NameError(cyan + "createMnhFromLidarHd() : " + bold + red + "An error occured during gdal_fillnodata command to compute MNH Final " + image_mnh_output + ". See error message above." + endC)
 
-        command = "gdalwarp -wo NUM_THREADS=%s -co NUM_THREADS=%s -co BIGTIFF=YES -co TILED=YES -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (nb_cpus, nb_cpus, xmin_ref, ymin_ref, xmax_ref, ymax_ref, pixel_width, pixel_height, vector_emprise_input, dsm_raster_temp, dsm_raster)
+        command = "gdalwarp -multi -wo NUM_THREADS=%s -co NUM_THREADS=%s -co BIGTIFF=YES -co TILED=YES -wm 4096 --config GDAL_CACHEMAX 4096 --config CPL_DEBUG OFF -te %s %s %s %s -tr %s %s -cutline %s %s %s" % (nb_cpus, nb_cpus, xmin_ref, ymin_ref, xmax_ref, ymax_ref, pixel_width, pixel_height, vector_emprise_input, dsm_raster_temp, dsm_raster)
         exitCode = os.system(command)
         if exitCode != 0:
             print(command)
