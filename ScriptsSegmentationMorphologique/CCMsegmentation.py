@@ -255,7 +255,9 @@ def offFile2vectorFile(off_file_input, image_input, vector_file_output, resoluti
     # Save to file vector
     crs = "EPSG:" + str(epsg)
     df = gpd.GeoDataFrame(crs=crs, geometry=list_polygon_geom)
-    df.to_file(vector_file_output, driver=format_vector, crs=crs)
+    #df.to_file(vector_file_output, driver=format_vector, crs=crs)
+    df = df.set_crs(epsg=epsg, inplace=False)
+    df.to_file(vector_file_output, driver=format_vector)
 
     if debug >= 1:
         print(cyan + "offFile2vectorFile() : " + endC + "exporting .off objects to vector file into {} done".format(vector_file_output))

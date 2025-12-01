@@ -33,7 +33,7 @@ Modifications
 ##### Import #####
 
 # System
-import os, sys, subprocess, shutil
+import os, sys
 from osgeo import ogr
 
 # Geomatique
@@ -42,30 +42,26 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.crs import CRS
 from rasterio.enums import ColorInterp
 import numpy as np
+import networkx as nx
 import pandas as pd
 import geopandas as gpd
 from geopandas import GeoDataFrame
 from collections import Counter
 from shapely.geometry import MultiLineString, LineString, MultiPolygon, Polygon, Point, box
-from shapely.strtree import STRtree
-from shapely.ops import unary_union, split, linemerge
-from joblib import Parallel, delayed
+from shapely.ops import unary_union, split
 from centerline.geometry import Centerline
-#from pygeoops import centerline
+##from pygeoops import centerline
 
 # Interne libs
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
-from Lib_raster import cutImageByVector, getProjectionImage, getPixelWidthXYImage, rasterizeVector, mergeListRaster, getEmpriseImage, setNodataValueImage, getDataTypeImage
-from Lib_vector import fusionVectors, bufferVector, filterSelectDataVector, getAttributeNameList, addNewFieldVector, updateIndexVector, cutVectorAll
-from Lib_vector2 import extendLines, cutShapefileByExtent, removeInteriorPolygons, bufferPolylinesToPolygons, explodeMultiGdf, removeRing
-from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan, endC
-from Lib_log import timeLine
-from Lib_file import deleteDir, copyVectorFile, copyFile, removeVectorFile, removeFile
+from Lib_raster import cutImageByVector, getProjectionImage, getPixelWidthXYImage, rasterizeVector
+from Lib_vector import bufferVector, filterSelectDataVector, getAttributeNameList, addNewFieldVector, updateIndexVector, cutVectorAll
+from Lib_vector2 import extendLines, removeRing, cutShapefileByExtent, removeInteriorPolygons, bufferPolylinesToPolygons
+from Lib_file import deleteDir, copyVectorFile, removeVectorFile
 from Lib_xml import parseDom, getListValueAttributeDom
 from Lib_postgis import cutPolygonesByLines_Postgis
 
-from ChannelsConcatenation import concatenateChannels
-from PolygonsMerging import mergeSmallPolygons
+from PolygonsMerging import mergeSmallPolygons, FIELD_FID, FIELD_AREA, FIELD_ORG_ID_LIST, THRESHOLD_NANO_SMALL_AREA, THRESHOLD_MICRO_SMALL_AREA, THRESHOLD_SMALL_AREA_ROAD
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 3 : affichage maximum de commentaires lors de l'execution du script. Intermédiaire : affichage intermédiaire
@@ -76,8 +72,15 @@ debug = 1
 # UTILS                                                                                                                                   #
 #                                                                                                                                         #
 ###########################################################################################################################################
-# Fonction pour extraire tous les polygones simples
-def explode_to_polygons(geom):
+
+########################################################################
+# FUNCTION reprojectRaster()                                           #
+########################################################################
+def explodeGeom2Polygon(geom):
+    """
+    # ROLE:
+    #     Fonction pour extraire tous les polygones simples
+    """
     if geom is None:
         return []
     if isinstance(geom, Polygon):
@@ -161,7 +164,9 @@ def reprojectVector(vector_input, vector_output, epsg=2154, format_vector='ESRI 
 
     gdf = gpd.read_file(vector_input)
     # Sauvegardez le GeoDataFrame avec la nouvelle projection dans un fichier de sortie
-    gdf.to_file(vector_output, crs="EPSG:" + str(epsg), driver=format_vector)
+    #gdf.to_file(vector_output, crs="EPSG:" + str(epsg), driver=format_vector)
+    gdf = gdf.set_crs(epsg=epsg, inplace=False)
+    gdf.to_file(vector_output, driver=format_vector)
     return
 
 ########################################################################
@@ -182,7 +187,9 @@ def gdfFusionVectors(vectors_list, vector_all, format_vector, epsg=2154):
 
     gdf_vector_list = [gpd.read_file(vector_tmp) for vector_tmp in vectors_list]
     gdf_vector_all = gpd.GeoDataFrame(pd.concat(gdf_vector_list))
-    gdf_vector_all.to_file(vector_all, driver=format_vector, crs="EPSG:"+str(epsg))
+    #gdf_vector_all.to_file(vector_all, driver=format_vector, crs="EPSG:"+str(epsg))
+    gdf_vector_all = gdf_vector_all.set_crs(epsg=epsg, inplace=False)
+    gdf_vector_all.to_file(vector_all, driver=format_vector)
 
     return vector_all
 
@@ -252,18 +259,55 @@ def calculateAndCleanSmallPolygonArea(gdf, field_area, min_area_polygon):
     # RETURNS:
     #     la data frame de sortie filtrer
     """
+    # Fusion des polygones eau
+    gdf = gdf.explode(index_parts=False).reset_index(drop=True)
+
+    # Construire un graphe de connexité spatiale
+    G = nx.Graph()
+    for idx, geom in gdf.geometry.items():
+        G.add_node(idx)
+
+    for i in range(len(gdf)):
+        for j in range(i + 1, len(gdf)):
+            if gdf.geometry[i].touches(gdf.geometry[j]):
+                G.add_edge(i, j)
+
+    # Déterminer les groupes connectés
+    components = list(nx.connected_components(G))
+
+    # Assigner un identifiant de groupe
+    group_ids = {}
+    for group_idx, comp in enumerate(components):
+        for idx in comp:
+            group_ids[idx] = group_idx
+
+    gdf["group"] = gdf.index.map(group_ids)
+
+    # Dissoudre seulement les groupes avec plusieurs polygones
+    multi_groups = gdf["group"].value_counts()
+    groups_to_merge = multi_groups[multi_groups > 1].index
+
+    # Fusionner les groupes qui se touchent
+    gdf_merged = gdf[gdf["group"].isin(groups_to_merge)].dissolve(by="group")
+
+    # Garder les polygones isolés (pas à fusionner)
+    gdf_isolated = gdf[~gdf["group"].isin(groups_to_merge)]
+
+    # Combiner les deux
+    gdf_clean = gpd.GeoDataFrame(pd.concat([gdf_merged, gdf_isolated], ignore_index=True), crs=gdf.crs)
+
     # Calculer la superficie de chaque polygone
-    gdf[field_area] = gdf.geometry.area
+    gdf_clean[field_area] = gdf_clean.geometry.area
 
     # Supprimer les polygones ayant une superficie inférieure à min_area_polygon
-    gdf = gdf[gdf[field_area] >= min_area_polygon]
+    gdf_clean = gdf_clean[gdf_clean[field_area] >= min_area_polygon]
 
-    return gdf
+    return gdf_clean
 
 ########################################################################
-# FONCTION clean_segments_with_isolated_endpoints()                    #
+# FONCTION cleanSegmentsWithIsolatedEndpoints()                        #
 ########################################################################
-def clean_segments_with_isolated_endpoints(gdf_lines, gdf_polygons, nb_max_iteration=5):
+def cleanSegmentsWithIsolatedEndpoints(gdf_lines, gdf_polygons, nb_max_iteration=5):
     """
     # ROLE:
     #     Nettoyer les segment en bout de ligne contenu dans le polygone.
@@ -309,7 +353,7 @@ def clean_segments_with_isolated_endpoints(gdf_lines, gdf_polygons, nb_max_itera
         mask = gdf.geometry.astype(object).apply(is_unique_endpoint_inside_emprise)
         count_to_remove = mask.sum()
         if debug >= 3:
-            print(cyan + "clean_segments_with_isolated_endpoints() : " + endC + f"Iteration {iteration}: {count_to_remove} segments à supprimer")
+            print(cyan + "cleanSegmentsWithIsolatedEndpoints() : " + endC + f"Iteration {iteration}: {count_to_remove} segments à supprimer")
 
         if count_to_remove == 0:
             break  # Fin du nettoyage
@@ -446,7 +490,7 @@ def reprojectAndCutVector(emprise_vector, vector_input, vector_output, epsg=2154
 ###########################################################################################################################################
 # FUNCTION skeletonRoads()                                                                                                                #
 ###########################################################################################################################################
-def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_input, vector_line_skeleton_main_roads_output, vector_roads_main_output, vector_roads_secondary_output, field_fid, road_importance_field="IMPORTANCE", road_importance_threshold=4, road_width_field="LARGEUR", field_road_shod="NATURE", road_shod_threshold_list=["Autoroute", "Quasi-autoroute", "Route à 2 chaussées"], buffer_size=30.0, epsg=2154, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
+def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_input, vector_line_skeleton_main_roads_output, vector_roads_main_output, vector_roads_secondary_output, field_fid, road_importance_field="IMPORTANCE", road_importance_threshold=4, road_importance_threshold_sup=2, road_width_field="LARGEUR", field_road_shod="NATURE", road_shod_threshold_list=["Autoroute", "Quasi-autoroute", "Route à 2 chaussées"], buffer_size=30.0, epsg=2154, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
     """
     # ROLE:
     #     Creation du sequelette des routes principales (vecteurs).
@@ -462,6 +506,7 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
     #     road_importance_field : champs importance des routes (par defaut : "IMPORTANCE").
     #     road_width_field : champs largeur des routes (par defaut : "LARGEUR").
     #     road_importance_threshold : valeur du seuil d'importance (par défaut : 4).
+    #     road_importance_threshold_sup : valeur du seuil d'importance (par défaut : 2).
     #     field_road_shod : champs nature des routes nombre de chaussées (par defaut : "NATURE").
     #     road_shod_threshold_list : Liste des valeurs des natures de routes à retenir (par défaut : "Autoroute", "Quasi-autoroute", "Route à 2 chaussées").
     #     buffer_size : taille du buffer limite pour le skelette (par défaut :30.0).
@@ -477,7 +522,6 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
     SUFFIX_BUF = "_buf"
     SUFFIX_TWO_SHODS = "_two_shods"
     SUFFIX_POLY = "_poly"
-    SUFFIX_ERODE = "_erode"
     MAX_ITERATION = 5
 
     if debug >= 1:
@@ -501,6 +545,7 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
     # Get roads with road_importance_field <= road_importance_threshold
     gdf_roads[road_importance_field] = pd.to_numeric(gdf_roads[road_importance_field], errors='coerce')
     gdf_roads_primary = gdf_roads[gdf_roads[road_importance_field] <= road_importance_threshold]
+    gdf_roads_primary_sup = gdf_roads[gdf_roads[road_importance_field] <= (road_importance_threshold_sup)]
     gdf_roads_secondary = gdf_roads[gdf_roads[road_importance_field] > road_importance_threshold]
 
     # Filtrage des routes à 2 chaussées
@@ -508,14 +553,18 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
     gdf_roads_secondary_simple = gdf_roads_secondary[~gdf_roads_secondary[field_road_shod].isin(road_shod_threshold_list) & gdf_roads_secondary[field_road_shod].notna()]
 
     # Sauvegarde du lineaires routes secondaires
-    gdf_roads_secondary_simple.to_file(vector_roads_secondary_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_roads_secondary_simple.to_file(vector_roads_secondary_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_roads_secondary_simple = gdf_roads_secondary_simple.set_crs(epsg=epsg, inplace=False)
+    gdf_roads_secondary_simple.to_file(vector_roads_secondary_output, driver=format_vector)
 
     # Fusion des donnees routes en combinant les deux GeoDataFrames
     gdf_roads_select = gpd.GeoDataFrame(pd.concat([gdf_roads_primary, gdf_roads_two_shods], ignore_index=True))
 
     if debug >= 4:
         vector_roads_two_shods = path_folder_union_roads_buf + os.sep + os.path.splitext(os.path.basename(vector_all_roads_input))[0] + SUFFIX_TWO_SHODS + extension_vector
-        gdf_roads_select.to_file(vector_roads_two_shods, driver=format_vector, crs="EPSG:" + str(epsg))
+        #gdf_roads_select.to_file(vector_roads_two_shods, driver=format_vector, crs="EPSG:" + str(epsg))
+        gdf_roads_select = gdf_roads_select.set_crs(epsg=epsg, inplace=False)
+        gdf_roads_select.to_file(vector_roads_two_shods, driver=format_vector)
         print(cyan + "skeletonRoads() : " + endC + "Sortie fichier vector_roads_two_shods : ", vector_roads_two_shods)
 
     # Delete incorrect geometries which are neither LineString or MultiLineString
@@ -525,13 +574,14 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
         print(cyan + "skeletonRoads() : " + endC + "unique values: {}".format(gdf_roads["geometry"].geom_type.unique()))
 
     gdf_roads_select_clean = gdf_roads_select[(gdf_roads_select["geometry"].geom_type == 'LineString') | (gdf_roads_select["geometry"].geom_type == 'MultiLineString')]
+    gdf_roads_primary_clean = gdf_roads_primary_sup[(gdf_roads_primary_sup["geometry"].geom_type == 'LineString') | (gdf_roads_primary_sup["geometry"].geom_type == 'MultiLineString')]
 
     if debug >= 1:
         print(cyan + "skeletonRoads() : " + endC + "Nettoyage du vecteur route d'entrée : ", vector_all_roads_input)
 
     # Create buffers  around the lines --> polygons main roads
     factor_buff = 1.0
-    gdf_roads_main_buf = bufferPolylinesToPolygons(gdf_roads_select_clean, None, road_width_field, factor_buff=factor_buff, resolution=2, cap_style=2)
+    gdf_roads_main_buf = bufferPolylinesToPolygons(gdf_roads_primary_clean, None, road_width_field, factor_buff=factor_buff, resolution=2, cap_style=2)
     gdf_roads_main_buf['geometry'] = gdf_roads_main_buf['geometry'].apply(lambda geom: removeRing(geom, area_threshold=250.0))
     gdf_roads_main_buf = gdf_roads_main_buf.buffer(distance=1, resolution=0, cap_style=1)
     gdf_roads_main_buf = gdf_roads_main_buf.buffer(distance=-1, resolution=0, cap_style=1)
@@ -548,7 +598,7 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
     attributes = []
 
     for idx, row in gdf_roads_main_buf.iterrows():
-        for poly in explode_to_polygons(row.geometry):
+        for poly in explodeGeom2Polygon(row.geometry):
             polygons.append(poly)
             attributes.append(row.drop('geometry'))
 
@@ -556,7 +606,9 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
     gdf_roads_main_exploded = gpd.GeoDataFrame(attributes, geometry=polygons, crs=gdf_roads_main_buf.crs)
     gdf_roads_main_exploded.reset_index(drop=True, inplace=True)
     gdf_roads_main_exploded["id"] = range(1, len(gdf_roads_main_exploded) + 1)
-    gdf_roads_main_exploded.to_file(vector_roads_main_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_roads_main_exploded.to_file(vector_roads_main_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_roads_main_exploded = gdf_roads_main_exploded.set_crs(epsg=epsg, inplace=False)
+    gdf_roads_main_exploded.to_file(vector_roads_main_output, driver=format_vector)
 
     # Create buffers around the lines --> polygons
     buffer_size_line = 0.25
@@ -567,7 +619,9 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
         s_road_importance_threshold = str(road_importance_threshold).replace(".", "f")
         s_buffer_size = str(buffer_size_line).replace(".", "f")
         vector_roads_filter_buf = path_folder_union_roads_buf + os.sep + os.path.splitext(os.path.basename(vector_all_roads_input))[0] + "_" + road_importance_field[:3] + s_road_importance_threshold + SUFFIX_BUF + s_buffer_size + extension_vector
-        gdf_roads_buf.to_file(vector_roads_filter_buf, driver=format_vector, crs="EPSG:" + str(epsg))
+        #gdf_roads_buf.to_file(vector_roads_filter_buf, driver=format_vector, crs="EPSG:" + str(epsg))
+        gdf_roads_buf = gdf_roads_buf.set_crs(epsg=epsg, inplace=False)
+        gdf_roads_buf.to_file(vector_roads_filter_buf, driver=format_vector)
         print(cyan + "skeletonRoads() : " + endC + "Sortie fichier vector_roads_filter_buf : ", vector_roads_filter_buf)
 
     # Create Buffer to polygon and fusion polygon
@@ -576,7 +630,9 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
 
     if debug >= 4:
         vector_roads_filter_buf_poly = path_folder_union_roads_buf + os.sep + os.path.splitext(os.path.basename(vector_all_roads_input))[0] + "_" + road_importance_field[:3] + SUFFIX_BUF + SUFFIX_POLY + extension_vector
-        gdf_roads_buf_poly_union.to_file(vector_roads_filter_buf_poly, driver=format_vector, crs="EPSG:" + str(epsg))
+        #gdf_roads_buf_poly_union.to_file(vector_roads_filter_buf_poly, driver=format_vector, crs="EPSG:" + str(epsg))
+        gdf_roads_buf_poly_union = gdf_roads_buf_poly_union.set_crs(epsg=epsg, inplace=False)
+        gdf_roads_buf_poly_union.to_file(vector_roads_filter_buf_poly, driver=format_vector)
         print(cyan + "skeletonRoads() : " + endC + "Sortie fichier vector_roads_filter_buf_poly : ", vector_roads_filter_buf_poly)
 
     if debug >= 1:
@@ -590,7 +646,9 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
 
     if debug >= 4:
         vector_roads_line = path_folder_union_roads_buf + os.sep + os.path.splitext(os.path.basename(vector_all_roads_input))[0] + "_" + road_importance_field[:3] + extension_vector
-        gdf_roads_line.to_file(vector_roads_line, driver=format_vector, crs="EPSG:" + str(epsg))
+        #gdf_roads_line.to_file(vector_roads_line, driver=format_vector, crs="EPSG:" + str(epsg))
+        gdf_roads_line = gdf_roads_line.set_crs(epsg=epsg, inplace=False)
+        gdf_roads_line.to_file(vector_roads_line, driver=format_vector)
         print(cyan + "skeletonRoads() : " + endC + "Sortie fichier vector_roads_line : ", vector_roads_line)
 
     if debug >= 1:
@@ -600,16 +658,18 @@ def skeletonRoads(path_folder_union_roads, emprise_vector, vector_all_roads_inpu
     gdf_roads_line_clean = gdf_roads_line[(gdf_roads_line["geometry"].geom_type == 'LineString') | (gdf_roads_line["geometry"].geom_type == 'MultiLineString')]
 
     # Ne garder que les brins à l'exterieur de l'emprise
-    gdf_roads_line_filter_ext = clean_segments_with_isolated_endpoints(gdf_roads_line_clean, gdf_emprise, MAX_ITERATION)
+    gdf_roads_line_filter_ext = cleanSegmentsWithIsolatedEndpoints(gdf_roads_line_clean, gdf_emprise, MAX_ITERATION)
     gdf_roads_line_filter_clean = gpd.clip(gdf_roads_line_filter_ext, gdf_emprise.unary_union)
 
     # Sauvegarde du lineaires routes principales fusionées et filtrées
-    gdf_roads_line_filter_clean.to_file(vector_line_skeleton_main_roads_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_roads_line_filter_clean.to_file(vector_line_skeleton_main_roads_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_roads_line_filter_clean = gdf_roads_line_filter_clean.set_crs(epsg=epsg, inplace=False)
+    gdf_roads_line_filter_clean.to_file(vector_line_skeleton_main_roads_output, driver=format_vector)
     if debug >= 1:
         print(cyan + "skeletonRoads() : " + endC + "Résultat du squelette des routes fichier de sortie : ", vector_line_skeleton_main_roads_output)
 
     # Supression des repertoirtes temporaires
-    if not save_results_intermediate and False:
+    if not save_results_intermediate :
          if debug >= 4:
              if os.path.isfile(vector_roads_two_shods) :
                 removeVectorFile(vector_roads_two_shods)
@@ -673,7 +733,10 @@ def simplificationRoadTwoWay(vector_all_roads_input, vector_squeleton_input, vec
     # Etendre les extrémitées des routes si possible jusqu'à intersection
     vector_roads_extend = os.path.dirname(vector_all_roads_input) + os.sep + os.path.splitext(os.path.basename(vector_all_roads_input))[0] + SUFFIX_EXTEND + extension_vector
     vector_roads_simple = os.path.dirname(vector_all_roads_input) + os.sep + os.path.splitext(os.path.basename(vector_all_roads_input))[0] + SUFFIX_SIMPLE + extension_vector
-    gdf_roads_simple.to_file(vector_roads_simple, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_roads_simple.to_file(vector_roads_simple, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_roads_simple = gdf_roads_simple.set_crs(epsg=epsg, inplace=False)
+    gdf_roads_simple.to_file(vector_roads_simple, driver=format_vector)
+
     extendLines(vector_roads_simple, vector_roads_extend, vector_squeleton_input, extension_length_lines, False, epsg, format_vector)
     gdf_roads_new = gpd.read_file(vector_roads_extend)
 
@@ -688,7 +751,9 @@ def simplificationRoadTwoWay(vector_all_roads_input, vector_squeleton_input, vec
             removeVectorFile(vector_roads_simple)
 
     # Sauvegarder le résultat
-    combined_gdf.to_file(vector_new_roads_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #combined_gdf.to_file(vector_new_roads_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    combined_gdf = combined_gdf.set_crs(epsg=epsg, inplace=False)
+    combined_gdf.to_file(vector_new_roads_output, driver=format_vector)
 
     if debug >= 1:
         print(cyan + "simplificationRoadTwoWay() : " + endC + "Fin simplification des routes à 2 voies fichier de sortie : ", vector_new_roads_output)
@@ -782,7 +847,7 @@ def convertRaster2ImageRGB(raster_input, QML_file_input, rgb_image_output, epsg=
 ###########################################################################################################################################
 # FONCTION createDataIndicateurPseudoRGB()                                                                                                #
 ###########################################################################################################################################
-def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_input, QML_file_input, vectors_road_input_list, vectors_railway_input_list, vectors_build_input_list, vector_water_area_input_list, sql_exp_road_list, sql_exp_railway_list, sql_exp_build_list, sql_exp_water_list, OSO_file_output, pseudoRGB_file_output, raster_build_height_output, vector_roads_output, vector_roads_main_output,  vector_waters_area_output, vector_line_skeleton_main_roads_output, vector_roads_pres_seg_output, road_importance_field="IMPORTANCE", road_importance_threshold=4, road_width_field="LARGEUR", road_nature_field="NATURE", railway_nature_field="NATURE", railway_importance_values= "Principale", buffer_size_skeleton=30.0, extension_length_lines=20, min_area_water_area=50000, resolution=10, no_data_value=0, epsg=2154, server_postgis="localhost", port_number=5432, user_postgis="postgres", password_postgis="postgres", database_postgis="cutbylines", schema_postgis="public", project_encoding="latin1" , format_raster="GTiff", format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", path_time_log="", save_results_intermediate=False, overwrite=True):
+def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_input, QML_file_input, vectors_road_input_list, vectors_railway_input_list, vectors_build_input_list, vector_water_area_input_list, sql_exp_road_list, sql_exp_railway_list, sql_exp_build_list, sql_exp_water_list, OSO_file_output, pseudoRGB_file_output, raster_build_height_output, vector_roads_output, vector_roads_main_output,  vector_waters_area_output, vector_line_skeleton_main_roads_output, vector_roads_pres_seg_output, road_importance_field="IMPORTANCE", road_importance_threshold=4, road_importance_threshold_sup=2, road_width_field="LARGEUR", road_nature_field="NATURE", railway_nature_field="NATURE", railway_importance_values= "Principale", buffer_size_skeleton=30.0, extension_length_lines=20, min_area_water_area=30000, resolution=10, no_data_value=0, epsg=2154, server_postgis="localhost", port_number=5432, user_postgis="postgres", password_postgis="postgres", database_postgis="cutbylines", schema_postgis="public", project_encoding="latin1" , format_raster="GTiff", format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", path_time_log="", save_results_intermediate=False, overwrite=True):
 
     """
     # ROLE:
@@ -811,13 +876,14 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     #     vector_roads_pres_seg_output (str) : fichier de sortie vecteur contenant une prés segmentation avec les routes.
     #     road_importance_field (str) : champs importance des routes (par defaut : "IMPORTANCE").
     #     road_importance_threshold (int) : valeur du seuil d'importance (par défaut : 4).
+    #     road_importance_threshold_sup (int) : valeur du seuil d'importance (par défaut : 2).
     #     road_width_field (str) : champs largeur des routes (par defaut : "LARGEUR").
     #     road_nature_field : champs nature des routes (par defaut : "NATURE").
     #     railway_nature_field : champs nature des voies ferrées (par defaut : "NATURE").
     #     railway_importance_values : valeur des voies ferrées à garder (par defaut : "Principale").
     #     buffer_size_skeleton : taille du buffer pour la creation du squelette (par défaut : 30.0).
     #     extension_length_lines : taille de l'extension des lignes (par défaut : 20).
-    #     min_area_water_area : seuil minimun de surface d'eau (par défaut : 50000).
+    #     min_area_water_area : seuil minimun de surface d'eau (par défaut : 30000).
     #     resolution (int): resolution forcé des rasters de travail (par défaut : 10).
     #     no_data_value  (int) : Option : Value pixel of no data (par défaut : 0).
     #     epsg (int):  EPSG code of the desired projection (default is 2154).
@@ -868,6 +934,7 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "vector_roads_pres_seg_output : " + str(vector_roads_pres_seg_output))
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "road_importance_field : " + str(road_importance_field))
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "road_importance_threshold : " + str(road_importance_threshold))
+        print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "road_importance_threshold_sup : " + str(road_importance_threshold_sup))
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "road_width_field : " + str(road_width_field))
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "road_nature_field : " + str(road_nature_field))
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "railway_nature_field : " + str(railway_nature_field))
@@ -895,43 +962,25 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     # Répertoires
     FOLDER_CREATE_DATA = "create_data"
     FOLDER_VECTOR = "vecteur"
-    FOLDER_RASTER = "raster"
-    FOLDER_RESULT = "result"
-    FOLDER_CUT = "cut"
-    FOLDER_NORM = "norm"
 
     # Constantes
     SUFFIX_CUT = "_cut"
     SUFFIX_BUF = "_buf"
-    SUFFIX_NORM = "_norm"
-    SUFFIX_CONST = "_const"
+    SUFFIX_CLEAN = "_clean"
     SUFFIX_FILTER = "_filt"
     SUFFIX_TEMP = "_tmp"
+    SUFFIX_EXTEND = "_extend"
     SUFFIX_SIMPLE = "_simp"
     SUFFIX_SECONDARY = "_secondary"
 
-    BASE_NAME_ALL_ROAD = "all_roads"
     BASE_NAME_ALL_RAILWAY = "all_railway"
     BASE_NAME_ALL_NETWORKS = "all_networks"
     BASE_NAME_ALL_BUILT = "all_build"
-    BASE_NAME_ROAD_WIDTH = "roads_width"
-    BASE_NAME_RAILWAY_WIDTH = "railway_width"
-    BASE_NAME_ROAD_AND_WATER = "roads_and_water_surfaces"
-    BASE_NAME_VEGETATION = "vegetation_indicator"
 
     CODAGE_8BITS = 'uint8'
-    CHANEL_PRIO = "blue"
 
     # Filtre route a double voies
     ROAD_SHOD_THRESHOLD_LIST = ["Autoroute", "Quasi-autoroute", "Route à 2 chaussées"]
-
-    # Constantes pour fusion des tres petits polygones
-    FIELD_AREA = 'area'
-    FIELD_FID = "FID"
-    FIELD_ORG_ID_LIST = "org_id_l"
-    THRESHOLD_MICRO_SMALL_AREA = 50
-    THRESHOLD_SMALL_AREA_ROAD = 300
-    THRESHOLD_NANO_SMALL_AREA = 0.0001
 
     # Creation du répertoire de sortie si il n'existe pas
     if not os.path.exists(path_base_folder):
@@ -953,28 +1002,10 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
         os.makedirs(path_folder_output)
 
     # Creation des répertoires temporaires
-    #  Vecteur
+    # Vecteur
     path_folder_base_vector = path_base_folder + os.sep + FOLDER_CREATE_DATA + os.sep + FOLDER_VECTOR
     if not os.path.exists(path_folder_base_vector):
         os.makedirs(path_folder_base_vector)
-
-    #  Raster
-    path_folder_base_raster = path_base_folder + os.sep + FOLDER_CREATE_DATA + os.sep + FOLDER_RASTER
-    if not os.path.exists(path_folder_base_raster):
-        os.makedirs(path_folder_base_raster)
-
-    path_folder_base_raster_cut = path_folder_base_raster + os.sep + FOLDER_CUT
-    if not os.path.exists(path_folder_base_raster_cut):
-        os.makedirs(path_folder_base_raster_cut)
-
-    path_folder_base_raster_norm = path_folder_base_raster + os.sep  + FOLDER_NORM
-    if not os.path.exists(path_folder_base_raster_norm):
-        os.makedirs(path_folder_base_raster_norm)
-
-    #  Result
-    path_folder_base_result = path_base_folder + os.sep + FOLDER_CREATE_DATA + os.sep + FOLDER_RESULT
-    if not os.path.exists(path_folder_base_result):
-        os.makedirs(path_folder_base_result)
 
     # RASTER
     # Reproject (2154) and cut with emprise raster file
@@ -989,7 +1020,8 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     # Définir une image de référence à partir d'une image raster pour établir la résolution de la rasterisation
     file_img_ref = OSO_file_output
 
-    ## Vecteurs voies ferrées ##
+    # Vecteurs voies ferrées #
+    #------------------------#
     if debug >= 1:
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "creation of files containing railway width informations")
     vectors_railway_filtered_list = []
@@ -1043,9 +1075,12 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
         if "id" in gdf_railway.columns:
             gdf_railway.rename(columns={"id":"ID"}, inplace=True)
         gdf_railway = gdf_railway[["ID", "geometry", railway_nature_field]]
-        gdf_railway.to_file(vector_railway_output, driver=format_vector, crs="EPSG:" + str(epsg))
+        #gdf_railway.to_file(vector_railway_output, driver=format_vector, crs="EPSG:" + str(epsg))
+        gdf_railway = gdf_railway.set_crs(epsg=epsg, inplace=False)
+        gdf_railway.to_file(vector_railway_output, driver=format_vector)
 
-    ## Vecteurs Routes ##
+    # Vecteurs Routes #
+    #-----------------#
     if debug >= 1:
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "creation of files containing roads width informations")
 
@@ -1080,7 +1115,9 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     if "id" in gdf_roads.columns:
         gdf_roads.rename(columns={"id":"ID"}, inplace=True)
     gdf_roads = gdf_roads[["ID", "geometry", road_importance_field, road_width_field, road_nature_field]]
-    gdf_roads.to_file(vector_roads_tmp, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_roads.to_file(vector_roads_tmp, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_roads = gdf_roads.set_crs(epsg=epsg, inplace=False)
+    gdf_roads.to_file(vector_roads_tmp, driver=format_vector)
 
     # Creation du fichier vecteur contenant les informations ligne du squelette des route principale
     if debug >= 1:
@@ -1091,10 +1128,23 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     vector_roads_main_tmp = os.path.splitext(vector_roads_main_output)[0] + SUFFIX_TEMP + os.path.splitext(vector_roads_main_output)[1]
     vector_roads_main_cut = os.path.splitext(vector_roads_main_output)[0] + SUFFIX_CUT + os.path.splitext(vector_roads_main_output)[1]
 
-    skeletonRoads(path_folder_base_vector, emprise_vector, vector_roads_tmp, vector_line_skeleton_main_roads_tmp, vector_roads_main_tmp, vector_roads_secondary_output, FIELD_FID, road_importance_field, road_importance_threshold, road_width_field,road_nature_field, ROAD_SHOD_THRESHOLD_LIST, buffer_size_skeleton, epsg, format_vector, extension_vector, save_results_intermediate)
+    skeletonRoads(path_folder_base_vector, emprise_vector, vector_roads_tmp, vector_line_skeleton_main_roads_tmp, vector_roads_main_tmp, vector_roads_secondary_output, FIELD_FID, road_importance_field, road_importance_threshold, road_importance_threshold_sup, road_width_field,road_nature_field, ROAD_SHOD_THRESHOLD_LIST, buffer_size_skeleton, epsg, format_vector, extension_vector, save_results_intermediate)
 
     # Decoupe des polygones routes principales par les routes secondaires
-    cutPolygonesByLines_Postgis(vector_roads_secondary_output, vector_roads_main_tmp, vector_roads_main_cut, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log="", format_vector=format_vector, save_results_intermediate=False, overwrite=True)
+    vector_roads_secondary_extend = os.path.splitext(vector_roads_secondary_output)[0] + SUFFIX_EXTEND + os.path.splitext(vector_roads_secondary_output)[1]
+    vector_roads_secondary_extend_cut = os.path.splitext(vector_roads_secondary_output)[0] + SUFFIX_EXTEND + SUFFIX_CUT + os.path.splitext(vector_roads_secondary_output)[1]
+    extendLines(vector_roads_secondary_output, vector_roads_secondary_extend, vector_line_skeleton_main_roads_tmp, 20, False, epsg, format_vector)
+    gdf_roads_secondary_extend = gpd.read_file(vector_roads_secondary_extend)
+    gdf_roads_secondary_extend = gdf_roads_secondary_extend[(gdf_roads_secondary_extend["geometry"].geom_type == 'LineString') | (gdf_roads_secondary_extend["geometry"].geom_type == 'MultiLineString')]
+    gdf_roads_secondary_extend['ID'] = gdf_roads_secondary_extend.index
+    gdf_roads_secondary_extend = gdf_roads_secondary_extend.explode(index_parts=False).reset_index(drop=True)
+    gdf_roads_secondary_extend = gdf_roads_secondary_extend[["geometry","ID"]]
+    #gdf_roads_secondary_extend.to_file(vector_roads_secondary_extend, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_roads_secondary_extend = gdf_roads_secondary_extend.set_crs(epsg=epsg, inplace=False)
+    gdf_roads_secondary_extend.to_file(vector_roads_secondary_extend, driver=format_vector)
+
+    cutVectorAll(vector_roads_main_tmp, vector_roads_secondary_extend, vector_roads_secondary_extend_cut, save_results_intermediate, format_vector)
+    cutPolygonesByLines_Postgis(vector_roads_secondary_extend_cut, vector_roads_main_tmp, vector_roads_main_cut, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log="", format_vector=format_vector, save_results_intermediate=False, overwrite=True)
     cutVectorAll(emprise_vector, vector_roads_main_cut, vector_roads_main_output, save_results_intermediate, format_vector)
 
     # Fusion des tres petits polygons routes
@@ -1108,12 +1158,15 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     del gdf_roads_main_merged[FIELD_ORG_ID_LIST]
     gdf_roads_main_merged = gdf_roads_main_merged[gdf_roads_main_merged['geometry'].notnull()]
     gdf_roads_main_merged = gdf_roads_main_merged[gdf_roads_main_merged.geometry.area > THRESHOLD_NANO_SMALL_AREA]
-    gdf_roads_main_merged.to_file(vector_roads_main_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_roads_main_merged.to_file(vector_roads_main_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_roads_main_merged = gdf_roads_main_merged.set_crs(epsg=epsg, inplace=False)
+    gdf_roads_main_merged.to_file(vector_roads_main_output, driver=format_vector)
 
     if debug >= 1:
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "creation of vector file containing  skeleton line of main roads done to {}".format(vector_line_skeleton_main_roads_tmp))
 
-    ## Vecteurs Batis ##
+    # Vecteurs Batis #
+    #----------------#
     if debug >= 1:
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "creation of files containing build width informations")
 
@@ -1147,7 +1200,8 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     if debug >= 1:
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "creation of raster file containing builds width informations done to {}".format(raster_build_height_output))
 
-    ## Vecteurs Eaux ##
+    # Vecteurs Eaux #
+    #---------------#
     if debug >= 1:
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "creation of files containing water width informations")
 
@@ -1169,21 +1223,25 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
         cutVectorAll(emprise_vector, vector_water, vector_water_cut, save_results_intermediate, format_vector)
         vectors_water_area_cut_list.append(vector_water_cut)
 
+    vector_waters_area_tmp = path_folder_base_vector + os.sep + os.path.splitext(os.path.basename(vector_waters_area_output))[0] + SUFFIX_TEMP + extension_vector
     if len(vectors_water_area_cut_list) > 1 :
-        gdfFusionVectors(vectors_water_area_cut_list, vector_waters_area_output, format_vector, epsg) # version avec geopandas
+        gdfFusionVectors(vectors_water_area_cut_list, vector_waters_area_tmp, format_vector, epsg) # version avec geopandas
     else :
-        copyVectorFile(vectors_water_area_cut_list[0], vector_waters_area_output, format_vector)
+        copyVectorFile(vectors_water_area_cut_list[0], vector_waters_area_tmp, format_vector)
 
     # Suppression des petites surfaces et les colonnes inutiles du fichier contenant les zones en eau
-    fields_name_list = getAttributeNameList(vector_waters_area_output, format_vector)
-    addNewFieldVector(vector_waters_area_output, FIELD_FID, ogr.OFTInteger64, None, None, None, format_vector)
-    updateIndexVector(vector_waters_area_output, FIELD_FID, format_vector)
-    gdf_waters_area = gpd.read_file(vector_waters_area_output)
+    fields_name_list = getAttributeNameList(vector_waters_area_tmp, format_vector)
+    addNewFieldVector(vector_waters_area_tmp, FIELD_FID, ogr.OFTInteger64, None, None, None, format_vector)
+    updateIndexVector(vector_waters_area_tmp, FIELD_FID, format_vector)
+    gdf_waters_area = gpd.read_file(vector_waters_area_tmp)
     for colonne in fields_name_list:
         del gdf_waters_area[colonne]
 
     gdf_waters_area_clean = calculateAndCleanSmallPolygonArea(gdf_waters_area, FIELD_AREA, min_area_water_area)
-    gdf_waters_area_clean.to_file(vector_waters_area_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_waters_area_clean[FIELD_FID] = range(1, len(gdf_waters_area_clean) + 1)
+    #gdf_waters_area_clean.to_file(vector_waters_area_tmp, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_waters_area_clean = gdf_waters_area_clean.set_crs(epsg=epsg, inplace=False)
+    gdf_waters_area_clean.to_file(vector_waters_area_tmp, driver=format_vector)
 
     # Transformation image d'entrée OSO valeur 1 bandes en fichier 3 bandes rgb
     convertRaster2ImageRGB(OSO_file_output, QML_file_input, pseudoRGB_file_output, epsg, CODAGE_8BITS, no_data_value, format_raster, overwrite)
@@ -1194,8 +1252,8 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     output_polygones_table =  os.path.splitext(os.path.basename(vector_roads_pres_seg_output))[0].lower()
 
     vector_roads_simple = os.path.splitext(vector_roads_output)[0] + SUFFIX_SIMPLE + os.path.splitext(vector_roads_output)[1]
-    vector_roads_pres_seg_tmp = os.path.splitext(vector_roads_pres_seg_output)[0] + SUFFIX_TEMP + os.path.splitext(vector_roads_pres_seg_output)[1]
-    vector_roads_pres_seg_tmp2 = os.path.splitext(vector_roads_pres_seg_output)[0] + SUFFIX_TEMP + "2" + os.path.splitext(vector_roads_pres_seg_output)[1]
+    vector_roads_pres_seg_cut_tmp = os.path.splitext(vector_roads_pres_seg_output)[0] + SUFFIX_CUT + SUFFIX_TEMP + os.path.splitext(vector_roads_pres_seg_output)[1]
+    vector_roads_pres_seg_clean_tmp = os.path.splitext(vector_roads_pres_seg_output)[0] + SUFFIX_CLEAN + SUFFIX_TEMP + os.path.splitext(vector_roads_pres_seg_output)[1]
     vector_networks_tmp = path_folder_base_vector + os.sep + BASE_NAME_ALL_NETWORKS + SUFFIX_CUT + extension_vector
 
     # Remplacer les axes à 2 voies par le squelette des routes
@@ -1209,6 +1267,9 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
         copyVectorFile(vector_line_skeleton_main_roads_tmp, vector_line_skeleton_main_roads_output, format_vector)
         copyVectorFile(vector_roads_simple, vector_roads_output, format_vector)
 
+    # Decouper les polygones eau avec les routes.
+    cutPolygonesByLines_Postgis(vector_roads_output, vector_waters_area_tmp, vector_waters_area_output, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log="", format_vector=format_vector, save_results_intermediate=False, overwrite=True)
+
     # Decoupe de l'emprise par les reseaux route et ferrée
     gdf_netwoks = gpd.read_file(vector_roads_output)
     gdf_netwoks = gdf_netwoks[['geometry']]
@@ -1216,13 +1277,15 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     gdf_netwoks_clean['id'] = gdf_netwoks_clean.index
     gdf_netwoks_exploded = gdf_netwoks_clean.explode(index_parts=False).reset_index(drop=True)
     gdf_netwoks_exploded = gdf_netwoks_exploded[["id", "geometry"]]
-    gdf_netwoks_exploded.to_file(vector_networks_tmp, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_netwoks_exploded.to_file(vector_networks_tmp, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_netwoks_exploded = gdf_netwoks_exploded.set_crs(epsg=epsg, inplace=False)
+    gdf_netwoks_exploded.to_file(vector_networks_tmp, driver=format_vector)
 
-    cutPolygonesByLines_Postgis(vector_networks_tmp, emprise_vector, vector_roads_pres_seg_tmp, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log="", format_vector=format_vector, save_results_intermediate=False, overwrite=True)
-    removeInteriorPolygons(vector_roads_pres_seg_tmp, vector_roads_pres_seg_tmp2, epsg, format_vector)
+    cutPolygonesByLines_Postgis(vector_networks_tmp, emprise_vector, vector_roads_pres_seg_cut_tmp, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log="", format_vector=format_vector, save_results_intermediate=False, overwrite=True)
+    removeInteriorPolygons(vector_roads_pres_seg_cut_tmp, vector_roads_pres_seg_clean_tmp, epsg, format_vector)
 
     # Creation d'une colonne surface
-    gdf_poly_seg_road = gpd.read_file(vector_roads_pres_seg_tmp)
+    gdf_poly_seg_road = gpd.read_file(vector_roads_pres_seg_cut_tmp)
     gdf_poly_seg_road[FIELD_AREA] = gdf_poly_seg_road.geometry.area
 
     # Fusion des tres petits polygons (de la segmentation issue des routes)
@@ -1231,18 +1294,18 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
     gdf_poly_seg_road[FIELD_ORG_ID_LIST] = [[i] for i in range(100000000, 100000000 + len(gdf_poly_seg_road))]
     gdf_small_poly_merged = mergeSmallPolygons(gdf_poly_seg_road, threshold_small_area_poly=THRESHOLD_MICRO_SMALL_AREA, fid_column=FIELD_FID, org_id_list_column=FIELD_ORG_ID_LIST, area_column=FIELD_AREA)
     del gdf_small_poly_merged[FIELD_ORG_ID_LIST]
-    gdf_small_poly_merged.to_file(vector_roads_pres_seg_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_small_poly_merged.to_file(vector_roads_pres_seg_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_small_poly_merged = gdf_small_poly_merged.set_crs(epsg=epsg, inplace=False)
+    gdf_small_poly_merged.to_file(vector_roads_pres_seg_output, driver=format_vector)
 
     # Suppression des repertoirtes temporaires
     if not save_results_intermediate :
         if os.path.isfile(emprise_vector_tmp) :
             removeVectorFile(emprise_vector_tmp)
-        if os.path.isfile(vector_roads_pres_seg_tmp) :
-            removeVectorFile(vector_roads_pres_seg_tmp)
-        if os.path.isfile(vector_roads_pres_seg_tmp) :
-            removeVectorFile(vector_roads_pres_seg_tmp)
-        if os.path.isfile(vector_roads_pres_seg_tmp2) :
-            removeVectorFile(vector_roads_pres_seg_tmp2)
+        if os.path.isfile(vector_roads_pres_seg_cut_tmp) :
+            removeVectorFile(vector_roads_pres_seg_cut_tmp)
+        if os.path.isfile(vector_roads_pres_seg_clean_tmp) :
+            removeVectorFile(vector_roads_pres_seg_clean_tmp)
         if os.path.isfile(vector_line_skeleton_main_roads_tmp) :
             removeVectorFile(vector_line_skeleton_main_roads_tmp)
         if os.path.isfile(vector_roads_main_tmp) :
@@ -1251,16 +1314,18 @@ def createDataIndicateurPseudoRGB(path_base_folder, emprise_vector, OSO_file_inp
             removeVectorFile(vector_roads_main_cut)
         if os.path.isfile(vector_roads_secondary_output) :
             removeVectorFile(vector_roads_secondary_output)
+        if os.path.isfile(vector_roads_secondary_extend) :
+            removeVectorFile(vector_roads_secondary_extend)
         if os.path.isfile(vector_roads_tmp) :
             removeVectorFile(vector_roads_tmp)
         if os.path.isfile(vector_roads_simple) :
             removeVectorFile(vector_roads_simple)
         if os.path.isfile(vector_networks_tmp) :
             removeVectorFile(vector_networks_tmp)
+        if os.path.isfile(vector_waters_area_tmp) :
+            removeVectorFile(vector_waters_area_tmp)
         if os.path.exists(path_folder_base_vector):
             deleteDir(path_folder_base_vector)
-        if os.path.exists(path_folder_base_raster):
-            deleteDir(path_folder_base_raster)
 
     if debug >= 1:
         print(cyan + "createDataIndicateurPseudoRGB() : " + endC + "Ending result : " + pseudoRGB_file_output)
@@ -1274,90 +1339,12 @@ if __name__ == '__main__':
     ##### paramètres en entrées #####
     #################################
     # Pl est recommandé de prendre un répertoire avec accès rapide en lecture et écriture pour accélérer les traitements
-    """"
+
+    # Dossier principale
     BASE_FOLDER = "/mnt/RAM_disk/INTEGRATION"
+
     # Fichiers vecteurs
-    emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise_fusion.shp"
-    vector_water_area_input_list = ["/mnt/RAM_disk/INTEGRATION/bd_topo/N_SURFACE_EAU_BDT_031.SHP"]
-    vectors_road_input_list = ["/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_PRIMAIRE_BDT_031.SHP",
-                               "/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_SECONDAIRE_BDT_031.SHP"]
-    vectors_railway_input_list = ["/mnt/RAM_disk/INTEGRATION/bd_topo/N_TRONCON_VOIE_FERREE_BDT_031.SHP"]
-    vectors_build_input_list = ["/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDIFFERENCIE_BDT_031.SHP",
-                                "/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDUSTRIEL_BDT_031.SHP",
-                                "/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_REMARQUABLE_BDT_031.SHP"]
-
-    # Fichier raster
-    OSO_file_input = "/mnt/RAM_disk/OSO_20220101_RASTER_V1-0/DATA/OCS_2022.tif"
-    QML_file_input = "/mnt/RAM_disk/INTEGRATION/SLIC/test.qml"
-
-    # Fichiers resultats de sortie
-    OSO_file_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_cut.tif"
-    pseudoRGB_file_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/pseudoRGB_output.tif"
-    raster_build_height_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/builds_height.tif"
-    vector_roads_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp"
-    vector_waters_area_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/all_waters.shp"
-    vector_line_skeleton_main_roads_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/skeleton_primary_roads.shp"
-    vector_roads_pres_seg_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/pres_seg_road.shp"
-    """
-
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Grabel"
-    # Fichiers vecteurs
-    emprise_vector =  "/mnt/RAM_disk/Grabel/emprise_grabels.shp"
-    vector_water_area_input_list = ["/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/D_HYDROGRAPHIE/N_SURFACE_EAU_BDT_034.SHP"]
-    vectors_road_input_list = ["/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_PRIMAIRE_BDT_034.SHP",
-                               "/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_ROUTE_SECONDAIRE_BDT_034.SHP",
-                               "/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/A_VOIES_COMM_ROUTE/N_TRONCON_CHEMIN_BDT_034.SHP"]
-    vectors_railway_input_list = ["/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/B_VOIES_FERREES_ET_AUTRES/N_TRONCON_VOIE_FERREE_BDT_034.SHP"]
-    vectors_build_input_list = ["/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/E_BATI/N_BATI_INDIFFERENCIE_BDT_034.SHP",
-                                "/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/E_BATI/N_BATI_INDUSTRIEL_BDT_034.SHP",
-                                "/mnt/RAM_disk/Grabel/1_DONNEES_LIVRAISON/E_BATI/N_BATI_REMARQUABLE_BDT_034.SHP"]
-
-    # Fichier raster
-    OSO_file_input = "/mnt/RAM_disk/Grabel/OCS_2022.tif"
-    QML_file_input = "/mnt/RAM_disk/Grabel/test.qml"
-
-    # Fichiers resultats de sortie
-    OSO_file_output = "/mnt/RAM_disk/Grabel/create_data/result/OCS_2023_grabels.tif"
-    pseudoRGB_file_output = "/mnt/RAM_disk/Grabel/create_data/result/pseudoRGB_grabeles.tif"
-    raster_build_height_output = "/mnt/RAM_disk/Grabel/create_data/result/builds_height.tif"
-    vector_roads_output = "/mnt/RAM_disk/Grabel/create_data/result/all_roads.shp"
-    vector_roads_main_output = "/mnt/RAM_disk/Grabel/create_data/result/roads_main.shp"
-    vector_waters_area_output = "/mnt/RAM_disk/Grabel/create_data/result/all_waters.shp"
-    vector_line_skeleton_main_roads_output = "/mnt/RAM_disk/Grabel/create_data/result/skeleton_primary_roads_grabels.shp"
-    vector_roads_pres_seg_output = "/mnt/RAM_disk/Grabel/create_data/result/pres_seg_road.shp"
-    """
-
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Data_blagnac"
-    emprise_vector =  "/mnt/RAM_disk/Data_blagnac/emprise_fusion.shp"
-    vectors_road_input_list = ["/mnt/RAM_disk/Data_blagnac/bd_topo/A_VOIES_COMM_ROUTE/N_ROUTE_PRIMAIRE_BDT_031.SHP",
-                               "/mnt/RAM_disk/Data_blagnac/bd_topo/A_VOIES_COMM_ROUTE/N_ROUTE_SECONDAIRE_BDT_031.SHP",
-                               "/mnt/RAM_disk/Data_blagnac/bd_topo/A_VOIES_COMM_ROUTE/N_TRONCON_CHEMIN_BDT_031.SHP"]
-    vectors_railway_input_list = ["/mnt/RAM_disk/Data_blagnac/bd_topo/B_VOIES_FERREES_ET_AUTRES/N_TRONCON_VOIE_FERREE_BDT_031.SHP"]
-    vectors_build_input_list = ["/mnt/RAM_disk/Data_blagnac/bd_topo/E_BATI/N_BATI_INDIFFERENCIE_BDT_031.SHP",
-                                "/mnt/RAM_disk/Data_blagnac/bd_topo/E_BATI/N_BATI_INDUSTRIEL_BDT_031.SHP",
-                                "/mnt/RAM_disk/Data_blagnac/bd_topo/E_BATI/N_BATI_REMARQUABLE_BDT_031.SHP"]
-    vector_water_area_input_list = ["/mnt/RAM_disk/Data_blagnac/bd_topo/D_HYDROGRAPHIE/N_SURFACE_EAU_BDT_031.SHP"]
-
-    # Fichier raster
-    OSO_file_input = "/mnt/RAM_disk/Data_blagnac/OCS_2022.tif"
-    QML_file_input = "/mnt/RAM_disk/Data_blagnac/test.qml"
-
-    # Fichiers resultats de sortie
-    OSO_file_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/OCS_2023_cut.tif"
-    pseudoRGB_file_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/pseudoRGB_output.tif"
-    raster_build_height_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/builds_height.tif"
-    vector_roads_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/all_roads.shp"
-    vector_waters_area_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/all_waters.shp"
-    vector_line_skeleton_main_roads_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/skeleton_primary_roads.shp"
-    vector_roads_pres_seg_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/pres_seg_road.shp"
-    vector_roads_main_output = "/mnt/RAM_disk/Data_blagnac/create_data/result/roads_main.shp"
-    """
-
-    BASE_FOLDER = "/mnt/RAM_disk/INTEGRATION"
-    # Fichiers vecteurs
-    emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise/Emprise_Toulouse.shp"
+    emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise/Emprise_Toulouse_Metropole.shp"
     vector_water_area_input_list = ["/mnt/RAM_disk/INTEGRATION/bd_topo/N_SURFACE_EAU_BDT_031.shp"]
     vectors_road_input_list = ["/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_PRIMAIRE_BDT_031.SHP",
                                "/mnt/RAM_disk/INTEGRATION/bd_topo/N_ROUTE_SECONDAIRE_BDT_031.SHP"]
@@ -1366,12 +1353,18 @@ if __name__ == '__main__':
                                 "/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_INDUSTRIEL_BDT_031.shp",
                                 "/mnt/RAM_disk/INTEGRATION/bd_topo/N_BATI_REMARQUABLE_BDT_031.shp"]
 
+    # Les filtres
+    filter_road = [ "POS_SOL !='-1'","POS_SOL !='-1'"]
+    filter_railway = ["ETAT ='NR'"]
+    filter_build = ["","NATURE !='Serre'",""]
+    filter_waters = ["REGIME ='Permanent'"]
+
     # Fichier raster
     OSO_file_input = "/mnt/RAM_disk/INTEGRATION/OCS_2023.tif"
     QML_file_input = "/mnt/RAM_disk/INTEGRATION/oso_modif.qml"
 
     # Fichiers resultats de sortie
-    OSO_file_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_cut.tif"
+    OSO_file_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_TlsMtp.tif"
     pseudoRGB_file_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/pseudoRGB_output.tif"
     raster_build_height_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/builds_height.tif"
     vector_roads_output = "/mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp"
@@ -1391,7 +1384,7 @@ if __name__ == '__main__':
                                   vectors_railway_input_list,
                                   vectors_build_input_list,
                                   vector_water_area_input_list,
-                                  [],[],[],[],
+                                  filter_road,filter_railway,filter_build,filter_waters,
                                   OSO_file_output,
                                   pseudoRGB_file_output,
                                   raster_build_height_output,
@@ -1402,13 +1395,14 @@ if __name__ == '__main__':
                                   vector_roads_pres_seg_output,
                                   road_importance_field="IMPORTANCE",
                                   road_importance_threshold=4,
+                                  road_importance_threshold_sup=2,
                                   road_width_field="LARGEUR",
                                   road_nature_field="NATURE",
                                   railway_nature_field="NATURE",
                                   railway_importance_values ="Principale",
                                   buffer_size_skeleton=25.0,
                                   extension_length_lines=20,
-                                  min_area_water_area=50000,
+                                  min_area_water_area=30000,
                                   resolution=5,
                                   no_data_value=0,
                                   epsg=2154,

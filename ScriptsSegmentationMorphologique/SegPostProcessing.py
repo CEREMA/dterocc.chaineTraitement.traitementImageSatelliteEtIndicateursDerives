@@ -35,29 +35,25 @@ Modifications :
 # System
 import warnings
 import os, sys
-from osgeo import ogr ,osr, gdal
 
 # Geomatique
-import geopandas as gpd
 import pandas as pd
+import geopandas as gpd
 from shapely import prepared
 from shapely.ops import unary_union
 from shapely.geometry import MultiLineString, LineString, MultiPolygon, Polygon
 
 # Intern libs
 from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
-from Lib_file import removeFile, removeVectorFile, deleteDir
-from Lib_vector import fusionVectors, getAttributeType, getAttributeValues, addNewFieldVector, setAttributeValuesList, deleteFieldsVector, renameFieldsVector, updateIndexVector
-from Lib_vector2 import is_vector_file_empty
-from Lib_postgis import openConnection, closeConnection, dropDatabase, createDatabase, importVectorByOgr2ogr, exportVectorByOgr2ogr, cutPolygonesByLines, cutPolygonesByPolygones
+from Lib_file import removeVectorFile, deleteDir
+from Lib_vector import updateIndexVector
+from Lib_vector2 import isVectorFileEmpty, explodeMultiGdf
 
-from CreateDataIndicateurPseudoRGB import explodeMultiGdf
-from PolygonsMerging import mergeSmallPolygons
+from PolygonsMerging import mergeSmallPolygons, FIELD_FID, FIELD_AREA, FIELD_IS_ROAD, FIELD_ORG_ID, FIELD_ORG_ID_LIST, THRESHOLD_VERY_SMALL_AREA, THRESHOLD_AREA_POLY_URBAN
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 3 : affichage maximum de commentaires lors de l'execution du script. Intermédiaire : affichage intermédiaire
 debug = 3
-
 
 ###########################################################################################################################################
 #                                                                                                                                         #
@@ -139,7 +135,9 @@ def mixterSegmenationRoadsAndAlgo(vector_seg_algo_input, vector_seg_road_input, 
     gdf_seg_combined[field_area] = gdf_seg_combined.geometry.area
 
     # Sauvegarder le GeoDataFrame résultant dans un nouveau fichier shapefile si nécessaire
-    gdf_seg_combined.to_file(vector_seg_combined_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_seg_combined.to_file(vector_seg_combined_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_combined = gdf_seg_combined.set_crs(epsg=epsg, inplace=False)
+    gdf_seg_combined.to_file(vector_seg_combined_output, driver=format_vector)
 
     if debug >= 1:
         print(cyan + "mixterSegmenationRoadsAndAlgo() : " + endC + "Résultat de l'amélioration de la segmentation combiné : ", vector_seg_combined_output)
@@ -299,7 +297,9 @@ def indentifieSegmentationRoad(vector_line_skeleton_main_roads_input, vector_seg
     del gdf_seg_tag_roads[field_is_road_right]
     del gdf_seg_tag_roads[field_is_road_left]
 
-    gdf_seg_tag_roads.to_file(vector_seg_crossroad_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_seg_tag_roads.to_file(vector_seg_crossroad_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_tag_roads = gdf_seg_tag_roads.set_crs(epsg=epsg, inplace=False)
+    gdf_seg_tag_roads.to_file(vector_seg_crossroad_output, driver=format_vector)
 
     if debug >= 1:
         print(cyan + "indentifieSegmentationRoad() : " + endC + "Mise à jour des id origine des polygones traversés par les routes fichier de sortie :" +  vector_seg_crossroad_output)
@@ -333,11 +333,14 @@ def removeWaterSurfacesSeg(vector_seg_input, vector_water_area_input, vector_seg
     water_union = unary_union(gdf_water_area.geometry)
     gdf_water_union = gpd.GeoDataFrame(geometry=[water_union], crs=gdf_water_area.crs)
 
-    gdf_seg_confined_clean_small_poly = gpd.read_file(vector_seg_input)
-    gdf_seg_seg_clean_water_area = gpd.overlay(gdf_seg_confined_clean_small_poly, gdf_water_union, how='difference', keep_geom_type=True)
+    gdf_seg_input = gpd.read_file(vector_seg_input)
+    gdf_seg_seg_clean_water_area = gpd.overlay(gdf_seg_input, gdf_water_union, how='difference', keep_geom_type=True)
     gdf_seg_poly_only = explodeMultiGdf(gdf_seg_seg_clean_water_area, field_fid)
 
-    gdf_seg_poly_only.to_file(vector_seg_clean_water, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_seg_poly_only.to_file(vector_seg_clean_water, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_poly_only = gdf_seg_poly_only.set_crs(epsg=epsg, inplace=False)
+    gdf_seg_poly_only.to_file(vector_seg_clean_water, driver=format_vector)
+
     if debug >= 1:
         print(cyan + "removeWaterSurfacesSeg() : " + endC + "main water surface area removed from segmentation file to {}\n".format(vector_seg_clean_water))
 
@@ -394,7 +397,6 @@ def segPostProcessing(path_base_folder,  emprise_vector, vector_seg_road_input, 
 
     # Constantes pour la création automatique des repertoires temporaires
     FOLDER_POSTPROCESSING = "seg_post_processing"
-    FOLDER_INPUT = "input"
     FOLDER_OUTPUT_SEG = "output_seg"
 
     # Constantes
@@ -402,37 +404,25 @@ def segPostProcessing(path_base_folder,  emprise_vector, vector_seg_road_input, 
     SUFFIX_COMBINED = "_combined"
     SUFFIX_SMALLPOLY = "_small_poly"
 
-    FIELD_FID = "FID"
-    FIELD_IS_ROAD = "is_road"
-    FIELD_AREA = "area"
-    FIELD_ORG_FID = "org_id"
-
-    AREA_MIN_POLYGON = 40000
-    THRESHOLD_VERY_SMALL_AREA = 0.1
-
     # Creation des répertoires
     path_folder_postprocess = path_base_folder + os.sep + FOLDER_POSTPROCESSING
     if not os.path.exists(path_folder_postprocess):
         os.makedirs(path_folder_postprocess)
 
-    path_folder_input = path_folder_postprocess + os.sep + FOLDER_INPUT
-    if not os.path.exists(path_folder_input):
-        os.makedirs(path_folder_input)
-
-    path_folder_seg_output = path_folder_input + os.sep + FOLDER_OUTPUT_SEG
+    path_folder_seg_output = path_folder_postprocess + os.sep + FOLDER_OUTPUT_SEG
     if not os.path.exists(path_folder_seg_output):
         os.makedirs(path_folder_seg_output)
 
     # Mixer les Segmentations issues des routes et de l'algo de segmentation
     vector_seg_combined_output = os.path.splitext(vector_seg_input)[0] + SUFFIX_COMBINED + extension_vector
-    mixterSegmenationRoadsAndAlgo(vector_seg_input, vector_seg_road_input, vector_seg_combined_output, FIELD_FID, FIELD_AREA, AREA_MIN_POLYGON, epsg, format_vector)
+    mixterSegmenationRoadsAndAlgo(vector_seg_input, vector_seg_road_input, vector_seg_combined_output, FIELD_FID, FIELD_AREA, THRESHOLD_AREA_POLY_URBAN, epsg, format_vector)
 
     if debug >= 1:
         print(cyan + "segPostProcessing() : " + endC + "Résultat de la segmentation en polygones par  fusion segmentation des routes et algo de segmentation fichier de sortie :", vector_seg_combined_output)
 
     # Nettoyage des segmentations des surfaces d'eau
     vector_seg_clean_water = path_folder_seg_output + os.sep + os.path.splitext(os.path.basename(vector_seg_input))[0] + SUFFIX_WATERCLEAN + extension_vector
-    if vector_water_area_input != "" and os.path.isfile(vector_water_area_input) and not is_vector_file_empty(vector_water_area_input) :
+    if vector_water_area_input != "" and os.path.isfile(vector_water_area_input) and not isVectorFileEmpty(vector_water_area_input) :
         removeWaterSurfacesSeg(vector_seg_combined_output, vector_water_area_input, vector_seg_clean_water, FIELD_FID, epsg, format_vector)
     else :
         vector_seg_clean_water = vector_seg_combined_output
@@ -444,22 +434,24 @@ def segPostProcessing(path_base_folder,  emprise_vector, vector_seg_road_input, 
     gdf_seg_confined_clean = gpd.read_file(vector_seg_clean_water)
     gdf_seg_confined_clean = gdf_seg_confined_clean.explode(index_parts=False).reset_index(drop=True)
     gdf_seg_confined_clean[FIELD_AREA] = gdf_seg_confined_clean.geometry.area
-    gdf_seg_confined_clean[FIELD_ORG_FID] = [[]] * len(gdf_seg_confined_clean)
+    gdf_seg_confined_clean[FIELD_ORG_ID] = [[]] * len(gdf_seg_confined_clean)
 
     # Fusion des sufaces de polygones vraiment trop petites et supprimer les non fusionnés
-    gdf_seg_confined_clean_small_poly = mergeSmallPolygons(gdf_seg_confined_clean, threshold_small_area_poly=THRESHOLD_VERY_SMALL_AREA, fid_column=FIELD_FID, org_id_list_column=FIELD_ORG_FID, area_column=FIELD_AREA)
+    gdf_seg_confined_clean_small_poly = mergeSmallPolygons(gdf_seg_confined_clean, threshold_small_area_poly=THRESHOLD_VERY_SMALL_AREA, fid_column=FIELD_FID, org_id_list_column=FIELD_ORG_ID, area_column=FIELD_AREA)
     gdf_seg_confined_clean_small_poly = gdf_seg_confined_clean_small_poly.explode(index_parts=False).reset_index(drop=True)
     gdf_seg_confined_clean_small_poly[FIELD_AREA] = gdf_seg_confined_clean_small_poly.geometry.area
     vector_seg_clean_small_poly = path_folder_seg_output + os.sep + os.path.splitext(os.path.basename(vector_seg_input))[0] + SUFFIX_SMALLPOLY + extension_vector
-    gdf_seg_confined_clean_small_poly[FIELD_ORG_FID] = gdf_seg_confined_clean_small_poly[FIELD_ORG_FID].apply(str)
-    gdf_seg_confined_clean_small_poly.to_file(vector_seg_clean_small_poly, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_confined_clean_small_poly[FIELD_ORG_ID] = gdf_seg_confined_clean_small_poly[FIELD_ORG_ID].apply(str)
+    #gdf_seg_confined_clean_small_poly.to_file(vector_seg_clean_small_poly, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_confined_clean_small_poly = gdf_seg_confined_clean_small_poly.set_crs(epsg=epsg, inplace=False)
+    gdf_seg_confined_clean_small_poly.to_file(vector_seg_clean_small_poly, driver=format_vector)
 
     # Pour les polygones traversés par les routes principales garder l'id du polygone d'origine
     updateIndexVector(vector_seg_clean_small_poly, FIELD_FID, format_vector)
 
     # Identification des polygones decoupés par les routes
     warnings.simplefilter(action='ignore', category=FutureWarning)
-    indentifieSegmentationRoad(vector_skeleton_main_roads_input, vector_seg_clean_small_poly, vector_seg_output, FIELD_IS_ROAD, FIELD_FID, FIELD_ORG_FID, epsg, format_vector)
+    indentifieSegmentationRoad(vector_skeleton_main_roads_input, vector_seg_clean_small_poly, vector_seg_output, FIELD_IS_ROAD, FIELD_FID, FIELD_ORG_ID, epsg, format_vector)
 
     if debug >= 1:
         print(cyan + "segPostProcessing() : " + endC + "Fin resulat segementation découpé par les routes principales sans les sufaces d'eau {}\n".format(vector_seg_output))
@@ -472,8 +464,6 @@ def segPostProcessing(path_base_folder,  emprise_vector, vector_seg_road_input, 
             removeVectorFile(vector_seg_clean_water)
         if os.path.isfile(vector_seg_clean_small_poly) :
             removeVectorFile(vector_seg_clean_small_poly)
-        if os.path.exists(path_folder_input):
-            deleteDir(path_folder_input)
 
     return
 
@@ -483,42 +473,7 @@ if __name__ == '__main__':
 
     ##### paramètres en entrées #####
     # Il est recommandé de prendre un répertoire avec accès rapide en lecture et écriture pour accélérer les traitements
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/INTEGRATION"
-    emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise_fusion.shp"
-    vector_skeleton_main_roads_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/skeleton_primary_roads.shp"
-    vector_water_area_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/all_waters_area.shp"
-    vector_seg_road_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/pres_seg_road.shp"
-    vector_seg_input = "/mnt/RAM_disk/INTEGRATION/slic_lissage_chaiken_5.shp"
-    vector_seg_output = "/mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouseseg_post.shp"
-    """
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Grabel"
-    emprise_vector =  "/mnt/RAM_disk/Grabel/emprise_grabels.shp"
-    vector_skeleton_main_roads_input = "/mnt/RAM_disk/Grabel/create_data/result/skeleton_primary_roads_grabels2.shp"
-    vector_water_area_input = "/mnt/RAM_disk/Grabel/create_data/result/all_waters.shp"
-    vector_seg_road_input = "/mnt/RAM_disk/Grabel/create_data/result/pres_seg_road.shp"
-    vector_seg_input = "/mnt/RAM_disk/Grabel/segmentation_SLIC_lissage_OSO.shp"
-    vector_seg_output = "/mnt/RAM_disk/Grabel/seg_post_processing/grabels_seg_post.shp"
-    """
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Data_blagnac"
-    emprise_vector = "/mnt/RAM_disk/Data_blagnac/emprise_fusion.shp"
-    vector_skeleton_main_roads_input = "/mnt/RAM_disk/Data_blagnac/create_data/result/skeleton_primary_roads.shp"
-    vector_water_area_input = "/mnt/RAM_disk/Data_blagnac/create_data/result/all_waters.shp"
-    vector_seg_road_input = "/mnt/RAM_disk/Data_blagnac/create_data/result/pres_seg_road.shp"
-    vector_seg_input = "/mnt/RAM_disk/Data_blagnac/slic_lissage_chaiken_5.shp"
-    vector_seg_output = "/mnt/RAM_disk/Data_blagnac/blagnac_seg_post.shp"
-    """
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Grabels"
-    emprise_vector = "/mnt/RAM_disk/Grabels/emprise_Grabels.shp"
-    vector_skeleton_main_roads_input = "/mnt/RAM_disk/Grabels/create_data/result/skeleton_primary_roads.shp"
-    vector_water_area_input = "/mnt/RAM_disk/Grabels/create_data/result/all_waters.shp"
-    vector_seg_road_input = "//mnt/RAM_disk/Grabels/create_data/result/pres_seg_road_grabels.shp"
-    vector_seg_input = "/mnt/RAM_disk/Grabels/slic_lissage_chaiken_5.shp"
-    vector_seg_output = "/mnt/RAM_disk/Grabels/pres_seg_road_grabels_GFT.shp"
-    """
+
     BASE_FOLDER = "/mnt/RAM_disk/INTEGRATION"
     emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise/Emprise_Toulouse.shp"
     vector_skeleton_main_roads_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/skeleton_primary_roads.shp"
@@ -526,6 +481,7 @@ if __name__ == '__main__':
     vector_seg_road_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/pres_seg_road.shp"
     vector_seg_input = "/mnt/RAM_disk/INTEGRATION/segmentation_SLIC_Toulouse.shp"
     vector_seg_output = "/mnt/RAM_disk/INTEGRATION/pres_seg_Toulouse.shp"
+
 
     # Exec
     segPostProcessing(

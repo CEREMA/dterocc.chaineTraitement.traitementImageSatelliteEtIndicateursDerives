@@ -31,8 +31,9 @@ Modifications
 ##### Import #####
 
 # system
-import os, shutil, json
 import warnings
+import os, sys
+
 # data processing
 import numpy as np
 import pandas as pd
@@ -42,52 +43,63 @@ from ast import literal_eval
 import shapely
 import pandas as pd
 import geopandas as gpd
-import topojson as tp
-from shapely.geometry import Polygon, MultiPolygon, GeometryCollection, LineString, mapping, shape
+from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
 from shapely.ops import unary_union
 from shapely.validation import make_valid
-from shapely.errors import TopologicalError
 
 # intern libs
-from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
-from Lib_raster import setNodataValueImage, getPixelSizeImage, getPixelWidthXYImage, identifyPixelValues, cutImageByVector
-from Lib_vector import getEmpriseVector, cutVectorAll, fusionVectors, renameFieldsVector
-from Lib_vector2 import getContainmentIndex, removeRing
-from Lib_file import removeFile, removeVectorFile, deleteDir
 from Lib_log import timeLine
-from Lib_postgis import cutPolygonesByLines_Postgis, correctTopology_Postgis
+from Lib_display import bold,black,red,green,yellow,blue,magenta,cyan,endC
+from Lib_raster import identifyPixelValues
+from Lib_vector import renameFieldsVector
+from Lib_vector2 import getContainmentIndex, removeRing
+from Lib_file import removeVectorFile, deleteDir
+from Lib_postgis import correctTopology_Postgis
+
 from CrossingVectorRaster import statisticsVectorRaster
 
 # debug = 0 : affichage minimum de commentaires lors de l'execution du script
 # debug = 3 : affichage maximum de commentaires lors de l'execution du script. Intermédiaire : affichage intermédiaire
 debug = 2
 
-## Constantes Generales ##
-# variables fusion (= best params cf grid search)
-THRESHOLD_ROAD_AREA_POLY = 2000
-THRESHOLD_MEDIUM_AREA_POLY = 10000
-#THRESHOLD_MEDIUM_AREA_POLY = 30000
-THRESHOLD_SMALL_AREA_POLY = 1000
-THRESHOLD_VERY_SMALL_AREA_POLY = 400
-THRESHOLD_VERY_SMALL_WATER_POLY = 50
-THRESHOLD_MICRO_SMALL_AREA = 50
-THRESHOLD_NANO_SMALL_AREA = 0.0001
-
-THRESHOLD_AREA_POLY = 40000 # 4 ha
-#AREA_MAX_POLYGON = THRESHOLD_AREA_POLY * 1.5
-AREA_MAX_POLYGON = 200000
-
-THRESHOLD_EUCLIDIAN_DIST = 0.7
-#THRESHOLD_EUCLIDIAN_DIST = 1.0
-MAX_ADJACENT_NEIGHBOR = 4
-BUILT_WEIGHT = 2
-BUFF_TOLERANCE_SUPERPOSITION = 0.001
-
 ###########################################################################################################################################
 #                                                                                                                                         #
 # UTILS                                                                                                                                   #
 #                                                                                                                                         #
 ###########################################################################################################################################
+## Constantes Generales ##
+
+# Les constantes de champs :
+FIELD_FID = "FID"
+FIELD_AREA = "area"
+FIELD_IS_ROAD = "is_road"
+FIELD_ORG_ID = "org_id"
+FIELD_ORG_ID_LIST = "org_id_l"
+
+# variables fusion (= best params cf grid search)
+THRESHOLD_ROAD_AREA_POLY = 2000
+THRESHOLD_MEDIUM_AREA_POLY = 10000
+
+THRESHOLD_SMALL_AREA_ROAD = 5000
+THRESHOLD_SMALL_AREA_POLY = 1000
+THRESHOLD_VERY_SMALL_AREA_POLY = 400
+THRESHOLD_MICRO_SMALL_AREA = 50
+THRESHOLD_VERY_SMALL_AREA = 0.1
+THRESHOLD_NANO_SMALL_AREA = 0.0001
+
+THRESHOLD_AREA_POLY_URBAN = 40000 # 4 ha
+THRESHOLD_AREA_POLY_RURAL = 80000 # 8 ha
+FACTOR_AREA_MAX = 2.5
+
+THRESHOLD_EUCLIDIAN_DIST = 0.7
+MAX_ADJACENT_NEIGHBOR = 4
+BUILT_WEIGHT = 2
+BUFF_TOLERANCE_SUPERPOSITION = 0.001
+
+# Cas OCS OSO :
+URBAN_CLASS_OCS_LIST = ["1", "2", "3", "4"]
+# ~ # Cas OCS CLC+ Backbone :
+# ~ URBAN_CLASS_OCS_LIST = ["1"]
 
 ###########################################################################################################################################
 # FUNCTION findAdjacentPolygons()                                                                                                         #
@@ -176,15 +188,8 @@ def computeEuclidianDist(row_poly, row_adj_poly, built_weight=BUILT_WEIGHT):
     #     le résultat de la distance enclidienne .
     """
     # (1- compacité) pour aller dans le même sens que la distance euclidienne
-    dist = np.sqrt( ((row_poly["maj_oso"].values[0] != row_adj_poly["maj_oso"])*1)**2  + (1 - row_adj_poly["stat_maj"]/100.0)**2 + ((row_poly["mean_haut"].values[0] - row_adj_poly["mean_haut"])/50)**2)  + (1 - row_adj_poly['i_compact_merged'])
-    """
-    print("DEBUG :")
-    print("Maj = " + str((row_poly["maj_oso"].values[0] != row_adj_poly["maj_oso"])*1))
-    print("Stat = " + str((row_adj_poly["stat_maj"] / 100.0)))
-    print("Mean = " + str(abs(row_poly["mean_haut"].values[0] - row_adj_poly["mean_haut"]) / 50 ))
-    print("Compasite = " + str((1 - row_adj_poly['i_compact_merged'])))
-    print("Dist = " + str(dist))
-    """
+    dist = np.sqrt( ((row_poly["maj_ocs"].values[0] != row_adj_poly["maj_ocs"])*1)**2  + (1 - row_adj_poly["stat_maj"]/100.0)**2 + ((row_poly["mean_haut"].values[0] - row_adj_poly["mean_haut"])/50)**2)  + (1 - row_adj_poly['i_compact_merged'])
+
     return dist
 
 ###########################################################################################################################################
@@ -241,7 +246,7 @@ def computeStatisticIndiceSegmentation(path_folder_work, emprise_vector, raster_
     new_fields_name_list = ["coun_haut", "mean_haut"]
     renameFieldsVector(vector_seg_stat_tmp, fields_name_list, new_fields_name_list, format_vector)
 
-    # Stat pour les classes OSO
+    # Stat pour les classes OCS
     class_label_dico = {}
     colonns_val_to_delete_list = []
     col_to_delete_list = ["minority", "median", "mean", "unique", "range", "min", "max", "sum", "std"]
@@ -260,12 +265,12 @@ def computeStatisticIndiceSegmentation(path_folder_work, emprise_vector, raster_
 
     # Rename columns
     fields_name_list = ["count", "majority"]
-    new_fields_name_list = ["coun_oso", "maj_oso"]
+    new_fields_name_list = ["coun_ocs", "maj_ocs"]
     renameFieldsVector(vector_seg_stat_output, fields_name_list, new_fields_name_list, format_vector)
 
     # Creer une colonne stat majoritaire
     gdf_stat = gpd.read_file(vector_seg_stat_output)
-    gdf_stat["stat_maj"] = gdf_stat.apply(lambda row: row[row["maj_oso"]] if pd.notnull(row["maj_oso"]) and row["maj_oso"] in gdf_stat.columns else None, axis=1)
+    gdf_stat["stat_maj"] = gdf_stat.apply(lambda row: row[row["maj_ocs"]] if pd.notnull(row["maj_ocs"]) and row["maj_ocs"] in gdf_stat.columns else None, axis=1)
     for colonne in colonns_val_to_delete_list:
         del gdf_stat[colonne]
 
@@ -279,7 +284,9 @@ def computeStatisticIndiceSegmentation(path_folder_work, emprise_vector, raster_
         removeVectorFile(vector_seg_stat_tmp)
 
     # Sauvegarde du fichier stat
-    gdf_stat.to_file(vector_seg_stat_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_stat.to_file(vector_seg_stat_output, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_stat = gdf_stat.set_crs(epsg=epsg, inplace=False)
+    gdf_stat.to_file(vector_seg_stat_output, driver=format_vector)
 
     return
 
@@ -315,7 +322,7 @@ def mergeRoadPolygons(gdf, threshold_road_area_poly=THRESHOLD_ROAD_AREA_POLY, fi
         print(cyan + "mergeRoadPolygons() : " + endC +"length polygons road list:", len(gdf_road_small_area))
         print(cyan + "mergeRoadPolygons() : " + endC +"length polygons list:", len(gdf))
 
-    # iterate over polygons
+    # Iterate over polygons
     while len(l_road_poly) > 0:
 
         # Get road small polygon fields
@@ -507,7 +514,7 @@ def mergeSmallPolygons(gdf, threshold_small_area_poly=THRESHOLD_SMALL_AREA_POLY,
 ###########################################################################################################################################
 # FUNCTION mergePolygonsWithConds()                                                                                                       #
 ###########################################################################################################################################
-def mergePolygonsWithConds(gdf, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA_POLY, threshold_area_poly=THRESHOLD_AREA_POLY, area_max_poly=AREA_MAX_POLYGON, threshold_euclidian_dist=THRESHOLD_EUCLIDIAN_DIST, max_adjacent_neighbor=MAX_ADJACENT_NEIGHBOR, fid_column='FID', org_id_list_column='org_id_l', area_column='area'):
+def mergePolygonsWithConds(gdf, threshold_medium_area_poly, threshold_area_poly_urban, threshold_area_poly_rural, factor_area_max=FACTOR_AREA_MAX, threshold_euclidian_dist=THRESHOLD_EUCLIDIAN_DIST, max_adjacent_neighbor=MAX_ADJACENT_NEIGHBOR, urban_class_list=[], fid_column='FID', org_id_list_column='org_id_l', area_column='area'):
     """
     # ROLE:
     #   Récupération en entrée de 3 Tresholds de surface : Medium, LCZ et Max area.
@@ -516,11 +523,13 @@ def mergePolygonsWithConds(gdf, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA
     #
     # PARAMETERS:
     #     gdf : dataframe des polygones à fusionnés d'entrée.
-    #     threshold_medium_area_poly : seuil des surfaces des polgones moyens (default :THRESHOLD_MEDIUM_AREA_POLY).
-    #     threshold_area_poly : seuil de surface des polygones (default : THRESHOLD_AREA_POLY).
-    #     area_max_poly : surface max des polygones (default : AREA_MAX_POLYGON).
+    #     threshold_area_poly_urban : seuil de surface des polygones pour les zones urbaines.
+    #     threshold_area_poly_rural :  seuil de surface des polygones pour les zones rurales.
+    #     threshold_medium_area_poly : seuil des surfaces des polgones moyens.
+    #     factor_area_max : facteur de surface max des polygones (default : FACTOR_AREA_MAX).
     #     threshold_euclidian_dist : seuil de la distance euclidien (default : THRESHOLD_EUCLIDIAN_DIST)
     #     max_adjacent_neighbor : maximun de polygones voisin étudiés (default : MAX_ADJACENT_NEIGHBOR)
+    #     urban_class_list : Liste des valeurs de classe correspondant à de l'urbain dans la classe majoritaire (default : []).
     #     fid_column : nom de la colonne contenant l'identifant du polygones (default : 'FID').
     #     org_id_list_column : nom de a colonne contenant la liste des valeur d'id d'origine (default : 'org_id_l').
     #     area_column : nom de la colonne contenant la valeur de la surface du polygones (default : 'area').
@@ -532,7 +541,12 @@ def mergePolygonsWithConds(gdf, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA
     # Calcul surface polygons
     gdf[area_column] = gdf.geometry.area
     # Récupère les petits polygones en fonction d'un seuil
-    gdf_poly = gdf[gdf[area_column] <= threshold_area_poly]
+    gdf_poly_urban = gdf[(gdf["maj_ocs"].isin(urban_class_list)) & (gdf[area_column] <= threshold_area_poly_urban)].copy()
+    gdf_poly_urban["threshold_area"] = threshold_area_poly_urban
+    gdf_poly_rural = gdf[(~gdf["maj_ocs"].isin(urban_class_list)) & (gdf[area_column] <= threshold_area_poly_rural)].copy()
+    gdf_poly_rural["threshold_area"] = threshold_area_poly_rural
+    # Fusion
+    gdf_poly = gpd.GeoDataFrame(pd.concat([gdf_poly_urban, gdf_poly_rural], ignore_index=True), crs=gdf.crs)
 
     if debug >= 1:
         print(cyan + "mergePolygonsWithConds() : " + endC + "length polygons medium list:", len(gdf_poly))
@@ -551,11 +565,17 @@ def mergePolygonsWithConds(gdf, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA
             print(cyan + "mergePolygonsWithConds() : " + endC +"FID", FID_poly)
 
         row_medium_poly = gdf.loc[gdf[fid_column] == FID_poly]
-
         geom_poly = row_medium_poly["geometry"].values[0]
         area_poly = row_medium_poly[area_column].values[0]
         mean_haut_poly = row_medium_poly["mean_haut"].values[0]
+        maj_ocs_poly = row_medium_poly["maj_ocs"].values[0]
+        stat_maj_poly = row_medium_poly["stat_maj"].values[0]
+
         orig_id_l_poly = row_medium_poly[org_id_list_column].values[0]
+        if row_medium_poly["maj_ocs"].values[0] is None or row_medium_poly["maj_ocs"].values[0] in urban_class_list :
+            threshold_area = threshold_area_poly_urban
+        else :
+            threshold_area = threshold_area_poly_rural
 
         # Get Adjacent Polygons
         adj_fid_list = findAdjacentPolygons(gdf, row_medium_poly, fid_column, org_id_list_column)
@@ -617,12 +637,12 @@ def mergePolygonsWithConds(gdf, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA
                     print(cyan + "mergePolygonsWithConds() : " + endC + "No adjacent polygons satisfy conditions.")
                 continue
         # Big polygons
-        elif threshold_medium_area_poly<= area_poly <= threshold_area_poly :
+        elif threshold_medium_area_poly<= area_poly <= threshold_area :
             if debug >= 3:
                 print(cyan + "mergePolygonsWithConds() : " + endC + "Case2 Big polygons")
 
             # On ne dépasse pas la surface maximale de polygone lors du merging
-            gdf_adj_poly = gdf_adj_poly[gdf_adj_poly['area_merged'] <= area_max_poly]
+            gdf_adj_poly = gdf_adj_poly[gdf_adj_poly['area_merged'] <= (factor_area_max * threshold_area)]
 
             # Distance euclidienne avec le polygone et tous ses voisins (cette distance inclue la compacité)
             gdf_adj_poly_sup_euclidienne =  gdf_adj_poly[gdf_adj_poly['dist_eucl'] < threshold_euclidian_dist]
@@ -660,10 +680,23 @@ def mergePolygonsWithConds(gdf, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA
         new_org_id_list = gdf_adj_poly[org_id_list_column].values[0] + orig_id_l_poly
         new_org_id_list = list(set(new_org_id_list))
 
+        if maj_ocs_poly == gdf_adj_poly["maj_ocs"].values[0] :
+            new_maj_ocs = maj_ocs_poly
+            new_stat_maj = ((area_poly * (stat_maj_poly / 100) + gdf_adj_poly["geometry"].values[0].area * (gdf_adj_poly["stat_maj"].values[0] / 100)) / (area_poly + gdf_adj_poly["geometry"].values[0].area )) * 100
+        else :
+            if (area_poly * (stat_maj_poly / 100) >= gdf_adj_poly["geometry"].values[0].area * (gdf_adj_poly["stat_maj"].values[0] / 100)) :
+                new_maj_ocs = maj_ocs_poly
+                new_stat_maj = ((area_poly * (stat_maj_poly / 100)) / (area_poly + gdf_adj_poly["geometry"].values[0].area )) * 100
+            else :
+                new_maj_ocs = gdf_adj_poly["maj_ocs"].values[0]
+                new_stat_maj = ((gdf_adj_poly["geometry"].values[0].area * (gdf_adj_poly["stat_maj"].values[0] / 100)) / (area_poly + gdf_adj_poly["geometry"].values[0].area )) * 100
+
         # Maj fields
         idx_row_to_change = gdf.loc[gdf[fid_column] == fid_best_dist_eucl].index[0]
         gdf.at[idx_row_to_change, "geometry"] = new_geom
         gdf.at[idx_row_to_change, "mean_haut"] = new_mean_haut
+        gdf.at[idx_row_to_change, "maj_ocs"] = new_maj_ocs
+        gdf.at[idx_row_to_change, "stat_maj"] = new_stat_maj
         gdf.at[idx_row_to_change, area_column] = new_geom.area
         gdf.at[idx_row_to_change, org_id_list_column] = new_org_id_list
 
@@ -671,8 +704,8 @@ def mergePolygonsWithConds(gdf, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA
         gdf = gdf.drop(gdf.loc[gdf[fid_column] == FID_poly].index[0])
         gdf.reset_index(drop=True, inplace=True)
 
-        # Add FID of merged polygon to the list of polygons if the geometry area < threshold
-        if new_geom.area <= threshold_area_poly and not fid_best_dist_eucl in l_poly:
+        # Add FID of merged polygon to the list of polygons if the geometry area <= (factor_area_max x threshold_area)
+        if new_geom.area <= (factor_area_max * threshold_area) and not fid_best_dist_eucl in l_poly:
             l_poly.append(fid_best_dist_eucl)
             if debug >= 2:
                 print(cyan + "mergePolygonsWithConds() : " + endC + 'ajout FID {} to dataframe medium poly'.format(fid_best_dist_eucl))
@@ -745,7 +778,7 @@ def cleanPolygons(gdf_poly_in, threshold_small_area_poly=THRESHOLD_VERY_SMALL_AR
 ###########################################################################################################################################
 # FUNCTION segPolygonsMerging()                                                                                                           #
 ###########################################################################################################################################
-def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, raster_build_height_input, vector_roads_input, vector_roads_main_input, vector_seg_input, vector_seg_output, no_data_value=0, epsg=2154,server_postgis="localhost", port_number=5432, project_encoding = "latin1", user_postgis="postgres", password_postgis="postgres", database_postgis="correctionTopo", schema_postgis="public",  format_raster="GTiff", format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", path_time_log = "", save_results_intermediate=False, overwrite=True):
+def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, raster_build_height_input, vector_roads_main_input, vector_water_area_input, vector_seg_input, vector_seg_output, threshold_area_poly_urban=THRESHOLD_AREA_POLY_URBAN, threshold_area_poly_rural=THRESHOLD_AREA_POLY_RURAL, no_data_value=0, epsg=2154,server_postgis="localhost", port_number=5432, project_encoding = "latin1", user_postgis="postgres", password_postgis="postgres", database_postgis="correctionTopo", schema_postgis="public",  format_raster="GTiff", format_vector='ESRI Shapefile', extension_raster=".tif", extension_vector=".shp", path_time_log = "", save_results_intermediate=False, overwrite=True):
     """
     # ROLE:
     #     Fusion des polygones de la segmentation.
@@ -755,10 +788,12 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
     #     emprise_vector : fichier d'emprise.
     #     raster_data_input : le fichier de donnée pseudo RGB d'entrée.
     #     raster_build_height_input : fichier d'entrée rasteur des hauteurs de batis.
-    #     vector_roads_input : le fichier vecteur des routes d'entrée.
     #     vector_roads_main_input : le fichier vecteur des routes principales d'entrée bufferisées (polygones).
+    #     vector_water_area_input : fichier contenant les surfaces en eau d'entrée (polygones).
     #     vector_seg_input : le fichier vecteur de segmentation d'entrée.
     #     vector_seg_output : le fichier vecteur de segmentation avec les polygones fusionnés en sortie
+    #     threshold_area_poly_urban : seuil de surface des polygones pour les zones urbaines (par défaut : THRESHOLD_AREA_POLY_URBAN).
+    #     threshold_area_poly_rural :  seuil de surface des polygones pour les zones rurales (par défaut : THRESHOLD_AREA_POLY_RURAL).
     #     no_data_value : Option : Value pixel of no data (par défaut : 0).
     #     epsg (int): EPSG code of the desired projection (default is 2154).
     #     project_encoding : encodage des fichiers d'entrés.
@@ -786,10 +821,12 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
         print(cyan + "segPolygonsMerging() : " + endC + "emprise_vector : " + str(emprise_vector))
         print(cyan + "segPolygonsMerging() : " + endC + "raster_data_input : " + str(raster_data_input))
         print(cyan + "segPolygonsMerging() : " + endC + "raster_build_height_input : " + str(raster_build_height_input))
-        print(cyan + "segPolygonsMerging() : " + endC + "vector_roads_input : " + str(vector_roads_input))
         print(cyan + "segPolygonsMerging() : " + endC + "vector_roads_main_input : " + str(vector_roads_main_input))
+        print(cyan + "segPolygonsMerging() : " + endC + "vector_water_area_input : " + str(vector_water_area_input))
         print(cyan + "segPolygonsMerging() : " + endC + "vector_seg_input : " + str(vector_seg_input))
         print(cyan + "segPolygonsMerging() : " + endC + "vector_seg_output : " + str(vector_seg_output))
+        print(cyan + "segPolygonsMerging() : " + endC + "threshold_area_poly_urban : " + str(threshold_area_poly_urban))
+        print(cyan + "segPolygonsMerging() : " + endC + "threshold_area_poly_rural : " + str(threshold_area_poly_rural))
         print(cyan + "segPolygonsMerging() : " + endC + "no_data_value : " + str(no_data_value))
         print(cyan + "segPolygonsMerging() : " + endC + "epsg : " + str(epsg))
         print(cyan + "segPolygonsMerging() : " + endC + "project_encoding : " + str(project_encoding))
@@ -819,12 +856,6 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
             return []  # Retourne une liste vide si une erreur de conversion se produit
 
     # Les constantes
-    FIELD_FID = "FID"
-    FIELD_IS_ROAD = "is_road"
-    FIELD_ORG_ID = "org_id"
-    FIELD_ORG_ID_LIST = "org_id_l"
-    FIELD_AREA = "area"
-
     SUFFIX_STAT_IN = "_stat_in"
     SUFFIX_STAT_OUT = "_stat_out"
     SUFFIX_TEMP = "_temp"
@@ -857,7 +888,6 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
     gdf_seg = gdf_seg[[FIELD_FID, FIELD_IS_ROAD, FIELD_ORG_ID,'geometry',FIELD_AREA]]
     # Correction des géométries invalides (très important pour éviter les TopologyException)
     gdf_seg["geometry"] = gdf_seg["geometry"].buffer(0)
-    #gdf_seg = gdf_seg.explode(index_parts=False).reset_index(drop=True)
     gdf_seg[FIELD_AREA] = gdf_seg.geometry.area
 
     # Passer org_id sous forme de liste org_id_l
@@ -875,7 +905,9 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
     gdf_small_poly_merged = gdf_small_poly_merged.dropna(subset=["geometry"])
     gdf_small_poly_merged[FIELD_ORG_ID_LIST] = gdf_small_poly_merged[FIELD_ORG_ID_LIST].apply(str)
     vector_seg_stat_input = path_folder_stat + os.sep + os.path.splitext(os.path.basename(vector_seg_input))[0] + SUFFIX_STAT_IN + extension_vector
-    gdf_small_poly_merged.to_file(vector_seg_stat_input, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_small_poly_merged.to_file(vector_seg_stat_input, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_small_poly_merged = gdf_small_poly_merged.set_crs(epsg=epsg, inplace=False)
+    gdf_small_poly_merged.to_file(vector_seg_stat_input, driver=format_vector)
 
     # Calcul des statistiques des indicateurs de l'image d'entrée de la segmentation, végétation, imperméabilité, routes.
     vector_seg_stat_output = path_folder_stat + os.sep + os.path.splitext(os.path.basename(vector_seg_input))[0] + SUFFIX_STAT_OUT + extension_vector
@@ -883,19 +915,21 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
     if debug >= 1:
         print(bold + green + "Calculs des statistiques Ok" + endC)
         print(cyan + "segPolygonsMerging() : " + endC + "Fichier de stat => vector_seg_stat_output : " + str(vector_seg_stat_output))
-    print(vector_seg_stat_output)
 
     # Fusion de polygons moyens et grand avec critères sur les statistiques
     gdf_seg_stat = gpd.read_file(vector_seg_stat_output)
-    gdf_seg_stat = gdf_seg_stat[[FIELD_FID, FIELD_IS_ROAD, FIELD_ORG_ID, FIELD_ORG_ID_LIST, FIELD_AREA, 'coun_oso', 'maj_oso', 'stat_maj', 'coun_haut', 'mean_haut', 'geometry']]
+    gdf_seg_stat = gdf_seg_stat[[FIELD_FID, FIELD_IS_ROAD, FIELD_ORG_ID, FIELD_ORG_ID_LIST, FIELD_AREA, 'coun_ocs', 'maj_ocs', 'stat_maj', 'coun_haut', 'mean_haut', 'geometry']]
     gdf_seg_stat[FIELD_ORG_ID_LIST] = gdf_seg_stat[FIELD_ORG_ID_LIST].apply(lambda x: x + "]" if "[" in x and "]" not in x else x)
     gdf_seg_stat[FIELD_ORG_ID_LIST] = gdf_seg_stat[FIELD_ORG_ID_LIST].apply(literal_eval)
+    gdf_seg_stat['maj_ocs'] = gdf_seg_stat['maj_ocs'].fillna("0")
+    gdf_seg_stat['stat_maj'] = gdf_seg_stat['stat_maj'].fillna(0)
 
     # Correction geometry invalide
     gdf_seg_stat['geometry'] = gdf_seg_stat['geometry'].apply(lambda geom: geom.buffer(0) if not geom.is_valid else geom)
 
     # Fusion des polygones
-    gdf_cond_poly_merged = mergePolygonsWithConds(gdf_seg_stat, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA_POLY, threshold_area_poly=THRESHOLD_AREA_POLY, area_max_poly=AREA_MAX_POLYGON, threshold_euclidian_dist=THRESHOLD_EUCLIDIAN_DIST, max_adjacent_neighbor=MAX_ADJACENT_NEIGHBOR, fid_column=FIELD_FID, org_id_list_column=FIELD_ORG_ID_LIST, area_column=FIELD_AREA)
+    urban_class_list = URBAN_CLASS_OCS_LIST
+    gdf_cond_poly_merged = mergePolygonsWithConds(gdf_seg_stat, threshold_medium_area_poly=THRESHOLD_MEDIUM_AREA_POLY, threshold_area_poly_urban=threshold_area_poly_urban, threshold_area_poly_rural=threshold_area_poly_rural, factor_area_max=FACTOR_AREA_MAX, threshold_euclidian_dist=THRESHOLD_EUCLIDIAN_DIST, max_adjacent_neighbor=MAX_ADJACENT_NEIGHBOR, urban_class_list=urban_class_list, fid_column=FIELD_FID, org_id_list_column=FIELD_ORG_ID_LIST, area_column=FIELD_AREA)
     gdf_cond_poly_merged[FIELD_AREA] = gdf_cond_poly_merged.geometry.area
 
     # Supprimer les polygones interieurs
@@ -913,7 +947,7 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
         timeLine("", ending_event)
 
     # Supprimer les colonnes
-    colonnsToDel = ['coun_oso', 'maj_oso', 'stat_maj', 'coun_haut', 'mean_haut', 'contain_idx']
+    colonnsToDel = ['coun_ocs', 'maj_ocs', 'stat_maj', 'coun_haut', 'mean_haut', 'contain_idx']
     for colonne in colonnsToDel:
         del gdf_cond_poly_merged[colonne]
 
@@ -958,28 +992,15 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
     gdf_seg_water = gdf_seg_water.reset_index(drop=True)
     vector_water_temp = path_folder_val_tmp + os.sep + os.path.basename(os.path.splitext(vector_seg_output)[0]) + SUFFIX_WATER + SUFFIX_TEMP + extension_vector
     vector_water_temp_cut = path_folder_val_tmp + os.sep + os.path.basename(os.path.splitext(vector_seg_output)[0]) + SUFFIX_WATER + SUFFIX_TEMP + SUFFIX_CUT + extension_vector
-    gdf_seg_water.to_file(vector_water_temp, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_seg_water.to_file(vector_water_temp, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_water = gdf_seg_water.set_crs(epsg=epsg, inplace=False)
+    gdf_seg_water.to_file(vector_water_temp, driver=format_vector)
     renameFieldsVector(vector_water_temp, ["FID"], ["id"], format_vector)
 
-    # Decouper les polygones eau avec les routes.
-    cutPolygonesByLines_Postgis(vector_roads_input, vector_water_temp, vector_water_temp_cut, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log="", format_vector=format_vector, save_results_intermediate=False, overwrite=True)
-    gdf_seg_water_cut_road = gpd.read_file(vector_water_temp_cut)
-
-    # Nettoyer les polygones eau
-    gdf_seg_water_cut_road = gdf_seg_water_cut_road[["geometry"]]
-    gdf_seg_water_cut_road[FIELD_AREA] = gdf_seg_water_cut_road.geometry.area
-    gdf_seg_water_cut_road[FIELD_FID] = range(1000000, len(gdf_seg_water_cut_road) + 1000000)
-    gdf_seg_water_cut_road_clean = cleanPolygons(gdf_seg_water_cut_road, THRESHOLD_VERY_SMALL_WATER_POLY, FIELD_FID, FIELD_ORG_ID_LIST, FIELD_AREA, clean_ring=False)
-
-    # Corriger les géométries invalides
-    gdf_seg_water_cut_road_clean = gdf_seg_water_cut_road_clean[(gdf_seg_water_cut_road_clean["geometry"].geom_type == 'Polygon') | (gdf_seg_water_cut_road_clean["geometry"].geom_type == 'MultiPolygon')]
-    gdf_seg_water_cut_road_clean = gdf_seg_water_cut_road_clean[gdf_seg_water_cut_road_clean['geometry'].notnull()]
-    gdf_seg_water_cut_road_clean = gdf_seg_water_cut_road_clean[gdf_seg_water_cut_road_clean.is_valid]
-    gdf_seg_water_cut_road_clean['geometry'] = gdf_seg_water_cut_road_clean['geometry'].apply(lambda geom: geom.buffer(0) if not geom.is_valid else geom)
-    gdf_seg_water_cut_road_clean = gdf_seg_water_cut_road_clean[~gdf_seg_water_cut_road_clean.geometry.is_empty & ~gdf_seg_water_cut_road_clean.geometry.isna()].copy()
-    gdf_seg_water_cut_road_clean[FIELD_AREA] = gdf_seg_water_cut_road_clean.geometry.area
-
     # Merge polygones eau avec les autres polygones
+    gdf_seg_water_cut_road_clean = gpd.read_file(vector_water_area_input)
+    gdf_seg_water_cut_road_clean[FIELD_FID] = range(1, len(gdf_seg_water_cut_road_clean) + 1)
+    gdf_seg_water_cut_road_clean[FIELD_AREA] = gdf_seg_water_cut_road_clean.geometry.area
     fields_to_get_list = [FIELD_FID, FIELD_AREA, "geometry"]
     gdf_seg_output_tmp = pd.concat([gdf_seg_water_cut_road_clean[fields_to_get_list], gdf_seg_output_fusion_clean[fields_to_get_list]], ignore_index=True)
 
@@ -990,6 +1011,10 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
         gdf_road_primary_union = gpd.GeoDataFrame(geometry=[road_primary_union], crs=gdf_main_road_primary.crs)
         gdf_seg_output_tmp = gdf_seg_output_tmp[gdf_seg_output_tmp.geometry.type.isin(["Polygon", "MultiPolygon"])]
         gdf_seg_output_tmp["geometry"] = gdf_seg_output_tmp.geometry.apply(lambda geom: unary_union(geom) if geom.type == 'MultiPolygon' else geom)
+        gdf_road_primary_union[FIELD_FID] = gdf_road_primary_union.index
+        gdf_road_primary_union = gdf_road_primary_union.explode(index_parts=False).reset_index(drop=True)
+        gdf_seg_output_tmp[FIELD_FID] = gdf_seg_output_tmp.index
+        gdf_seg_output_tmp = gdf_seg_output_tmp.explode(index_parts=False).reset_index(drop=True)
         gdf_seg_cut_by_primary_road = gpd.overlay(gdf_seg_output_tmp, gdf_road_primary_union, how='difference', keep_geom_type=True)
         gdf_seg_cut_by_primary_road = gdf_seg_cut_by_primary_road[gdf_seg_cut_by_primary_road.geometry.type.isin(["Polygon", "MultiPolygon"])]
         gdf_seg_output_tmp = pd.concat([gdf_seg_cut_by_primary_road[fields_to_get_list], gdf_main_road_primary[fields_to_get_list]], ignore_index=True)
@@ -1003,7 +1028,9 @@ def segPolygonsMerging(path_base_folder,  emprise_vector, raster_data_input, ras
 
     # Sauvegarde des resultats en fichier vecteur
     vector_seg_output_temp = path_folder_val_tmp + os.sep + os.path.basename(os.path.splitext(vector_seg_output)[0]) + SUFFIX_TEMP + extension_vector
-    gdf_seg_output_clean.to_file(vector_seg_output_temp, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_seg_output_clean.to_file(vector_seg_output_temp, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_seg_output_clean = gdf_seg_output_clean.set_crs(epsg=epsg, inplace=False)
+    gdf_seg_output_clean.to_file(vector_seg_output_temp, driver=format_vector)
 
     # Correction des erreurs topologiques en SQL
     correctTopology_Postgis(vector_seg_output_temp, vector_seg_output, epsg, project_encoding, server_postgis, port_number, user_postgis, password_postgis, database_postgis, schema_postgis, path_time_log="", format_vector=format_vector)
@@ -1029,44 +1056,16 @@ if __name__ == '__main__':
 
     ##### paramètres en entrées #####
     # il est recommandé de prendre un répertoire avec accès rapide en lecture et écriture pour accélérer les traitements
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/INTEGRATION"
-    emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise_fusion.shp"
-    raster_data_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_cut.tif"
-    raster_build_height_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/builds_height.tif"
-    vector_roads_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp"
-    #vector_seg_input = "/mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouse_seg_post.shp"
-    vector_seg_input = "/mnt/RAM_disk/INTEGRATION/seg_post_processing/Blagnac_slic_seg.shp"
-    vector_seg_output = "/mnt/RAM_disk/INTEGRATION/seg_res_fusion/res/Blaganc_seg_end23.shp"
-    """
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Grabel"
-    emprise_vector = "/mnt/RAM_disk/Grabel/emprise_grabels.shp"
-    raster_data_input = "/mnt/RAM_disk/Grabel/create_data/result/OCS_2023_cut.tif"
-    raster_build_height_input = "/mnt/RAM_disk/Grabel/create_data/result/builds_height.tif"
-    vector_roads_input = "/mnt/RAM_disk/Grabel/create_data/result/all_roads.shp"
-    vector_seg_input = "/mnt/RAM_disk/Grabel/seg_post_processing/grabels_seg_post.shp"
-    vector_seg_output = "/mnt/RAM_disk/Grabel/grabel_seg_end.shp"
-    """
 
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Data_blagnac"
-    emprise_vector = "/mnt/RAM_disk/Data_blagnac/emprise_fusion.shp"
-    raster_data_input = "/mnt/RAM_disk/Data_blagnac/create_data/result/OCS_2023_cut.tif"
-    raster_build_height_input = "/mnt/RAM_disk/Data_blagnac/create_data/result/builds_height.tif"
-    vector_roads_input = "/mnt/RAM_disk/Data_blagnac/create_data/result/all_roads.shp"
-    vector_seg_input = "/mnt/RAM_disk/Data_blagnac/blagnac_seg_post.shp"
-    vector_seg_output = "/mnt/RAM_disk/Data_blagnac/blagnac_seg_end.shp"
-    """
     BASE_FOLDER = "/mnt/RAM_disk/INTEGRATION"
-    emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise/Emprise_Toulouse.shp"
+    emprise_vector =  "/mnt/RAM_disk/INTEGRATION/emprise/Emprise_Toulouse_Metropole.shp"
     raster_data_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_cut.tif"
     raster_build_height_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/builds_height.tif"
     vector_roads_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/all_roads.shp"
-    #vector_roads_main_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/roads_main.shp"
     vector_roads_main_input = ""
-    vector_seg_input = "/mnt/RAM_disk/INTEGRATION/pres_seg_Toulouse.shp"
-    vector_seg_output = "/mnt/RAM_disk/INTEGRATION/Toulouse_seg_end2.shp"
+    vector_water_area_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/all_waters.shp"
+    vector_seg_input = "/mnt/RAM_disk/INTEGRATION/seg_post_processing/toulouse_metropole_seg_post.shp"
+    vector_seg_output = "/mnt/RAM_disk/INTEGRATION/seg_res_fusion/res/toulouse_metropole_seg_end2.shp"
 
     # exec
     segPolygonsMerging(
@@ -1074,10 +1073,12 @@ if __name__ == '__main__':
         emprise_vector = emprise_vector,
         raster_data_input = raster_data_input,
         raster_build_height_input = raster_build_height_input,
-        vector_roads_input = vector_roads_input,
         vector_roads_main_input = vector_roads_main_input,
+        vector_water_area_input = vector_water_area_input,
         vector_seg_input = vector_seg_input,
         vector_seg_output = vector_seg_output,
+        threshold_area_poly_urban = 40000,
+        threshold_area_poly_rural = 80000,
         no_data_value=0,
         epsg=2154,
         server_postgis = "localhost",

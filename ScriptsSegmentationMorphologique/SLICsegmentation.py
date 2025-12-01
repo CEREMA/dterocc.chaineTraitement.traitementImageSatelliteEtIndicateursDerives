@@ -38,19 +38,15 @@ Modifications :
 ##### Imports #####
 
 # Système
-import os, sys, time, random
+import os, sys, time, random, uuid, shutil
 from datetime import datetime
 from tqdm import tqdm
-import glob
-import uuid
-import shutil
 
 # Traitement de données
 import numpy as np
 import pandas as pd
 
 # Segmentation
-from skimage.util import img_as_float
 from skimage.segmentation import slic
 
 # Optimisation
@@ -59,18 +55,19 @@ import emcee
 # Raster et vecteur
 import rasterio
 import geopandas as gpd
-from rasterio.features import shapes, geometry_mask
+from rasterio.features import shapes
 from shapely.geometry import shape
+
+# Interne libs
 from Lib_display import bold, black, red, green, yellow, blue, magenta, cyan, endC
-from Lib_raster import getNodataValueImage, cutImageByVector, identifyPixelValues
-from Lib_vector import renameFieldsVector, bufferVector, cutVectorAll
-from Lib_file import removeVectorFile, copyVectorFile
+from Lib_raster import identifyPixelValues
+from Lib_vector import bufferVector, cutVectorAll
+from Lib_file import removeVectorFile
 from Lib_text import appendTextFile
-from CrossingVectorRaster import statisticsVectorRaster
 
-# Librairies internes (lissage GRASS)
+# Librairies internes (lissage GRASS) (Stat rasterstat)
 from Lib_grass import initializeGrass, smoothGeomGrass
-
+from CrossingVectorRaster import statisticsVectorRaster
 
 # Paramètre de débogage (0 = silencieux, 3 = très verbeux)
 debug = 1
@@ -95,7 +92,6 @@ WEIGHTS = {
 # - sigma       : flou appliqué à l’image avant clustering
 # - target_area : surface moyenne visée d’un superpixel
 
-
 DEFAULT_PARAMETERS_SLIC = {
     'SLIC': {
         'compactness': [0.85],
@@ -112,10 +108,11 @@ PARAM_NAMES = ["compactness", "sigma", "target_area"]
 NDIM = len(BOUNDS)
 NWALKERS = 8
 NSTEPS = 10
+
 ###########################################################################################################################################
-# FUNCTION soft_error()                                                                                                                   #
+# FUNCTION softError()                                                                                                                    #
 ###########################################################################################################################################
-def soft_error(value, target):
+def softError(value, target):
     """
     # ROLE:
     #     Calcule l’erreur quadratique relative entre une valeur mesurée et une valeur cible
@@ -129,9 +126,9 @@ def soft_error(value, target):
     return ((value - target) / target) ** 2
 
 ###########################################################################################################################################
-# FUNCTION score_function()                                                                                                               #
+# FUNCTION scoreFunction()                                                                                                                #
 ###########################################################################################################################################
-def score_function(surface_mean, std_area, compacity, dominance):
+def scoreFunction(surface_mean, std_area, compacity, dominance):
     """
     # ROLE:
     #     Calcule un score global basé sur les écarts relatifs pondérés entre les métriques calculées
@@ -144,16 +141,16 @@ def score_function(surface_mean, std_area, compacity, dominance):
     #     score (float) : score global (à minimiser)
     """
     return (
-        WEIGHTS["surface_mean"] * soft_error(surface_mean, TARGETS["surface_mean"]) +
-        WEIGHTS["std_area"] * soft_error(std_area, TARGETS["std_area"]) +
-        WEIGHTS["compacity"] * soft_error(compacity, TARGETS["compacity"]) +
-        WEIGHTS["dominance"] * soft_error(dominance, TARGETS["dominance"])
-
+        WEIGHTS["surface_mean"] * softError(surface_mean, TARGETS["surface_mean"]) +
+        WEIGHTS["std_area"] * softError(std_area, TARGETS["std_area"]) +
+        WEIGHTS["compacity"] * softError(compacity, TARGETS["compacity"]) +
+        WEIGHTS["dominance"] * softError(dominance, TARGETS["dominance"])
     )
+
 ###########################################################################################################################################
-# FUNCTION compute_metrics()                                                                                                              #
+# FUNCTION computeMetrics()                                                                                                               #
 ###########################################################################################################################################
-def compute_metrics(gdf):
+def computeMetrics(gdf):
     """
     # ROLE:
     #     Calcule les principales métriques géométriques des polygones :
@@ -175,9 +172,9 @@ def compute_metrics(gdf):
     return surface_mean, std_area, compacity
 
 ###########################################################################################################################################
-# FUNCTION compute_dominance_simplified()                                                                                                 #
+# FUNCTION computeDominanceSimplified()                                                                                                   #
 ###########################################################################################################################################
-def compute_dominance_simplified(raster_data_input, gdf_seg, output_dir, epsg=2154, no_data_value=0, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
+def computeDominanceSimplified(raster_data_input, gdf_seg, output_dir, epsg=2154, no_data_value=0, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
     """
     ROLE :
         Calcule le taux moyen de dominance des classes du raster à l’intérieur d’un ensemble de polygones segmentés.
@@ -211,7 +208,10 @@ def compute_dominance_simplified(raster_data_input, gdf_seg, output_dir, epsg=21
     tmp_in = os.path.join(output_dir, f"seg_{tmp_id}{extension_vector}")
     tmp_stat = os.path.join(output_dir, f"stat_{tmp_id}{extension_vector}") #création de fichiers temporaires
 
-    gdf_seg.to_file(tmp_in, driver=format_vector, crs=f"EPSG:{epsg}") #fonction statistic fonctionne avec des fichiers vecteur:sauvegarde geodataframe en fichier
+    #fonction statistic fonctionne avec des fichiers vecteur:sauvegarde geodataframe en fichier
+    #gdf_seg.to_file(tmp_in, driver=format_vector, crs=f"EPSG:{epsg}")
+    gdf_seg = gdf_seg.set_crs(epsg=epsg, inplace=False)
+    gdf_seg.to_file(tmp_in, driver=format_vector)
 
       # Stat pour les classes OSO
     class_label_dico = {}
@@ -222,6 +222,8 @@ def compute_dominance_simplified(raster_data_input, gdf_seg, output_dir, epsg=21
     if no_data_value in image_values_list :
         del image_values_list[no_data_value]
 
+    class_label_dico[no_data_value] = str(no_data_value)
+    col_to_delete_list.append("S_" + str(no_data_value))
     for id_value in image_values_list :
         class_label_dico[id_value] = str(id_value)
         col_to_delete_list.append("S_" + str(id_value))
@@ -231,10 +233,10 @@ def compute_dominance_simplified(raster_data_input, gdf_seg, output_dir, epsg=21
    # Lecture du fichier statistique et calcul
     gdf_stat = gpd.read_file(tmp_stat)
     if debug >= 1:
-        print(cyan + "compute_dominance_simplified() : " + endC + "Colonnes présentes dans le fichier statistique : {}".format(gdf_stat.columns))
+        print(cyan + "computeDominanceSimplified() : " + endC + "Colonnes présentes dans le fichier statistique : {}".format(gdf_stat.columns))
 
     if "majority" not in gdf_stat.columns or "count" not in gdf_stat.columns:
-        print(cyan + "compute_dominance_simplified() " + bold + red + "!!! Erreur : le champ 'majority' ou 'count' est manquant dans le fichier statistique." + endC, file=sys.stderr)
+        print(cyan + "computeDominanceSimplified() " + bold + red + "!!! Erreur : le champ 'majority' ou 'count' est manquant dans le fichier statistique." + endC, file=sys.stderr)
         exit()
 
     else:
@@ -254,6 +256,7 @@ def compute_dominance_simplified(raster_data_input, gdf_seg, output_dir, epsg=21
             removeVectorFile(tmp_stat, format_vector)
 
     return dominance_mean
+
 ###########################################################################################################################################
 # FUNCTION slicProcess()                                                                                                                  #
 ###########################################################################################################################################
@@ -299,20 +302,21 @@ def slicProcess(params, img, emprise_vector, vector_segmentation_out, pixel_area
         print(cyan + "slicProcess() : " + bold + red + "!!! La segmentation contient trop peu de polygones valides" + endC, file=sys.stderr)
         exit()
 
-
     gdf_clip = gdf_clip[["geometry"]].copy()
     gdf_clip["area"] = gdf_clip.geometry.area
     gdf_clip = gdf_clip.reset_index(drop=True)
     gdf_clip["FID"] = gdf_clip.index + 1
     gdf_clip = gdf_clip[["FID", "area", "geometry"]]
 
-    gdf_clip.to_file(vector_segmentation_out, driver=format_vector, crs="EPSG:" + str(epsg))
+    #gdf_clip.to_file(vector_segmentation_out, driver=format_vector, crs="EPSG:" + str(epsg))
+    gdf_clip = gdf_clip.set_crs(epsg=epsg, inplace=False)
+    gdf_clip.to_file(vector_segmentation_out, driver=format_vector)
     return gdf_clip
 
 ###########################################################################################################################################
-# FUNCTION evaluate_segmentation_slic()                                                                                                   #
+# FUNCTION evaluateSegmentationSlic()                                                                                                     #
 ###########################################################################################################################################
-def evaluate_segmentation_slic(params, img, vector_segmentation_out, transform, crs, emprise_vector, pixel_area, width, height, output_dir, raster_oso_input, epsg=2154, no_data_value=0, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
+def evaluateSegmentationSlic(params, img, vector_segmentation_out, transform, crs, emprise_vector, pixel_area, width, height, output_dir, raster_oso_input, epsg=2154, no_data_value=0, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
 
     """
     # ROLE:
@@ -343,7 +347,7 @@ def evaluate_segmentation_slic(params, img, vector_segmentation_out, transform, 
 
     compactness, sigma, area = params
     if debug >= 1:
-        print(cyan + "evaluate_segmentation_slic() : " + endC + "Test SLIC | Compactness={:.3f} | Sigma={:.3f} | Area={}".format(compactness, sigma, int(area)))
+        print(cyan + "evaluateSegmentationSlic() : " + endC + "Test SLIC | Compactness={:.3f} | Sigma={:.3f} | Area={}".format(compactness, sigma, int(area)))
 
     # Appel de la fonction de segmentation SLIC
     gdf_clip = slicProcess(
@@ -353,25 +357,27 @@ def evaluate_segmentation_slic(params, img, vector_segmentation_out, transform, 
 
     # Vérifie que la segmentation a réussi
     if gdf_clip is None:
-        print(cyan + "evaluate_segmentation_slic() : " + bold + red + "!!! La segmentation a échoué : GeoDataFrame = None" + endC, file=sys.stderr)
+        print(cyan + "evaluateSegmentationSlic() : " + bold + red + "!!! La segmentation a échoué : GeoDataFrame = None" + endC, file=sys.stderr)
         exit()
 
     # Calcul des métriques
-    m, s, c = compute_metrics(gdf_clip)
+    m, s, c = computeMetrics(gdf_clip)
 
     # Calcul de la dominance
-    d = compute_dominance_simplified(
+    d = computeDominanceSimplified(
         raster_oso_input, gdf_clip, output_dir, epsg,
         no_data_value, format_vector, extension_vector, save_results_intermediate
     )
     # Calcul du score global
-    score = score_function(m, s, c, d)
+    score = scoreFunction(m, s, c, d)
 
     # Génère un nom de fichier avec les paramètres
     basename = f"slic_C{compactness:.2f}_S{sigma:.2f}_A{int(area)}_score{score:.4f}".replace('.', 'p')
     out_path = os.path.join(output_dir, basename + extension_vector)
 
     # Sauvegarde le fichier final
+    #gdf_clip.to_file(out_path, driver=format_vector)
+    gdf_clip = gdf_clip.set_crs(epsg=epsg, inplace=False)
     gdf_clip.to_file(out_path, driver=format_vector)
 
     # Stocke les résultats
@@ -390,9 +396,9 @@ def evaluate_segmentation_slic(params, img, vector_segmentation_out, transform, 
     return -score
 
 ###########################################################################################################################################
-# FUNCTION smoothing_geometry()                                                                                                           #
+# FUNCTION smoothingGeometry()                                                                                                            #
 ###########################################################################################################################################
-def smoothing_geometry(emprise_vector, vector_segmentation, vector_file_seg_output, epsg=2154, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
+def smoothingGeometry(emprise_vector, vector_segmentation, vector_file_seg_output, epsg=2154, format_vector='ESRI Shapefile', extension_vector=".shp", save_results_intermediate=False):
     """
     # ROLE:
     #     Lisse les géometries de la ségmentation et rajoute les polygones manquants en bordure d'emprise
@@ -411,16 +417,7 @@ def smoothing_geometry(emprise_vector, vector_segmentation, vector_file_seg_outp
     # Initialisation de GRASS pour le lissage
     xmin, ymin, xmax, ymax = gpd.read_file(vector_segmentation).total_bounds
     repository = os.path.dirname(vector_file_seg_output)
-    initializeGrass(
-        work_dir=repository,
-        xmin=xmin,
-        xmax=xmax,
-        ymin=ymin,
-        ymax=ymax,
-        pixel_size_x=1,
-        pixel_size_y=1,
-        projection=epsg
-    )
+    initializeGrass(repository, xmin, xmax, ymin, ymax, 1, 1, epsg)
 
     # Fichier temporaire brut2
     vector_segmentation_tmp2 = os.path.splitext(vector_file_seg_output)[0] + SUFFIX_TMP + "2" + extension_vector
@@ -434,7 +431,7 @@ def smoothing_geometry(emprise_vector, vector_segmentation, vector_file_seg_outp
         True
     )
 
-        # Rajouter les polygones de bord manquants
+    # Rajouter les polygones de bord manquants
     gdf_seg_liss   = gpd.read_file(vector_segmentation_tmp2)
     gdf_seg_masked = gdf_seg_liss.dissolve()
     gdf_emprise = gpd.read_file(emprise_vector).to_crs(gdf_seg_masked.crs)
@@ -466,6 +463,8 @@ def smoothing_geometry(emprise_vector, vector_segmentation, vector_file_seg_outp
     gdf_seg_output = gdf_seg_output[["FID", "area", "geometry"]]
 
     # 4) Export
+    #gdf_seg_output.to_file(vector_file_seg_output, driver=format_vector)
+    gdf_seg_output = gdf_seg_output.set_crs(epsg=epsg, inplace=False)
     gdf_seg_output.to_file(vector_file_seg_output, driver=format_vector)
 
     # 5) Nettoyage
@@ -504,7 +503,7 @@ def processingSLIC(base_folder, emprise_vector, image_input, raster_oso_input, v
     #     save_results_intermediate : fichiers de sorties intermediaires non nettoyées, par defaut = False
     #     overwrite : supprime ou non les fichiers existants ayant le meme nom
     """
-       # Affichage des paramètres
+    # Affichage des paramètres
     if debug >= 3:
         print(bold + green + "Variables dans le processingSLIC - Variables générales" + endC)
         print(cyan + "processingSLIC() : " + endC + "base_folder : " + str(base_folder))
@@ -582,7 +581,7 @@ def processingSLIC(base_folder, emprise_vector, image_input, raster_oso_input, v
 
         # 3) EnsembleSampler
         sampler = emcee.EnsembleSampler(
-            NWALKERS, NDIM, evaluate_segmentation_slic,
+            NWALKERS, NDIM, evaluateSegmentationSlic,
             args=[img, vector_segmentation, transform, crs, emprise_vector_tmp,
                   pixel_area, width, height,
                   tmp_dir, raster_oso_input, epsg, no_data_value,
@@ -603,9 +602,7 @@ def processingSLIC(base_folder, emprise_vector, image_input, raster_oso_input, v
             return
         # -------- suite normale
 
-
         # RÉCUPÈRE LA MEILLEURE SEGMENTATION
-
         best = sorted(RESULTS, key=lambda x: x["score"])[0]
 
         # Sauvegarde des meilleurs paramètres
@@ -634,7 +631,7 @@ def processingSLIC(base_folder, emprise_vector, image_input, raster_oso_input, v
         for val, param_name in zip(fixed_params_list, PARAM_NAMES):
             low, high = BOUNDS[param_name]
             if not (low <= val <= high):
-                print(cyan + "compute_dominance_simplified() " + bold + red + "!!! Fin parametre en dehors des clous!!!!" + endC, file=sys.stderr)
+                print(cyan + "processingSLIC() " + bold + red + "!!! Fin parametre en dehors des clous!!!!" + endC, file=sys.stderr)
                 exit()
 
         # Exécution de SLIC
@@ -654,7 +651,7 @@ def processingSLIC(base_folder, emprise_vector, image_input, raster_oso_input, v
     # Post traitement lissage et découpage de la segmentation
     # Lissage de la segmentation bute
     vector_file_seg_tmp = os.path.join(tmp_dir, "segmentation_lissee_tmp.shp")
-    smoothing_geometry(emprise_vector_tmp, vector_segmentation_tmp, vector_file_seg_tmp, epsg, format_vector, extension_vector, save_results_intermediate)
+    smoothingGeometry(emprise_vector_tmp, vector_segmentation_tmp, vector_file_seg_tmp, epsg, format_vector, extension_vector, save_results_intermediate)
 
     # Découpage sur l'emprise
     cutVectorAll(emprise_vector, vector_file_seg_tmp, vector_file_seg_output, save_results_intermediate, format_vector)
@@ -681,25 +678,18 @@ def processingSLIC(base_folder, emprise_vector, image_input, raster_oso_input, v
 if __name__ == "__main__":
 
     ##### Paramètres en entrée #####
-   # BASE_FOLDER = "/mnt/RAM_disk/Grabels_segmentation_slic/ocs_et_emprise"
-    """
-    rgb_file_input = f"{BASE_FOLDER}/Grabels_segmentation_slic/create_data/result/pseudoRGB_output.tif"
-    vector_file_seg_output = f"{BASE_FOLDER}/Grabels_segmentation_slic/segmentation_SLIC_lissage_OSO.shp"
-    emprise_vector = f"{BASE_FOLDER}/Grabels_segmentation_slic/emprise_grabels.shp"
-    raster_oso_input = f"{BASE_FOLDER}/Grabels_segmentation_slic/raster_1.tif"
-    """
-    """
-    BASE_FOLDER = "/mnt/RAM_disk/Grabels_segmentation_slic/ocs_et_emprise"
-    emprise_vector = "/mnt/RAM_disk/Grabels_segmentation_slic/ocs_et_emprise/emprise_Grabels.shp"
-    rgb_file_input = "/mnt/RAM_disk/Grabels_segmentation_slic/ocs_et_emprise/create_data/result/pseudoRGB_output.tif"
-    raster_oso_input = "/mnt/RAM_disk/Grabels_segmentation_slic/ocs_et_emprise/create_data/result/OCS_2023_cut.tif"
-    vector_file_seg_output = "/mnt/RAM_disk/Grabels_segmentation_slic/ocs_et_emprise/SLIC_lissage.shp"
     """
     BASE_FOLDER = "/mnt/RAM_disk/INTEGRATION"
     emprise_vector = "/mnt/RAM_disk/INTEGRATION/emprise/Emprise_Toulouse.shp"
     rgb_file_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/pseudoRGB_output.tif"
     raster_oso_input = "/mnt/RAM_disk/INTEGRATION/create_data/result/OCS_2023_cut.tif"
     vector_file_seg_output = "/mnt/RAM_disk/INTEGRATION/segmentation_SLIC_Toulouse.shp"
+    """
+    BASE_FOLDER = "/mnt/RAM_disk/ToulouseMetropole"
+    emprise_vector = "/mnt/RAM_disk/ToulouseMetropole/emprise/Emprise_Toulouse.shp"
+    rgb_file_input = "/mnt/RAM_disk/ToulouseMetropole/create_data/result/pseudoRGB_seg_res5.tif"
+    raster_oso_input = "/mnt/RAM_disk/ToulouseMetropole/create_data/result/pseudoRGB_seg_res5.tif"
+    vector_file_seg_output = "/mnt/RAM_disk/ToulouseMetropole/segmentation_SLIC_Toulouse.shp"
 
     #################################
 
@@ -709,7 +699,7 @@ if __name__ == "__main__":
         image_input=rgb_file_input,
         raster_oso_input=raster_oso_input,
         vector_file_seg_output=vector_file_seg_output,
-        optimize=True,
+        optimize=False,
         fixed_struct_params = DEFAULT_PARAMETERS_SLIC,
         no_data_value=0,
         epsg=2154,
